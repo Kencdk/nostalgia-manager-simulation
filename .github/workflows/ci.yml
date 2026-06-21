@@ -1,0 +1,49 @@
+name: Nostalgia Manager CI Pipeline
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest # Using Windows runner as the project is built for Win32/DX11
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup C++ Build Environment
+      # This step ensures a consistent compiler environment, ideally using VS Build Tools.
+      uses: actions/setup-cpp@v1 # Placeholder for actual setup action
+      with:
+        compiler: v143 # Matching the VC++ build tools used locally
+
+    - name: Configure CMake and Build Project
+      run: |
+        # 1. Clean previous builds directory
+        rmdir /s /q NostalgiaManager/build
+        mkdir NostalgiaManager/build
+        cd NostalgiaManager/build
+        # 2. Configure with VS Generator (adjust generator if required)
+        cmake .. -G "Visual Studio 17 2022"
+        # 3. Build the project
+        cmake --build .
+
+    - name: Run Unit Tests
+      run: |
+        echo "--- Running Unit Tests ---"
+        # The build system must link test executables correctly for this to run.
+        cmake --build . --target run_unit_tests # Assuming a CMake target 'run_unit_tests' exists
+
+    - name: Run Integration Test (Full Simulation)
+      run: |
+        echo "--- Running Full Match Simulation Integration Test ---"
+        # Execute the binary with arguments known to trigger detailed logging/testing.
+        .\Debug\NostalgiaManager.exe --trace
+
+    - name: Code Quality Check (Linting)
+      run: |
+        echo "Running static analysis checks..."
+        # Placeholder for external linter execution (e.g., clang-tidy <source files>)
