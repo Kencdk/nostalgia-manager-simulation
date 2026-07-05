@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <map>
 #include <vector>
 
 #include "Pitch.h"
@@ -32,47 +33,146 @@ inline int RoleColumn(Role role, int side /*1 or 2*/, Mentality m) {
     return table[s][mi][ri];
 }
 
-// Spread players of the same role evenly across the 9 Y rows (sticking to
-// Right / Center / Left bands).
+// Convert a tactical Position to pitch Cell coordinates based on side and mentality
+inline Cell PositionToCell(Position pos, int side, Mentality mentality) {
+    // Base normalized coordinates (0-1) from tactics screen visualization
+    // xNorm: lateral position (0 = left touchline, 0.5 = center, 1 = right touchline)
+    // yNorm: depth (0 = attacking end, 1 = defensive end)
+    float yNorm = 0.5f, xNorm = 0.5f;
+
+    // IMPORTANT: Wide players should be at 0.5 in their channel (middle of the flank)
+    // Central players should be at 0.5 (middle of the pitch)
+
+    switch (pos) {
+        // Forwards
+        case Position::FL:  yNorm = 0.08f; xNorm = 0.25f; break;  // Left channel middle
+        case Position::FC:  yNorm = 0.08f; xNorm = 0.50f; break;  // Center
+        case Position::FR:  yNorm = 0.08f; xNorm = 0.75f; break;  // Right channel middle
+
+        // Attacking Midfielders
+        case Position::AML: yNorm = 0.28f; xNorm = 0.20f; break;  // Left channel
+        case Position::AMC: yNorm = 0.28f; xNorm = 0.50f; break;  // Center
+        case Position::AMR: yNorm = 0.28f; xNorm = 0.80f; break;  // Right channel
+
+        // Midfielders
+        case Position::ML:  yNorm = 0.48f; xNorm = 0.15f; break;  // Left flank middle
+        case Position::MC:  yNorm = 0.48f; xNorm = 0.50f; break;  // Center
+        case Position::MR:  yNorm = 0.48f; xNorm = 0.85f; break;  // Right flank middle
+
+        // Defensive Midfielders
+        case Position::DM:  yNorm = 0.65f; xNorm = 0.50f; break;  // Center
+
+        // Defenders
+        case Position::WBL: yNorm = 0.74f; xNorm = 0.12f; break;  // Left wing-back
+        case Position::DL:  yNorm = 0.80f; xNorm = 0.22f; break;  // Left back
+        case Position::DC:  yNorm = 0.83f; xNorm = 0.50f; break;  // Center back
+        case Position::DR:  yNorm = 0.80f; xNorm = 0.78f; break;  // Right back
+        case Position::WBR: yNorm = 0.74f; xNorm = 0.88f; break;  // Right wing-back
+
+        // Goalkeeper
+        case Position::GK:  yNorm = 0.95f; xNorm = 0.50f; break;  // Center
+    }
+
+    // Convert to row (0-8, where 0 is top/attacking for team 1)
+    int row = static_cast<int>(xNorm * (kRows - 1) + 0.5f);
+    row = clampRow(row);
+
+    // Get base column from role and mentality
+    Role role = RoleOf(pos);
+    int col = RoleColumn(role, side, mentality);
+
+    return Cell{row, col};
+}
+
+// Place starting XI according to their assigned tactical positions
 inline void PlaceStartingXI(Team& team, int side) {
-    // Group starting players by role.
-    std::vector<Role> roleOrder = {Role::GK, Role::D, Role::DM,
-                                   Role::M,  Role::AM, Role::F};
-    for (Role role : roleOrder) {
-        std::vector<Player*> group;
-        for (int pid : team.startingXI) {
-            Player* p = team.findPlayer(pid);
-            if (p && p->role == role) group.push_back(p);
-        }
-        // Order each line right -> centre -> left so wide players sit on their
-        // flank (right = top rows, left = bottom rows).
-        auto sideRank = [](const Player* p) {
-            switch (SideOf(p->primaryPos)) {
-                case Side::Right:  return 0;
-                case Side::Centre: return 1;
-                case Side::Left:   return 2;
+    // Count how many players are assigned to each position
+    std::map<Position, std::vector<size_t>> positionGroups;
+
+    for (size_t i = 0; i < team.startingXI.size() && i < team.assignedPositions.size(); ++i) {
+        Position pos = team.assignedPositions[i];
+        positionGroups[pos].push_back(i);
+    }
+
+    // Place each player, spreading out multiples in the same position
+    for (const auto& group : positionGroups) {
+        Position tacticalPos = group.first;
+        const std::vector<size_t>& playerIndices = group.second;
+        int count = static_cast<int>(playerIndices.size());
+
+        // Get base position for this tactical role
+        Cell baseCell = PositionToCell(tacticalPos, side, team.mentality);
+
+        if (count == 1) {
+            // Single player - use exact position
+            size_t idx = playerIndices[0];
+            Player* p = team.findPlayer(team.startingXI[idx]);
+            if (p) {
+                p->homePos = baseCell;
+                p->pos = p->homePos;
+                p->homePosition = cellToPosition(p->homePos);
+                p->position = p->homePosition;
+                p->hasBall = false;
             }
-            return 1;
-        };
-        std::stable_sort(group.begin(), group.end(),
-                         [&](const Player* a, const Player* b) {
-                             return sideRank(a) < sideRank(b);
-                         });
-        int col = RoleColumn(role, side, team.mentality);
-        int n = static_cast<int>(group.size());
-        for (int i = 0; i < n; ++i) {
-            int row;
-            if (role == Role::GK) {
-                row = 4;  // E line
-            } else if (n == 1) {
-                row = 4;
-            } else {
-                // Distribute from row 1 (B) to row 7 (H) across the band.
-                row = 1 + static_cast<int>((6.0 * i) / (n - 1) + 0.5);
+        } else {
+            // Multiple players in same position - spread them intelligently
+            // Central players (row near 4) spread symmetrically around center
+            // Wide players maintain their flank but spread along it
+
+            bool isCentral = (baseCell.row >= 3 && baseCell.row <= 5);  // Rows 3-5 are central
+
+            for (int i = 0; i < count; ++i) {
+                size_t idx = playerIndices[i];
+                Player* p = team.findPlayer(team.startingXI[idx]);
+                if (!p) continue;
+
+                Cell cell = baseCell;
+
+                if (isCentral) {
+                    // CENTRAL PLAYERS: Spread symmetrically around center (row 4)
+                    if (count == 2) {
+                        // Two central players: one left of center, one right
+                        cell.row = (i == 0) ? 3 : 5;  // Rows 3 and 5 (equidistant from 4)
+                    } else if (count == 3) {
+                        // Three central players: left, center, right
+                        int positions[] = {3, 4, 5};  // Rows 3, 4, 5
+                        cell.row = positions[i];
+                    } else if (count == 4) {
+                        // Four central players: spread wider
+                        int positions[] = {2, 3, 5, 6};  // Skip center, use 2,3,5,6
+                        cell.row = positions[i];
+                    } else if (count == 5) {
+                        // Five central players: full spread
+                        int positions[] = {2, 3, 4, 5, 6};
+                        cell.row = positions[i];
+                    } else {
+                        // More than 5: distribute across available rows
+                        float spacing = 5.0f / (count - 1);  // Spread from row 2 to row 6
+                        cell.row = clampRow(2 + static_cast<int>(i * spacing));
+                    }
+                } else {
+                    // WIDE PLAYERS: Stay on their flank, spread slightly
+                    // Apply small lateral offset but keep them wide
+                    if (count == 2) {
+                        int offset = (i == 0) ? -1 : 1;
+                        cell.row = clampRow(baseCell.row + offset);
+                    } else if (count == 3) {
+                        int offset = i - 1;  // -1, 0, +1
+                        cell.row = clampRow(baseCell.row + offset);
+                    } else {
+                        // Wider spread for more players
+                        float spacing = 3.0f / (count - 1);
+                        int offset = static_cast<int>(i * spacing) - 1;
+                        cell.row = clampRow(baseCell.row + offset);
+                    }
+                }
+
+                p->homePos = cell;
+                p->pos = p->homePos;
+                p->homePosition = cellToPosition(p->homePos);
+                p->position = p->homePosition;
+                p->hasBall = false;
             }
-            group[i]->homePos = Cell{clampRow(row), clampCol(col)};
-            group[i]->pos = group[i]->homePos;
-            group[i]->hasBall = false;
         }
     }
 }

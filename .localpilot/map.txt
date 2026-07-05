@@ -1,0 +1,110 @@
+## WORKSPACE EXECUTIVE SUMMARY (YAML)
+# Generated: 2026-07-04T22:33:57.4649756+02:00
+# Root: D:\DEV\NMS
+Architecture:
+  Type: Backend (C#/.NET)
+  Scale: 49 relevant source files
+  Components: 0
+  Controllers: 0
+  Models: 1
+  Services: 0
+---
+- File: NostalgiaManager.sln
+  Preview: " Microsoft Visual Studio Solution File, Format Version 12.00 # Visual Studio Version 17 VisualStudioVersion = 17.0.31903.59 MinimumVisualStudioVersion..."
+- File: README.md
+  Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
+- File: Models\Player.cs
+  Symbols: [Player]
+  Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
+- File: tools\gen_sample_players.py
+  Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
+- File: NostalgiaManager\src\main.cpp
+  Preview: "#include <cstdio> #include <cstdlib> #include <fstream> #include <string> #include <vector> #include 'data/Database.h' #include 'engine/MatchEngine.h'..."
+- File: third_party\imgui\imconfig.h
+  Preview: "//----------------------------------------------------------------------------- // DEAR IMGUI COMPILE-TIME OPTIONS // Runtime options (clipboard callb..."
+- File: third_party\imgui\imgui.cpp
+  Preview: "// dear imgui, v1.91.5 // (main code and documentation) // Help: // - See links below. // - Call and read ImGui::ShowDemoWindow() in imgui_demo.cpp. A..."
+- File: third_party\imgui\imgui.h
+  Preview: "// dear imgui, v1.91.5 // (headers) // Help: // - See links below. // - Call and read ImGui::ShowDemoWindow() in imgui_demo.cpp. All applications in e..."
+- File: third_party\imgui\imgui_demo.cpp
+  Preview: "// dear imgui, v1.91.5 // (demo code) // Help: // - Read FAQ at http://dearimgui.com/faq // - Call and read ImGui::ShowDemoWindow() in imgui_demo.cpp...."
+- File: third_party\imgui\imgui_draw.cpp
+  Preview: "// dear imgui, v1.91.5 // (drawing and font code) /* Index of this file: // [SECTION] STB libraries implementation // [SECTION] Style functions // [SE..."
+- File: third_party\imgui\imgui_internal.h
+  Preview: "// dear imgui, v1.91.5 // (internal structures/api) // You may use this file to debug, understand or extend Dear ImGui features but we don't provide a..."
+- File: third_party\imgui\imgui_tables.cpp
+  Preview: "// dear imgui, v1.91.5 // (tables and columns code) /* Index of this file: // [SECTION] Commentary // [SECTION] Header mess // [SECTION] Tables: Main ..."
+- File: third_party\imgui\imgui_widgets.cpp
+  Preview: "// dear imgui, v1.91.5 // (widgets code) /* Index of this file: // [SECTION] Forward Declarations // [SECTION] Widgets: Text, etc. // [SECTION] Widget..."
+- File: third_party\imgui\imstb_rectpack.h
+  Preview: "// [DEAR IMGUI] // This is a slightly modified version of stb_rect_pack.h 1.01. // Grep for [DEAR IMGUI] to find the changes. // // stb_rect_pack.h - ..."
+- File: third_party\imgui\imstb_textedit.h
+  Preview: "// [DEAR IMGUI] // This is a slightly modified version of stb_textedit.h 1.14. // Those changes would need to be pushed into nothings/stb: // - Fix in..."
+- File: third_party\imgui\imstb_truetype.h
+  Preview: "// [DEAR IMGUI] // This is a slightly modified version of stb_truetype.h 1.26. // Mostly fixing for compiler and static analyzer warnings. // Grep for..."
+- File: third_party\imgui\LICENSE.txt
+  Preview: "The MIT License (MIT) Copyright (c) 2014-2024 Omar Cornut Permission is hereby granted, free of charge, to any person obtaining a copy of this softwar..."
+- File: third_party\stb\stb_image.h
+  Preview: "/* stb_image - v2.30 - public domain image loader - http://nothings.org/stb                  no warranty implied; use at your own risk   Do this:    #..."
+- File: NostalgiaManager\src\core\Attributes.h
+  Preview: "#pragma once #include <array> #include <string> #include <unordered_map> namespace nm { // The canonical list of player attributes (1-20 scale) used b..."
+- File: NostalgiaManager\src\core\Formation.h
+  Preview: "#pragma once #include <algorithm> #include <map> #include <vector> #include 'Pitch.h' #include 'Player.h' #include 'Team.h' namespace nm { // Maps a r..."
+- File: NostalgiaManager\src\core\Pitch.h
+  Preview: "#pragma once #include <string> #include <cmath> namespace nm { // Continuous pitch coordinates (in meters) constexpr float kPitchLength = 105.0f; // L..."
+- File: NostalgiaManager\src\core\Player.h
+  Preview: "#pragma once #include <string> #include <vector> #include 'Attributes.h' #include 'Pitch.h' namespace nm { // Role on the team sheet. Drives the defau..."
+- File: NostalgiaManager\src\core\TacticalSettings.h
+  Preview: "#pragma once #include <string> #include <vector> namespace nm { // Forward run instructions (how far players advance) enum class ForwardRun {   None, ..."
+- File: NostalgiaManager\src\core\Team.cpp
+  Preview: "#include 'Team.h' #include <algorithm> #include <cctype> #include <unordered_set> #include <vector> namespace nm { // Returns the specific positions f..."
+- File: NostalgiaManager\src\core\Team.h
+  Preview: "#pragma once #include <string> #include <vector> #include 'Player.h' #include 'TacticalSettings.h' namespace nm { enum class Mentality { Defensive, St..."
+- File: NostalgiaManager\src\data\Csv.h
+  Preview: "#pragma once #include <fstream> #include <sstream> #include <string> #include <vector> namespace nm { // Minimal CSV reader. Handles quoted fields and..."
+- File: NostalgiaManager\src\data\Database.cpp
+  Preview: "#include 'Database.h' #include <algorithm> #include <cctype> #include <cmath> #include <fstream> #include <unordered_map> #include 'Csv.h' namespace n..."
+- File: NostalgiaManager\src\data\Database.h
+  Preview: "#pragma once #include <string> #include <vector> #include '../core/Team.h' namespace nm { // In-memory store of all teams (and their players / leagues..."
+- File: NostalgiaManager\src\engine\Config.cpp
+  Preview: "#include 'Config.h' #include <algorithm> #include <fstream> #include <sstream> #include <utility> #include <vector> namespace nm { void Config::loadDe..."
+- File: NostalgiaManager\src\engine\Config.h
+  Preview: "#pragma once #include <string> #include <unordered_map> #include <vector> namespace nm { // All match-engine tuning lives here as data (spec section 1..."
+- File: NostalgiaManager\src\engine\MatchEngine.cpp
+  Preview: "#include 'MatchEngine.h' #include 'MatchEngine.h' #include <algorithm> #include <cmath> #include <iomanip> #include <map> #include <sstream> #include ..."
+- File: NostalgiaManager\src\engine\MatchEngine.h
+  Preview: "#pragma once #include <functional> #include <string> #include <vector> #include '../core/Pitch.h' #include '../core/Team.h' #include 'Config.h' #inclu..."
+- File: NostalgiaManager\src\engine\Rng.h
+  Preview: "#pragma once #include <random> namespace nm { // Thin wrapper around a Mersenne Twister so the whole match can be seeded // (reproducible simulations)..."
+- File: NostalgiaManager\src\platform\main_glfw.cpp
+  Preview: "// GLFW + OpenGL3 entry point. Used for the portable (Linux/macOS) build and for // automated visual testing. The Windows build uses main_win32.cpp (D..."
+- File: NostalgiaManager\src\platform\main_win32.cpp
+  Preview: "// Win32 + Direct3D 11 entry point for the Windows build (Visual Studio). No // external dependencies: d3d11 ships with Windows. The portable build us..."
+- File: NostalgiaManager\src\ui\App.cpp
+  Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <map> #includ..."
+- File: NostalgiaManager\src\ui\App.h
+  Preview: "#pragma once #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '../engine/Config...."
+- File: NostalgiaManager\src\ui\Console.h
+  Preview: "#pragma once #include <iostream> #include <limits> #include <string> namespace nm { // Small helpers for the text UI. class Console { public:   static..."
+- File: NostalgiaManager\src\ui\Game.cpp
+  Preview: "#include 'Game.h' #include <algorithm> #include <chrono> #include <fstream> #include <iomanip> #include <iostream> #include <map> #include <sstream> #..."
+- File: NostalgiaManager\src\ui\Game.h
+  Preview: "#pragma once #include <map> #include <string> #include <vector> #include '../data/Database.h' #include '../engine/Config.h' #include '../engine/MatchE..."
+- File: third_party\imgui\backends\imgui_impl_dx11.cpp
+  Preview: "// dear imgui: Renderer Backend for DirectX11 // This needs to be used along with a Platform Backend (e.g. Win32) // Implemented features: // [X] Rend..."
+- File: third_party\imgui\backends\imgui_impl_dx11.h
+  Preview: "// dear imgui: Renderer Backend for DirectX11 // This needs to be used along with a Platform Backend (e.g. Win32) // Implemented features: // [X] Rend..."
+- File: third_party\imgui\backends\imgui_impl_glfw.cpp
+  Preview: "// dear imgui: Platform Backend for GLFW // This needs to be used along with a Renderer (e.g. OpenGL3, Vulkan, WebGPU..) // (Info: GLFW is a cross-pla..."
+- File: third_party\imgui\backends\imgui_impl_glfw.h
+  Preview: "// dear imgui: Platform Backend for GLFW // This needs to be used along with a Renderer (e.g. OpenGL3, Vulkan, WebGPU..) // (Info: GLFW is a cross-pla..."
+- File: third_party\imgui\backends\imgui_impl_opengl3.cpp
+  Preview: "// dear imgui: Renderer Backend for modern OpenGL with shaders / programmatic pipeline // - Desktop GL: 2.x 3.x 4.x // - Embedded GL: ES 2.0 (WebGL 1...."
+- File: third_party\imgui\backends\imgui_impl_opengl3.h
+  Preview: "// dear imgui: Renderer Backend for modern OpenGL with shaders / programmatic pipeline // - Desktop GL: 2.x 3.x 4.x // - Embedded GL: ES 2.0 (WebGL 1...."
+- File: third_party\imgui\backends\imgui_impl_opengl3_loader.h
+  Preview: "//----------------------------------------------------------------------------- // About imgui_impl_opengl3_loader.h: // // We embed our own OpenGL lo..."
+- File: third_party\imgui\backends\imgui_impl_win32.cpp
+  Preview: "// dear imgui: Platform Backend for Windows (standard windows API for 32-bits AND 64-bits applications) // This needs to be used along with a Renderer..."
+- File: third_party\imgui\backends\imgui_impl_win32.h
+  Preview: "// dear imgui: Platform Backend for Windows (standard windows API for 32-bits AND 64-bits applications) // This needs to be used along with a Renderer..."

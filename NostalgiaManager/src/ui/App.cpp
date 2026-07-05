@@ -6,6 +6,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <map>
 
 #include "imgui.h"
 
@@ -317,7 +318,7 @@ void App::renderMain() {
         {"Exit", IM_COL32(188, 42, 38, 255), Screen::Main},
     };
     const int n = (int)(sizeof(items) / sizeof(items[0]));
-    float startY = pos.y + size.y * 0.50f;
+    float startY = pos.y + size.y * 0.46f;
     float startX = pos.x + (size.x - bsz.x) * 0.5f;
 
     ImGui::SetWindowFontScale(1.25f);
@@ -425,7 +426,16 @@ void App::openTactics(Team* team, Screen returnTo) {
     tacticsReturn_ = returnTo;
     tacticsXiSel_ = -1;
     tacticsSubSel_ = -1;
-    if (team && team->startingXI.empty()) team->autoSelectXI();
+    if (team) {
+        // Set to club's preferred formation if not already set
+        if (team->formation.empty()) {
+            team->formation = team->preferredFormation;
+        }
+        // Only regenerate the starting XI if it's empty (first time opening)
+        if (team->startingXI.empty()) {
+            team->autoSelectXI();
+        }
+    }
     screen_ = Screen::Tactics;
 }
 
@@ -445,85 +455,178 @@ void App::renderTactics() {
     ImGui::Spacing();
 
     const ImVec4 gold(0.86f, 0.78f, 0.55f, 1);
-    // Before kickoff any number of changes are allowed; once the match is under
-    // way you may only make up to 3 substitutions.
     const bool inMatch = (tacticsReturn_ == Screen::Match);
     const bool subsLeft = !inMatch || matchSubsUsed_ < kMaxMatchSubs;
     float avail = ImGui::GetContentRegionAvail().y - 56;
     if (avail < 200) avail = 200;
-    float leftW = 320.0f, rightW = 330.0f;
+    float leftW = 320.0f, rightW = 340.0f;
     float midW = ImGui::GetContentRegionAvail().x - leftW - rightW - 24;
     if (midW < 260) midW = 260;
 
-    // ---- Left: interactive squad (click a starter then a sub to swap) ----
+    // ---- Left Panel: Squad List ----
+    int dragSourceIdx = -1, dragTargetIdx = -1;
+    int subPlayerDragId = -1;  // Player ID being dragged from subs/rest
     ImGui::BeginChild("tac_squad", ImVec2(leftW, avail), true);
     panelHeader("Squad");
     ImGui::TextColored(gold, "Starting XI");
-    int swapStarter = -1, swapSub = -1;
-    for (int pid : t->startingXI) {
-        Player* p = t->findPlayer(pid);
+    for (size_t i = 0; i < t->startingXI.size(); ++i) {
+        Player* p = t->findPlayer(t->startingXI[i]);
         if (!p) continue;
+        Position assignedPos = i < t->assignedPositions.size() ? t->assignedPositions[i] : p->primaryPos;
         char lbl[160];
         std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", p->shirtNumber,
-                      PosName(p->primaryPos).c_str(), shortName(p->name).c_str());
-        if (ImGui::Selectable(lbl, tacticsXiSel_ == pid)) {
-            tacticsXiSel_ = (tacticsXiSel_ == pid) ? -1 : pid;
-            tacticsSubSel_ = -1;
+                      PosName(assignedPos).c_str(), shortName(p->name).c_str());
+
+        ImGui::PushID(static_cast<int>(i));
+        if (ImGui::Selectable(lbl, tacticsPlayerSel_ == p->id)) {
+            tacticsPlayerSel_ = (tacticsPlayerSel_ == p->id) ? -1 : p->id;
         }
+
+        // Drag source - can drag from starting XI
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+            int idx = static_cast<int>(i);
+            ImGui::SetDragDropPayload("PLAYER_SLOT", &idx, sizeof(int));
+            ImGui::Text("%s", p->name.c_str());
+            ImGui::EndDragDropSource();
+        }
+
+        // Drop target - can drop starting XI players or substitutes
+        if (ImGui::BeginDragDropTarget()) {
+            // Accept drags from other starting XI positions
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
+                dragSourceIdx = *static_cast<const int*>(payload->Data);
+                dragTargetIdx = static_cast<int>(i);
+            }
+            // Accept drags from substitutes/rest of squad
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
+                subPlayerDragId = *static_cast<const int*>(payload->Data);
+                dragTargetIdx = static_cast<int>(i);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        ImGui::PopID();
         positionTooltip(*p);
     }
     ImGui::Spacing();
     ImGui::TextColored(gold, "Substitutes");
+    int swapStarter = -1, swapSub = -1;
+    int shownSubs = 0;
+    int subIdx = 0;
+    int swapSubSource = -1, swapSubTarget = -1;  // For swapping subs with each other
+
     for (const Player& pl : t->squad) {
         bool starting = std::find(t->startingXI.begin(), t->startingXI.end(), pl.id) !=
                         t->startingXI.end();
         if (starting) continue;
+        if (shownSubs >= 7) break;
+        shownSubs++;
         char lbl[160];
         std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
                       PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
-        if (ImGui::Selectable(lbl, tacticsSubSel_ == pl.id)) {
+
+        ImGui::PushID(100 + subIdx);  // Unique ID for subs
+        if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
             if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
-            else tacticsSubSel_ = (tacticsSubSel_ == pl.id) ? -1 : pl.id;
+            else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
         }
-        positionTooltip(pl);
-        // Drag a bench player onto a starter's token to substitute.
-        if (subsLeft && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+
+        // Make substitutes draggable
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
             int subId = pl.id;
-            ImGui::SetDragDropPayload("BENCH_PLAYER", &subId, sizeof(int));
-            ImGui::Text("Sub on  %d %s", pl.shirtNumber, pl.name.c_str());
+            ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
+            ImGui::Text("%s", pl.name.c_str());
             ImGui::EndDragDropSource();
         }
+
+        // Make substitutes accept drops from starting XI and other subs
+        if (ImGui::BeginDragDropTarget()) {
+            // Accept drags from starting XI
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
+                int starterIdx = *static_cast<const int*>(payload->Data);
+                if (starterIdx >= 0 && starterIdx < static_cast<int>(t->startingXI.size())) {
+                    swapStarter = t->startingXI[starterIdx];
+                    swapSub = pl.id;
+                }
+            }
+            // Accept drags from other substitutes (for reordering bench)
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
+                int sourceSubId = *static_cast<const int*>(payload->Data);
+                if (sourceSubId != pl.id) {
+                    swapSubSource = sourceSubId;
+                    swapSubTarget = pl.id;
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        ImGui::PopID();
+        positionTooltip(pl);
+        subIdx++;
     }
-    if (swapStarter != -1 && swapSub != -1) {
-        if (subsLeft) {
-            auto it = std::find(t->startingXI.begin(), t->startingXI.end(), swapStarter);
-            if (it != t->startingXI.end()) *it = swapSub;
+
+    // Rest of Squad (players beyond the first 7 subs) - only show when NOT in match
+    if (!inMatch) {
+        ImGui::Spacing();
+        ImGui::TextColored(gold, "Rest of Squad");
+        int squadIdx = 0;
+        int restIdx = 0;
+        for (const Player& pl : t->squad) {
+            bool starting = std::find(t->startingXI.begin(), t->startingXI.end(), pl.id) !=
+                            t->startingXI.end();
+            if (starting) continue;
+
+            squadIdx++;
+            if (squadIdx <= 7) continue;  // Skip the first 7 subs (already shown)
+
+            char lbl[160];
+            std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
+                          PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
+
+            ImGui::PushID(200 + restIdx);  // Unique ID for rest of squad
+            if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
+                if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
+                else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
+            }
+
+            // Make rest of squad draggable
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                int subId = pl.id;
+                ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
+                ImGui::Text("%s", pl.name.c_str());
+                ImGui::EndDragDropSource();
+            }
+
+            ImGui::PopID();
+            positionTooltip(pl);
+            restIdx++;
+        }
+    }
+
+    if (swapStarter != -1 && swapSub != -1 && subsLeft) {
+        auto it = std::find(t->startingXI.begin(), t->startingXI.end(), swapStarter);
+        if (it != t->startingXI.end()) {
+            *it = swapSub;
             if (inMatch) ++matchSubsUsed_;
         }
         tacticsXiSel_ = tacticsSubSel_ = -1;
     }
     if (inMatch) {
+        ImGui::Spacing();
         ImVec4 c = subsLeft ? gold : ImVec4(0.9f, 0.5f, 0.4f, 1);
-        ImGui::TextColored(c, "Substitutions: %d / %d", matchSubsUsed_, kMaxMatchSubs);
-        if (subsLeft)
-            ImGui::TextDisabled("Drag a sub onto a player, or click a starter then a sub.");
-        else
-            ImGui::TextDisabled("No substitutions remaining.");
-    } else {
-        ImGui::TextDisabled("Drag a sub onto a player (or click starter then sub). Unlimited before kickoff.");
+        ImGui::TextColored(c, "Subs: %d / %d", matchSubsUsed_, kMaxMatchSubs);
     }
     ImGui::EndChild();
 
-    // ---- Centre: formation pitch ----
+    // ---- Centre Panel: Tactical Pitch with Formation Positions ----
     ImGui::SameLine();
-    int dropStarter = -1, dropSub = -1;  // set when a bench player is dropped on a token
     ImGui::BeginChild("tac_pitch", ImVec2(midW, avail), true);
     {
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        const ImGuiPayload* drag = ImGui::GetDragDropPayload();
-        bool dragging = drag && drag->IsDataType("BENCH_PLAYER");
         ImVec2 o = ImGui::GetCursorScreenPos();
         ImVec2 sz = ImGui::GetContentRegionAvail();
+
+        // Draw pitch
         dl->AddRectFilled(o, ImVec2(o.x + sz.x, o.y + sz.y), IM_COL32(74, 132, 62, 255), 4);
         int stripes = 10;
         for (int s = 0; s < stripes; ++s) {
@@ -541,69 +644,193 @@ void App::renderTactics() {
         dl->AddCircle(ImVec2(o.x + sz.x * 0.5f, o.y + sz.y * 0.5f),
                       sz.x * 0.12f, line, 32, 2.0f);
 
-        // Group starters into bands from attack (top) to goalkeeper (bottom).
-        const Role order[] = {Role::F, Role::AM, Role::M, Role::DM, Role::D, Role::GK};
-        std::vector<std::vector<Player*>> bands;
-        for (Role role : order) {
-            std::vector<Player*> band;
-            for (int pid : t->startingXI) {
-                Player* p = t->findPlayer(pid);
-                if (p && p->role == role) band.push_back(p);
-            }
-            // Left flank to the left, right flank to the right.
-            std::stable_sort(band.begin(), band.end(), [](Player* a, Player* b) {
-                auto rank = [](Player* p) {
-                    Side s = SideOf(p->primaryPos);
-                    return s == Side::Left ? 0 : s == Side::Centre ? 1 : 2;
-                };
-                return rank(a) < rank(b);
-            });
-            if (!band.empty()) bands.push_back(std::move(band));
-        }
-        int nb = static_cast<int>(bands.size());
         float padX = 40.0f, padY = 34.0f;
-        for (int b = 0; b < nb; ++b) {
-            float y = o.y + padY + (sz.y - 2 * padY) * (b + 0.5f) / nb;
-            int m = static_cast<int>(bands[b].size());
-            for (int j = 0; j < m; ++j) {
-                float x = o.x + padX + (sz.x - 2 * padX) * (j + 0.5f) / m;
-                Player* p = bands[b][j];
-                bool gk = p->role == Role::GK;
-                ImU32 jersey = gk ? IM_COL32(60, 150, 70, 255) : IM_COL32(46, 96, 176, 255);
-                float r = 21.0f;
+        float drawWidth = sz.x - 2 * padX;
+        float drawHeight = sz.y - 2 * padY;
 
-                // Invisible button over the token acts as a substitution drop
-                // target (drag a bench player here to swap him in).
-                ImGui::SetCursorScreenPos(ImVec2(x - r, y - r));
-                ImGui::InvisibleButton(("tok" + std::to_string(p->id)).c_str(),
-                                       ImVec2(r * 2, r * 2));
-                bool hovered = ImGui::IsItemHovered();
-                if (ImGui::BeginDragDropTarget()) {
-                    if (const ImGuiPayload* pl =
-                            ImGui::AcceptDragDropPayload("BENCH_PLAYER")) {
-                        dropStarter = p->id;
-                        dropSub = *static_cast<const int*>(pl->Data);
+        // Fixed position mapping for formation positions
+        // xPos: lateral position (0 = left touchline, 0.5 = center, 1 = right touchline)
+        // yPos: depth (0 = attack, 1 = defense)
+        auto getPositionCoords = [](Position pos) -> std::pair<float, float> {
+            float yPos = 0.5f, xPos = 0.5f;
+            switch (pos) {
+                // Forwards - wide players at quarter positions, center at 0.5
+                case Position::FL:  yPos = 0.08f; xPos = 0.25f; break;
+                case Position::FC:  yPos = 0.08f; xPos = 0.50f; break;
+                case Position::FR:  yPos = 0.08f; xPos = 0.75f; break;
+
+                // Attacking Midfielders
+                case Position::AML: yPos = 0.28f; xPos = 0.20f; break;
+                case Position::AMC: yPos = 0.28f; xPos = 0.50f; break;
+                case Position::AMR: yPos = 0.28f; xPos = 0.80f; break;
+
+                // Midfielders - wide at 0.15/0.85, center at 0.5
+                case Position::ML:  yPos = 0.48f; xPos = 0.15f; break;
+                case Position::MC:  yPos = 0.48f; xPos = 0.50f; break;
+                case Position::MR:  yPos = 0.48f; xPos = 0.85f; break;
+
+                // Defensive Midfielders
+                case Position::DM:  yPos = 0.65f; xPos = 0.50f; break;
+
+                // Defenders
+                case Position::WBL: yPos = 0.74f; xPos = 0.12f; break;
+                case Position::DL:  yPos = 0.80f; xPos = 0.22f; break;
+                case Position::DC:  yPos = 0.83f; xPos = 0.50f; break;
+                case Position::DR:  yPos = 0.80f; xPos = 0.78f; break;
+                case Position::WBR: yPos = 0.74f; xPos = 0.88f; break;
+
+                // Goalkeeper
+                case Position::GK:  yPos = 0.95f; xPos = 0.50f; break;
+            }
+            return {xPos, yPos};
+        };
+
+        // Group positions with same coordinates
+        std::map<Position, int> positionCount;
+        for (size_t i = 0; i < t->assignedPositions.size(); ++i) {
+            positionCount[t->assignedPositions[i]]++;
+        }
+
+        std::map<Position, int> positionIndex;
+        const ImGuiPayload* dragPayload = ImGui::GetDragDropPayload();
+        bool isDragging = dragPayload && (dragPayload->IsDataType("PLAYER_SLOT") || dragPayload->IsDataType("SUB_PLAYER"));
+
+        // Draw each formation slot
+        for (size_t slotIdx = 0; slotIdx < t->startingXI.size() && slotIdx < t->assignedPositions.size(); ++slotIdx) {
+            Player* p = t->findPlayer(t->startingXI[slotIdx]);
+            Position assignedPos = t->assignedPositions[slotIdx];
+
+            auto [baseX, baseY] = getPositionCoords(assignedPos);
+
+            // Handle multiple players at same position (spread horizontally)
+            int totalAtPos = positionCount[assignedPos];
+            int thisIndex = positionIndex[assignedPos]++;
+            float xOffset = 0.0f;
+
+            if (totalAtPos > 1) {
+                // Determine if this is a central position (xPos near 0.5)
+                bool isCentral = (baseX >= 0.35f && baseX <= 0.65f);
+
+                if (isCentral) {
+                    // CENTRAL PLAYERS: Spread symmetrically around center
+                    if (totalAtPos == 2) {
+                        // Two central players: left and right of center
+                        xOffset = (thisIndex == 0) ? -0.15f : 0.15f;
+                    } else if (totalAtPos == 3) {
+                        // Three: left, center, right
+                        float offsets[] = {-0.15f, 0.0f, 0.15f};
+                        xOffset = offsets[thisIndex];
+                    } else if (totalAtPos == 4) {
+                        // Four: wider spread, skip exact center
+                        float offsets[] = {-0.22f, -0.08f, 0.08f, 0.22f};
+                        xOffset = offsets[thisIndex];
+                    } else if (totalAtPos == 5) {
+                        // Five: full central spread
+                        float offsets[] = {-0.22f, -0.11f, 0.0f, 0.11f, 0.22f};
+                        xOffset = offsets[thisIndex];
+                    } else {
+                        // More than 5: distribute evenly
+                        float spacing = 0.44f / (totalAtPos - 1);
+                        xOffset = (thisIndex * spacing) - 0.22f;
                     }
-                    ImGui::EndDragDropTarget();
+                } else {
+                    // WIDE PLAYERS: Smaller spread, stay on their flank
+                    if (totalAtPos == 2) {
+                        xOffset = (thisIndex == 0) ? -0.08f : 0.08f;
+                    } else if (totalAtPos == 3) {
+                        float offsets[] = {-0.10f, 0.0f, 0.10f};
+                        xOffset = offsets[thisIndex];
+                    } else {
+                        float spacing = 0.20f / (totalAtPos - 1);
+                        xOffset = (thisIndex * spacing) - 0.10f;
+                    }
                 }
-                if (dragging)  // glow drop targets while a sub is being dragged
-                    dl->AddCircle(ImVec2(x, y), r + 3,
-                                  hovered ? IM_COL32(120, 230, 120, 255)
-                                          : IM_COL32(225, 235, 120, 200),
-                                  24, 3.0f);
+            }
 
+            float xPos = std::max(0.05f, std::min(0.95f, baseX + xOffset));
+            float x = o.x + padX + drawWidth * xPos;
+            float y = o.y + padY + drawHeight * baseY;
+
+            bool gk = RoleOf(assignedPos) == Role::GK;
+            ImU32 jersey = gk ? IM_COL32(60, 150, 70, 255) : IM_COL32(46, 96, 176, 255);
+            if (p && tacticsPlayerSel_ == p->id) jersey = IM_COL32(200, 140, 60, 255);
+            float r = 21.0f;
+
+            // Make position draggable
+            ImGui::SetCursorScreenPos(ImVec2(x - r, y - r));
+            ImGui::PushID(static_cast<int>(slotIdx) + 1000);  // Offset to avoid ID collision with list
+            ImGui::InvisibleButton("pos", ImVec2(r * 2, r * 2));
+            bool hovered = ImGui::IsItemHovered();
+            bool clicked = ImGui::IsItemClicked();
+
+            if (p && clicked) {
+                tacticsPlayerSel_ = (tacticsPlayerSel_ == p->id) ? -1 : p->id;
+            }
+
+            // Drag source
+            if (p && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                int srcIdx = static_cast<int>(slotIdx);
+                ImGui::SetDragDropPayload("PLAYER_SLOT", &srcIdx, sizeof(int));
+                ImGui::Text("%s", p->name.c_str());
+                ImGui::EndDragDropSource();
+            }
+
+            // Drop target
+            if (ImGui::BeginDragDropTarget()) {
+                // Accept drags from other starting XI positions
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
+                    int srcIdx = *static_cast<const int*>(payload->Data);
+                    int tgtIdx = static_cast<int>(slotIdx);
+                    if (srcIdx != tgtIdx && dragSourceIdx == -1) {
+                        dragSourceIdx = srcIdx;
+                        dragTargetIdx = tgtIdx;
+                    }
+                }
+                // Accept drags from substitutes/rest of squad
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
+                    subPlayerDragId = *static_cast<const int*>(payload->Data);
+                    dragTargetIdx = static_cast<int>(slotIdx);
+                }
+                ImGui::EndDragDropTarget();
+            }
+
+            ImGui::PopID();
+
+            // Visual feedback for drag
+            if (isDragging && hovered) {
+                dl->AddCircle(ImVec2(x, y), r + 4, IM_COL32(255, 220, 100, 255), 24, 3.0f);
+            }
+
+            if (p) {
                 dl->AddCircleFilled(ImVec2(x, y), r, jersey, 24);
                 dl->AddCircle(ImVec2(x, y), r, IM_COL32(225, 200, 120, 255), 24, 2.0f);
+
+                // Get player tactics for forward run indicator
+                PlayerTactics& pt = t->tactics.getPlayerTactics(p->id);
+                if (pt.forwardRun != ForwardRun::None) {
+                    float arrowLen = (pt.forwardRun == ForwardRun::Short) ? 15.0f : 25.0f;
+                    ImVec2 arrowStart = ImVec2(x, y - r - 2);
+                    ImVec2 arrowEnd = ImVec2(x, y - r - 2 - arrowLen);
+                    dl->AddLine(arrowStart, arrowEnd, IM_COL32(255, 200, 80, 255), 2.5f);
+                    dl->AddTriangleFilled(
+                        ImVec2(arrowEnd.x, arrowEnd.y),
+                        ImVec2(arrowEnd.x - 5, arrowEnd.y + 7),
+                        ImVec2(arrowEnd.x + 5, arrowEnd.y + 7),
+                        IM_COL32(255, 200, 80, 255));
+                }
+
                 char num[8];
                 std::snprintf(num, sizeof(num), "%d", p->shirtNumber);
                 ImVec2 ns = ImGui::CalcTextSize(num);
                 dl->AddText(ImVec2(x - ns.x * 0.5f, y - ns.y * 0.5f),
                             IM_COL32(255, 255, 255, 255), num);
-                // Position label above the token.
-                std::string ptxt = PosName(p->primaryPos);
-                ImVec2 ps = ImGui::CalcTextSize(ptxt.c_str());
+
+                // Position label
+                std::string posLabel = PosName(assignedPos);
+                ImVec2 ps = ImGui::CalcTextSize(posLabel.c_str());
                 dl->AddText(ImVec2(x - ps.x * 0.5f, y - r - ps.y - 1),
-                            IM_COL32(248, 214, 130, 255), ptxt.c_str());
+                            IM_COL32(248, 214, 130, 255), posLabel.c_str());
+
                 char nm[64];
                 std::snprintf(nm, sizeof(nm), "%s", shortName(p->name).c_str());
                 ImVec2 ms = ImGui::CalcTextSize(nm);
@@ -611,54 +838,200 @@ void App::renderTactics() {
                 dl->AddRectFilled(ImVec2(lx, ly), ImVec2(lx + ms.x + 8, ly + ms.y + 4),
                                   IM_COL32(20, 24, 18, 210), 3);
                 dl->AddText(ImVec2(lx + 4, ly + 2), IM_COL32(238, 232, 214, 255), nm);
+            } else {
+                // Empty slot
+                dl->AddCircle(ImVec2(x, y), r, IM_COL32(180, 180, 180, 150), 24, 2.0f);
+                std::string posLabel = PosName(assignedPos);
+                ImVec2 ps = ImGui::CalcTextSize(posLabel.c_str());
+                dl->AddText(ImVec2(x - ps.x * 0.5f, y - ps.y * 0.5f),
+                            IM_COL32(180, 180, 180, 200), posLabel.c_str());
             }
+        }
+
+        if (!inMatch) {
+            ImVec2 tp = ImVec2(o.x + 10, o.y + sz.y - 25);
+            dl->AddText(tp, IM_COL32(230, 230, 230, 200), "Drag players to swap or create custom positions");
+        }
+
+        // Make the entire pitch a drop target for creating custom positions
+        ImGui::SetCursorScreenPos(o);
+        ImGui::InvisibleButton("pitch_drop", sz);
+        if (ImGui::BeginDragDropTarget()) {
+            // Only accept drops from starting XI when creating custom positions
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                // Calculate normalized position (0-1) within the drawable area
+                float relX = (mousePos.x - o.x - padX) / drawWidth;
+                float relY = (mousePos.y - o.y - padY) / drawHeight;
+                relX = std::max(0.05f, std::min(0.95f, relX));
+                relY = std::max(0.05f, std::min(0.95f, relY));
+
+                int srcIdx = *static_cast<const int*>(payload->Data);
+
+                // Determine the closest position based on Y coordinate
+                Position newPos = Position::MC;  // Default
+                if (relY < 0.15f) {
+                    // Forward line
+                    if (relX < 0.35f) newPos = Position::FL;
+                    else if (relX > 0.65f) newPos = Position::FR;
+                    else newPos = Position::FC;
+                } else if (relY < 0.35f) {
+                    // Attacking midfield line
+                    if (relX < 0.3f) newPos = Position::AML;
+                    else if (relX > 0.7f) newPos = Position::AMR;
+                    else newPos = Position::AMC;
+                } else if (relY < 0.58f) {
+                    // Midfield line
+                    if (relX < 0.25f) newPos = Position::ML;
+                    else if (relX > 0.75f) newPos = Position::MR;
+                    else newPos = Position::MC;
+                } else if (relY < 0.72f) {
+                    // Defensive midfield
+                    newPos = Position::DM;
+                } else if (relY < 0.88f) {
+                    // Defense line
+                    if (relX < 0.2f) newPos = Position::WBL;
+                    else if (relX > 0.8f) newPos = Position::WBR;
+                    else if (relX < 0.35f) newPos = Position::DL;
+                    else if (relX > 0.65f) newPos = Position::DR;
+                    else newPos = Position::DC;
+                } else {
+                    // Goalkeeper
+                    newPos = Position::GK;
+                }
+
+                // Check if this creates a new position not in current formation
+                bool positionExists = false;
+                for (size_t i = 0; i < t->assignedPositions.size(); ++i) {
+                    if (i != srcIdx && t->assignedPositions[i] == newPos) {
+                        positionExists = true;
+                        break;
+                    }
+                }
+
+                if (!positionExists || t->assignedPositions[srcIdx] != newPos) {
+                    // This is a custom position change
+                    t->assignedPositions[srcIdx] = newPos;
+                    // Update player role to match the new position
+                    t->updatePlayerRoles();
+                    // Mark formation as custom
+                    if (t->tactics.formation.find(" Custom") == std::string::npos) {
+                        t->tactics.formation = t->tactics.formation + " Custom";
+                        t->formation = t->tactics.formation;
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
         }
     }
     ImGui::EndChild();
-    // Apply a drag-and-drop substitution (bench player dropped on a starter).
-    if (dropStarter != -1 && dropSub != -1 && subsLeft) {
-        auto it = std::find(t->startingXI.begin(), t->startingXI.end(), dropStarter);
-        if (it != t->startingXI.end()) {
-            *it = dropSub;
-            if (inMatch) ++matchSubsUsed_;
-        }
-        tacticsXiSel_ = tacticsSubSel_ = -1;
+
+    // Apply position swap - swap players but keep positions fixed to formation
+    if (dragSourceIdx != -1 && dragTargetIdx != -1 && dragSourceIdx != dragTargetIdx) {
+        // Only swap the player IDs - the assigned positions stay with their formation slots
+        std::swap(t->startingXI[dragSourceIdx], t->startingXI[dragTargetIdx]);
+        // Note: We do NOT swap assignedPositions - each slot keeps its position
+        // This means when you drag a CB to an MC slot, the CB now plays as MC
+        t->updatePlayerRoles();  // Update roles to match new positions
     }
 
-    // ---- Right: Formation & Tactics + Tactical Roles ----
+    // Apply substitute drop - replace starting XI player with substitute
+    if (subPlayerDragId != -1 && dragTargetIdx != -1) {
+        // Replace the player at dragTargetIdx with the substitute
+        t->startingXI[dragTargetIdx] = subPlayerDragId;
+        // The substitute takes on the position of the slot they're dropped into
+        // No need to modify assignedPositions - the slot keeps its position
+        if (inMatch) ++matchSubsUsed_;
+        t->updatePlayerRoles();  // Update roles to match new positions
+    }
+
+    // ---- Right Panel: Formation & Team Tactics ----
     ImGui::SameLine();
     ImGui::BeginChild("tac_right", ImVec2(rightW, avail), false);
-    ImGui::BeginChild("tac_form", ImVec2(0, avail * 0.46f), true);
-    panelHeader("Formation & Tactics");
-    tacticRow("Formation:", t->formation);
-    tacticRow("Playing Style:", MentalityName(t->mentality));
+
+    ImGui::BeginChild("tac_formation", ImVec2(0, avail * 0.35f), true);
+    panelHeader("Formation");
+    tacticRow("Current:", t->tactics.formation);
     ImGui::Spacing();
-    // Changing formation re-picks the whole XI, so it is only allowed before
-    // kickoff (otherwise it would bypass the 3-substitution limit).
-    if (inMatch) ImGui::BeginDisabled();
     if (tintButton("Change Formation", IM_COL32(60, 130, 60, 255), ImVec2(-1, 34))) {
+        // Strip " Custom" suffix to find base formation
+        std::string baseFormation = t->tactics.formation;
+        const std::string customSuffix = " Custom";
+        if (baseFormation.size() >= customSuffix.size() && 
+            baseFormation.substr(baseFormation.size() - customSuffix.size()) == customSuffix) {
+            baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
+        }
+
         int n = static_cast<int>(sizeof(kFormations) / sizeof(kFormations[0]));
         int cur = 0;
         for (int i = 0; i < n; ++i)
-            if (t->formation == kFormations[i]) { cur = i; break; }
-        t->formation = kFormations[(cur + 1) % n];
-        t->autoSelectXI();
-        tacticsXiSel_ = tacticsSubSel_ = -1;
-    }
-    if (inMatch) ImGui::EndDisabled();
-    if (tintButton("Team Instructions", IM_COL32(150, 120, 60, 255), ImVec2(-1, 34))) {
-        t->mentality = static_cast<Mentality>(
-            (static_cast<int>(t->mentality) + 1) % 3);
+            if (baseFormation == kFormations[i]) { cur = i; break; }
+        t->tactics.formation = kFormations[(cur + 1) % n];
+        t->formation = t->tactics.formation;
+        if (!inMatch) {
+            t->autoSelectXI();
+            tacticsXiSel_ = tacticsSubSel_ = tacticsPlayerSel_ = -1;
+        } else {
+            t->updateFormationPositions();
+        }
     }
     ImGui::EndChild();
 
-    ImGui::BeginChild("tac_roles", ImVec2(0, 0), true);
-    panelHeader("Tactical Roles");
-    auto nameOf = [](const Player* p) { return p ? p->name : std::string("-"); };
-    tacticRow("Corner Kicks:", nameOf(bestStarterFor(t, "Creativity", true)));
-    tacticRow("Free Kicks:", nameOf(bestStarterFor(t, "Shooting", true)));
-    tacticRow("Penalties:", nameOf(bestStarterFor(t, "Determination", true)));
-    tacticRow("Captain:", nameOf(bestStarterFor(t, "Influence", false)));
+    ImGui::BeginChild("tac_team_instructions", ImVec2(0, avail * 0.35f), true);
+    panelHeader("Team Instructions");
+
+    // Passing Style
+    if (ImGui::Button(PassingStyleName(t->tactics.passingStyle).c_str(), ImVec2(-1, 28))) {
+        int val = static_cast<int>(t->tactics.passingStyle);
+        t->tactics.passingStyle = static_cast<PassingStyle>((val + 1) % 3);
+    }
+    ImGui::TextDisabled("Passing Style");
+    ImGui::Spacing();
+
+    // Tackling Style
+    if (ImGui::Button(TacklingStyleName(t->tactics.tacklingStyle).c_str(), ImVec2(-1, 28))) {
+        int val = static_cast<int>(t->tactics.tacklingStyle);
+        t->tactics.tacklingStyle = static_cast<TacklingStyle>((val + 1) % 3);
+    }
+    ImGui::TextDisabled("Tackling");
+    ImGui::Spacing();
+
+    // Pressing
+    if (ImGui::Button(PressingLevelName(t->tactics.pressing).c_str(), ImVec2(-1, 28))) {
+        int val = static_cast<int>(t->tactics.pressing);
+        t->tactics.pressing = static_cast<PressingLevel>((val + 1) % 3);
+    }
+    ImGui::TextDisabled("Pressing");
+    ImGui::Spacing();
+
+    // Counter Attack
+    if (ImGui::Checkbox("Counter Attack", &t->tactics.counterAttack)) {}
+    ImGui::Spacing();
+
+    // Offside Trap
+    if (ImGui::Checkbox("Offside Trap", &t->tactics.offsideTrap)) {}
+
+    ImGui::EndChild();
+
+    ImGui::BeginChild("tac_player_instr", ImVec2(0, 0), true);
+    panelHeader("Player Instructions");
+    if (tacticsPlayerSel_ != -1) {
+        Player* selPlayer = t->findPlayer(tacticsPlayerSel_);
+        if (selPlayer) {
+            ImGui::TextColored(gold, "%s", selPlayer->name.c_str());
+            ImGui::Spacing();
+
+            PlayerTactics& pt = t->tactics.getPlayerTactics(selPlayer->id);
+
+            ImGui::Text("Forward Runs:");
+            if (ImGui::Button(ForwardRunName(pt.forwardRun).c_str(), ImVec2(-1, 28))) {
+                int val = static_cast<int>(pt.forwardRun);
+                pt.forwardRun = static_cast<ForwardRun>((val + 1) % 3);
+            }
+        }
+    } else {
+        ImGui::TextDisabled("Select a player");
+    }
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -667,7 +1040,16 @@ void App::renderTactics() {
     if (inMatch) ImGui::BeginDisabled();
     if (ImGui::Button("Auto-pick XI", ImVec2(160, 40))) {
         t->autoSelectXI();
-        tacticsXiSel_ = tacticsSubSel_ = -1;
+        tacticsXiSel_ = tacticsSubSel_ = tacticsPlayerSel_ = -1;
+    }
+    if (inMatch) ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (inMatch) ImGui::BeginDisabled();
+    if (ImGui::Button("Reset Instructions", ImVec2(160, 40))) {
+        // Clear all player-specific instructions
+        for (auto& pt : t->tactics.playerSettings) {
+            pt.forwardRun = ForwardRun::None;
+        }
     }
     if (inMatch) ImGui::EndDisabled();
     ImGui::SameLine();
@@ -695,6 +1077,8 @@ void App::startMatch(Team* home, Team* away) {
     playAccum_ = 0.0;
     playing_ = true;
     matchOver_ = false;
+    halftimePause_ = false;
+    halftimeIdx_ = 0;
     matchHome_ = home->name;
     matchAway_ = away->name;
     matchHomeTeam_ = home;
@@ -711,10 +1095,27 @@ void App::startMatch(Team* home, Team* away) {
         f.key = e.key;
         f.minute = static_cast<int>(e.minute);  // already absolute 0-90
         f.pitch = ep->renderPitch();
-        f.ballCol = ep->ballCol();
-        f.ballRow = ep->ballRow();
+        f.ballX = ep->ballX();  // Continuous position
+        f.ballY = ep->ballY();  // Continuous position
+        f.ballCol = ep->ballCol();  // Grid for compatibility
+        f.ballRow = ep->ballRow();  // Grid for compatibility
         f.carrier = ep->carrierSide();
         f.stats = ep->stats();
+
+        // Capture player positions
+        auto playerSnaps = ep->getPlayerPositions();
+        for (const auto& ps : playerSnaps) {
+            Frame::PlayerPos pp;
+            pp.shirtNumber = ps.shirtNumber;
+            pp.x = ps.x;  // Continuous position
+            pp.y = ps.y;  // Continuous position
+            pp.col = ps.col;  // Grid for compatibility
+            pp.row = ps.row;  // Grid for compatibility
+            pp.side = ps.side;
+            pp.isCarrier = ps.isCarrier;
+            f.players.push_back(pp);
+        }
+
         frames_.push_back(std::move(f));
     };
     MatchResult r = engine.simulate(*home, *away, false, hook);
@@ -744,6 +1145,15 @@ void App::startMatch(Team* home, Team* away) {
         f.hg = hg;
         f.ag = ag;
     }
+
+    // Find halftime (around minute 45)
+    for (size_t i = 0; i < frames_.size(); ++i) {
+        if (frames_[i].minute >= 45) {
+            halftimeIdx_ = i;
+            break;
+        }
+    }
+
     screen_ = Screen::Match;
 }
 
@@ -754,15 +1164,34 @@ void App::renderMatch() {
         while (playAccum_ >= 1.0 && playIdx_ < frames_.size()) {
             playAccum_ -= 1.0;
             ++playIdx_;
+            // Auto-pause at halftime (only once when reaching the halftime index)
+            if (!halftimePause_ && playIdx_ == halftimeIdx_ && halftimeIdx_ > 0) {
+                halftimePause_ = true;
+                playing_ = false;
+                break;
+            }
         }
     }
     if (playIdx_ >= frames_.size()) matchOver_ = true;
 
-    // Space bar toggles play/pause, as noted on the mock-up's bottom bar.
-    if (ImGui::IsKeyPressed(ImGuiKey_Space)) playing_ = !playing_;
+    // Space bar toggles play/pause, or starts 2nd half at halftime
+    if (ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        if (halftimePause_) {
+            playing_ = true;
+            halftimePause_ = false;
+        } else {
+            playing_ = !playing_;
+        }
+    }
 
     size_t cur = playIdx_ == 0 ? 0 : playIdx_ - 1;
     const Frame* f = frames_.empty() ? nullptr : &frames_[std::min(cur, frames_.size() - 1)];
+
+    // Get next frame for interpolation
+    size_t next = std::min(playIdx_, frames_.size() - 1);
+    const Frame* nextF = (next > cur && next < frames_.size()) ? &frames_[next] : nullptr;
+    float interpT = static_cast<float>(playAccum_);  // 0.0-1.0 between frames
+
     int hg = f ? f->hg : 0, ag = f ? f->ag : 0;
     int minute = f ? f->minute : 0;
 
@@ -815,23 +1244,22 @@ void App::renderMatch() {
     ImGui::Columns(1);
     ImGui::Separator();
 
-    // ---- Main row: [squad + tactics] | [pitch + stats] | [squad + tactics] ----
-    const float sideW = 240.0f;
+    // ---- New Layout: [Team 1 - Full Height] | [Pitch + Commentary] | [Team 2 - Full Height] ----
+    const float sideW = 220.0f;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
     const float bottomH = 54.0f;
-    const float feedH = 150.0f;
-    const float cornerH = 38.0f;
-    const float spacing = ImGui::GetStyle().ItemSpacing.y;
-    float rowH = ImGui::GetContentRegionAvail().y - bottomH - feedH - 16;
-    if (rowH < 240) rowH = 240;
-    float centreW = fullW - 2 * (sideW + ImGui::GetStyle().ItemSpacing.x);
-    float squadH = rowH - cornerH - spacing;
+    const float feedH = 180.0f;  // Commentary height
+    const float tacticsH = 38.0f;
 
-    // Home side: squad list with a "Go to Tactics" button beneath it.
+    float totalAvailH = ImGui::GetContentRegionAvail().y - bottomH - 10;
+    float pitchAreaW = fullW - 2 * (sideW + spacing);
+
+    // ---- Left: Team 1 lineup (full height) ----
     ImGui::BeginGroup();
-    squadPanel("home_sq", matchHome_.c_str(), matchHomeTeam_, ImVec2(sideW, squadH));
+    squadPanel("home_sq", matchHome_.c_str(), matchHomeTeam_, ImVec2(sideW, totalAvailH - tacticsH - spacing));
     bool homeTac = !matchOver_ && matchHomeTeam_;
     if (!homeTac) ImGui::BeginDisabled();
-    if (tintButton("Go to Tactics##h", IM_COL32(150, 120, 60, 255), ImVec2(sideW, cornerH))) {
+    if (tintButton("Go to Tactics##h", IM_COL32(150, 120, 60, 255), ImVec2(sideW, tacticsH))) {
         playing_ = false;
         openTactics(matchHomeTeam_, Screen::Match);
     }
@@ -839,73 +1267,41 @@ void App::renderMatch() {
     ImGui::EndGroup();
     ImGui::SameLine();
 
-    // Centre: graphical pitch above the Game Stats panel.
+    // ---- Center: Pitch + Commentary below it ----
     ImGui::BeginGroup();
-    const float statsH = 188.0f;
-    float pitchH = rowH - statsH - spacing;
+
+    // Calculate pitch size
+    float pitchAvailH = totalAvailH - feedH - spacing;
+    const float pitchRatio = 105.0f / 68.0f;
+    float pitchMaxW = pitchAreaW;
+    float pitchMaxH = pitchAvailH;
+    float pitchW, pitchH;
+
+    // Calculate size maintaining aspect ratio
+    if (pitchMaxW / pitchMaxH > pitchRatio) {
+        // Limited by height
+        pitchH = pitchMaxH;
+        pitchW = pitchH * pitchRatio;
+    } else {
+        // Limited by width
+        pitchW = pitchMaxW;
+        pitchH = pitchW / pitchRatio;
+    }
+
+    // Center the pitch horizontally if needed
+    float pitchOffsetX = (pitchAreaW - pitchW) * 0.5f;
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + pitchOffsetX);
+
     ImVec2 pitchPos = ImGui::GetCursorScreenPos();
-    drawPitch(pitchPos, ImVec2(centreW, pitchH), f);
-    ImGui::Dummy(ImVec2(centreW, pitchH));
+    drawPitch(pitchPos, ImVec2(pitchW, pitchH), f, nextF, interpT);
+    ImGui::Dummy(ImVec2(pitchW, pitchH));
 
-    ImGui::BeginChild("stats", ImVec2(centreW, statsH), true);
-    panelHeader("Game Stats");
-    if (ImGui::BeginTable("st", 3, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("Home", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("Stat", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("Away", ImGuiTableColumnFlags_WidthStretch);
-        auto centered = [](const char* s, bool dim) {
-            float w = ImGui::GetContentRegionAvail().x, tw = ImGui::CalcTextSize(s).x;
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (w - tw) * 0.5f);
-            if (dim) ImGui::TextDisabled("%s", s); else ImGui::TextUnformatted(s);
-        };
-        auto row = [&](const char* name, const char* h, const char* a) {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0); centered(h, false);
-            ImGui::TableSetColumnIndex(1); centered(name, true);
-            ImGui::TableSetColumnIndex(2); centered(a, false);
-        };
-        MatchStats s = f ? f->stats : MatchStats{};
-        long totPoss = s.possTicks[0] + s.possTicks[1];
-        int poss0 = totPoss ? static_cast<int>(std::lround(100.0 * s.possTicks[0] / totPoss)) : 50;
-        int pp0 = s.passAtt[0] ? static_cast<int>(std::lround(100.0 * s.passOk[0] / s.passAtt[0])) : 0;
-        int pp1 = s.passAtt[1] ? static_cast<int>(std::lround(100.0 * s.passOk[1] / s.passAtt[1])) : 0;
-        char hb[16], ab[16];
-        auto two = [&](int h, int a, const char* name) {
-            std::snprintf(hb, sizeof(hb), "%d", h);
-            std::snprintf(ab, sizeof(ab), "%d", a);
-            row(name, hb, ab);
-        };
-        auto pct = [&](int h, int a, const char* name) {
-            std::snprintf(hb, sizeof(hb), "%d%%", h);
-            std::snprintf(ab, sizeof(ab), "%d%%", a);
-            row(name, hb, ab);
-        };
-        two(s.shots[0], s.shots[1], "Attempts");
-        two(s.onTarget[0], s.onTarget[1], "On goal");
-        two(s.passOk[0], s.passOk[1], "Passing");
-        pct(pp0, pp1, "Passing %");
-        pct(poss0, 100 - poss0, "Possession");
-        two(s.fouls[0], s.fouls[1], "Fouls");
-        ImGui::EndTable();
-    }
-    ImGui::EndChild();
-    ImGui::EndGroup();
-    ImGui::SameLine();
+    // Reset cursor X for commentary but keep it centered with pitch
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() - pitchOffsetX + pitchOffsetX);
 
-    // Away side: squad list with a "Go to Tactics" button beneath it.
-    ImGui::BeginGroup();
-    squadPanel("away_sq", matchAway_.c_str(), matchAwayTeam_, ImVec2(sideW, squadH));
-    bool awayTac = !matchOver_ && matchAwayTeam_;
-    if (!awayTac) ImGui::BeginDisabled();
-    if (tintButton("Go to Tactics##a", IM_COL32(150, 120, 60, 255), ImVec2(sideW, cornerH))) {
-        playing_ = false;
-        openTactics(matchAwayTeam_, Screen::Match);
-    }
-    if (!awayTac) ImGui::EndDisabled();
-    ImGui::EndGroup();
-
-    // ---- Match events feed ----
-    ImGui::BeginChild("feed", ImVec2(fullW, feedH), true);
+    // Match events feed (commentary) below pitch - match pitch width
+    ImGui::BeginChild("feed", ImVec2(pitchW, feedH), true);
     panelHeader("Match Events");
     size_t shown = playIdx_;
     size_t startI = shown > 40 ? shown - 40 : 0;
@@ -919,6 +1315,21 @@ void App::renderMatch() {
     if (playing_) ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
 
+    ImGui::EndGroup();
+    ImGui::SameLine();
+
+    // ---- Right: Team 2 lineup (full height) ----
+    ImGui::BeginGroup();
+    squadPanel("away_sq", matchAway_.c_str(), matchAwayTeam_, ImVec2(sideW, totalAvailH - tacticsH - spacing));
+    bool awayTac = !matchOver_ && matchAwayTeam_;
+    if (!awayTac) ImGui::BeginDisabled();
+    if (tintButton("Go to Tactics##a", IM_COL32(150, 120, 60, 255), ImVec2(sideW, tacticsH))) {
+        playing_ = false;
+        openTactics(matchAwayTeam_, Screen::Match);
+    }
+    if (!awayTac) ImGui::EndDisabled();
+    ImGui::EndGroup();
+
     // ---- Bottom control bar ----
     if (matchOver_) {
         if (tintButton("Back to Menu", IM_COL32(40, 92, 178, 255), ImVec2(220, bottomH - 10)))
@@ -928,7 +1339,28 @@ void App::renderMatch() {
             playIdx_ = 0;
             playing_ = true;
             matchOver_ = false;
+            halftimePause_ = false;
         }
+    } else if (halftimePause_) {
+        // Halftime - show "Start 2nd Half" button
+        ImGui::SetWindowFontScale(1.2f);
+        ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.3f, 1.0f), "HALF-TIME");
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::SameLine(0, 20);
+        if (tintButton("Start 2nd Half  (space)", IM_COL32(86, 150, 38, 255),
+                       ImVec2(fullW - 360, bottomH - 10))) {
+            playing_ = true;
+            halftimePause_ = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Skip to End", ImVec2(140, bottomH - 10))) {
+            playIdx_ = frames_.size();
+            matchOver_ = true;
+            halftimePause_ = false;
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(200);
+        ImGui::SliderFloat("Speed", &speed_, 2.0f, 40.0f, "%.0f ev/s");
     } else {
         char bar[64];
         std::snprintf(bar, sizeof(bar), "%s  (space)", playing_ ? "Pause Match" : "Continue");
@@ -951,7 +1383,7 @@ void App::renderMatch() {
 // Draws the live pitch as a graphical, mowed-grass field split into the three
 // thirds from the mock-up (defence / midfield / attack), with the active third
 // tinted in the possession side's colour and the ball drawn at its grid cell.
-void App::drawPitch(ImVec2 p0, ImVec2 size, const Frame* f) {
+void App::drawPitch(ImVec2 p0, ImVec2 size, const Frame* f, const Frame* nextF, float t) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p1(p0.x + size.x, p0.y + size.y);
 
@@ -1000,9 +1432,74 @@ void App::drawPitch(ImVec2 p0, ImVec2 size, const Frame* f) {
                       IM_COL32(240, 240, 240, 220));
 
     if (!f) return;
-    // Ball at its grid cell (col 1..13 across length, row 1..9 across width).
-    float bx = a.x + (b.x - a.x) * (f->ballCol - 0.5f) / 13.0f;
-    float by = a.y + (b.y - a.y) * (f->ballRow - 0.5f) / 9.0f;
+
+    // Draw players at their continuous positions with smooth interpolation.
+    for (size_t i = 0; i < f->players.size(); ++i) {
+        const auto& p = f->players[i];
+
+        // Use continuous positions for smoother rendering
+        float x = p.x;  // Already in meters (0-105)
+        float y = p.y;  // Already in meters (0-68)
+        bool isCarrier = p.isCarrier;
+
+        if (nextF && i < nextF->players.size()) {
+            // Try to find the same player in next frame
+            const Frame::PlayerPos* nextP = nullptr;
+            for (const auto& np : nextF->players) {
+                if (np.shirtNumber == p.shirtNumber && np.side == p.side) {
+                    nextP = &np;
+                    break;
+                }
+            }
+
+            if (nextP) {
+                // Interpolate continuous position
+                x = p.x + (nextP->x - p.x) * t;
+                y = p.y + (nextP->y - p.y) * t;
+                // Use next frame's carrier status if we're past halfway
+                if (t > 0.5f) isCarrier = nextP->isCarrier;
+            }
+        }
+
+        // Map continuous meters to screen pixels
+        float px = a.x + (b.x - a.x) * (x / 105.0f);
+        float py = a.y + (b.y - a.y) * (y / 68.0f);
+
+        // Player circle color: home = red, away = blue
+        ImU32 playerCol = (p.side == 0)
+            ? IM_COL32(220, 50, 50, 255)     // home red
+            : IM_COL32(50, 100, 220, 255);   // away blue
+
+        // Highlight ball carrier with a bright ring
+        if (isCarrier) {
+            dl->AddCircleFilled(ImVec2(px, py), 12.0f, IM_COL32(255, 255, 100, 255));
+        }
+
+        // Draw player circle
+        dl->AddCircleFilled(ImVec2(px, py), 10.0f, playerCol);
+        dl->AddCircle(ImVec2(px, py), 10.0f, IM_COL32(255, 255, 255, 255), 16, 2.0f);
+
+        // Draw shirt number in white
+        char numStr[4];
+        std::snprintf(numStr, sizeof(numStr), "%d", p.shirtNumber);
+        ImVec2 textSize = ImGui::CalcTextSize(numStr);
+        dl->AddText(ImVec2(px - textSize.x * 0.5f, py - textSize.y * 0.5f),
+                    IM_COL32(255, 255, 255, 255), numStr);
+    }
+
+    // Ball at its continuous position with smooth interpolation.
+    float ballX = f->ballX;  // Already in meters (0-105)
+    float ballY = f->ballY;  // Already in meters (0-68)
+
+    if (nextF) {
+        // Interpolate continuous ball position
+        ballX = f->ballX + (nextF->ballX - f->ballX) * t;
+        ballY = f->ballY + (nextF->ballY - f->ballY) * t;
+    }
+
+    // Map continuous meters to screen pixels
+    float bx = a.x + (b.x - a.x) * (ballX / 105.0f);
+    float by = a.y + (b.y - a.y) * (ballY / 68.0f);
     ImU32 ring = (f->carrier == 0) ? IM_COL32(120, 180, 255, 255) : IM_COL32(255, 180, 110, 255);
     dl->AddCircleFilled(ImVec2(bx, by), 9.0f, ring);
     dl->AddCircleFilled(ImVec2(bx, by), 6.0f, IM_COL32(255, 255, 255, 255));

@@ -36,12 +36,24 @@
     <ClCompile Include="src\platform\main_win32.cpp">
       <Filter>Source Files\platform</Filter>
     </ClCompile>
-    <ClCompile Include="..\third_party\imgui\imgui.cpp"><Filter>ImGui</Filter></ClCompile>
-    <ClCompile Include="..\third_party\imgui\imgui_draw.cpp"><Filter>ImGui</Filter></ClCompile>
-    <ClCompile Include="..\third_party\imgui\imgui_tables.cpp"><Filter>ImGui</Filter></ClCompile>
-    <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp"><Filter>ImGui</Filter></ClCompile>
-    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_win32.cpp"><Filter>ImGui</Filter></ClCompile>
-    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_dx11.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_draw.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_tables.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_dx11.cpp">
+      <Filter>ImGui</Filter>
+    </ClCompile>
     <ClCompile Include="src\core\Team.cpp">
       <Filter>Source Files\core</Filter>
     </ClCompile>
@@ -56,22 +68,50 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\core\Attributes.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\core\Pitch.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\core\Player.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\core\Team.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\core\Formation.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\data\Csv.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\data\Database.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\engine\Rng.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\engine\Config.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\engine\MatchEngine.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\ui\Console.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\ui\Game.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\ui\App.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\Attributes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Pitch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Player.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Team.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Formation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\Csv.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\Database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\Rng.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\Config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\MatchEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Console.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Game.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\TacticalSettings.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\TeamsDB.csv"><Filter>Data Files</Filter></None>
-    <None Include="data\PlayersDB.csv"><Filter>Data Files</Filter></None>
+    <None Include="data\TeamsDB.csv">
+      <Filter>Data Files</Filter>
+    </None>
+    <None Include="data\PlayersDB.csv">
+      <Filter>Data Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

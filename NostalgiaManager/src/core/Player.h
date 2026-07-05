@@ -124,9 +124,12 @@ struct Player {
     }
 
     // Live match state (reset each match).
-    Cell pos = CentreSpot();
-    Cell homePos = CentreSpot();  // formation anchor for this match
+    Position2D position = Position2D();  // Continuous position in meters
+    Position2D homePosition = Position2D();  // Formation anchor (continuous)
+    Cell pos = CentreSpot();  // Grid cell (for action logic)
+    Cell homePos = CentreSpot();  // Formation anchor (grid)
     bool hasBall = false;
+    int dispossessionCooldown = 0;  // rounds before player can challenge after losing ball
 
     double norm(const std::string& stat) const { return attr.norm(stat); }
 

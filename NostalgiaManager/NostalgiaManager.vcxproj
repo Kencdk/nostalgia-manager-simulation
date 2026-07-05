@@ -89,6 +89,7 @@
     <ClInclude Include="src\core\Attributes.h" />
     <ClInclude Include="src\core\Pitch.h" />
     <ClInclude Include="src\core\Player.h" />
+    <ClInclude Include="src\core\TacticalSettings.h" />
     <ClInclude Include="src\core\Team.h" />
     <ClInclude Include="src\core\Formation.h" />
     <ClInclude Include="src\data\Csv.h" />

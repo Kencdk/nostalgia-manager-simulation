@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "Player.h"
+#include "TacticalSettings.h"
 
 namespace nm {
 
@@ -21,10 +22,14 @@ struct Team {
     std::string name;
     std::string league;
     std::string formation = "4-4-2";
+    std::string preferredFormation = "4-4-2";  // Club's default formation (from database)
     Mentality mentality = Mentality::Standard;
+
+    TeamTactics tactics;
 
     std::vector<Player> squad;
     std::vector<int> startingXI;  // player ids
+    std::vector<Position> assignedPositions;  // formation positions for startingXI (parallel array)
     std::vector<int> subsUsed;    // player ids brought on
 
     Player* findPlayer(int playerId) {
@@ -36,6 +41,12 @@ struct Team {
     // Best 11 by aggregate ability, always including a goalkeeper, used when no
     // explicit XI is configured.
     void autoSelectXI();
+
+    // Update assigned positions to match current formation (without changing players)
+    void updateFormationPositions();
+
+    // Update player roles to match their assigned tactical positions
+    void updatePlayerRoles();
 
     double averageAbility() const;
 };

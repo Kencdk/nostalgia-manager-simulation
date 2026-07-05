@@ -186,7 +186,10 @@ bool Database::loadTeams(const std::string& path) {
         t.league = asciiFold(h.get(r, {"league", "division", "div", "competition", "nation", "country"}));
         if (t.league.empty()) t.league = "League";
         std::string f = h.get(r, {"formation", "formationa", "formationb", "shape"});
-        if (!f.empty()) t.formation = f;
+        if (!f.empty()) {
+            t.formation = f;
+            t.preferredFormation = f;  // Store as club's preferred formation
+        }
         std::string m = h.get(r, {"mentality", "mentalitiy"});
         if (!m.empty()) t.mentality = mentalityFromString(m);
         teams.push_back(std::move(t));
@@ -380,10 +383,11 @@ bool Database::loadPlayers(const std::string& path) {
         int bestRoleRating = -1;
         for (const RoleRow& rr : roles)
             if (rr.rating > bestRoleRating) { bestRoleRating = rr.rating; bestRole = rr.role; }
+        // Prefer wings over centre when ratings are equal (winger should be winger, not centre)
         Side bestSide = Side::Centre;
         int bestSideRating = sC;
-        if (sR > bestSideRating) { bestSideRating = sR; bestSide = Side::Right; }
-        if (sL > bestSideRating) { bestSideRating = sL; bestSide = Side::Left; }
+        if (sR >= bestSideRating) { bestSideRating = sR; bestSide = Side::Right; }
+        if (sL >= bestSideRating) { bestSideRating = sL; bestSide = Side::Left; }
         p.primaryPos = sidedPos(bestRole, bestSide);
         p.role = RoleOf(p.primaryPos);
         if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);

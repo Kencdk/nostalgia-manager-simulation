@@ -1,7 +1,10 @@
 #include "MatchEngine.h"
+#include "MatchEngine.h"
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <map>
 #include <sstream>
 
 #include "../core/Formation.h"
@@ -36,6 +39,11 @@ void MatchEngine::setup(Team& home, Team& away) {
 
     if (home.startingXI.empty()) home.autoSelectXI();
     if (away.startingXI.empty()) away.autoSelectXI();
+
+    // Update player roles to match their assigned tactical positions
+    home.updatePlayerRoles();
+    away.updatePlayerRoles();
+
     PlaceStartingXI(home, 1);
     PlaceStartingXI(away, 2);
 
@@ -52,9 +60,12 @@ void MatchEngine::kickoff(int controllingSide) {
     for (int s = 0; s < 2; ++s)
         for (Player* p : sidePlayers_[s]) {
             p->pos = p->homePos;
+            p->position = p->homePosition;
             p->hasBall = false;
+            p->dispossessionCooldown = 0;  // Clear any cooldowns
         }
     ball_ = CentreSpot();
+    ballPosition_ = cellToPosition(ball_);
     aerial_ = false;
     Player* nearest = nearestOpponent(ball_, controllingSide);  // nearest of controlling team
     if (nearest) giveBall(nearest, controllingSide);
@@ -107,9 +118,17 @@ void MatchEngine::runHalf(int half) {
     // 45 minutes, 6 action rounds per minute.
     for (int minute = 0; minute < 45; ++minute) {
         for (int round = 0; round < 6; ++round) {
-            clock_ = (half - 1) * 45.0 + minute + round / 6.0;
+            // First half: minutes 1-45, Second half: minutes 46-90
+            clock_ = (half - 1) * 45.0 + minute + 1.0 + round / 6.0;
             resolveBallAction();
             moveOffBallPlayers();
+
+            // Decrement dispossession cooldowns
+            for (int s = 0; s < 2; ++s)
+                for (Player* p : sidePlayers_[s])
+                    if (p->dispossessionCooldown > 0)
+                        --p->dispossessionCooldown;
+
             if (verbose_) logPlayerRound();
         }
     }
@@ -131,13 +150,63 @@ std::string MatchEngine::zoneName(int progress) const {
 
 std::vector<Action> MatchEngine::allowedActions(int progress) const {
     std::string z = zoneName(progress);
-    if (z == "Defensive")
-        return {Action::Passing, Action::Longpass, Action::Move, Action::Dribble};
-    if (z == "Midfield")
-        return {Action::Passing, Action::Longpass, Action::Move, Action::Dribble,
-                Action::Longshot};
-    return {Action::Passing, Action::Move, Action::Dribble, Action::Longshot,
-            Action::Finish};
+
+    // Get pressure level
+    int defenders = opponentsNear(ball_, 1 - carrierSide_, 1);
+    bool underPressure = defenders >= 1;
+    bool heavyPressure = defenders >= 2;
+
+    if (z == "Defensive") {
+        // Own third: prioritize safety
+        if (heavyPressure) {
+            // Under heavy pressure: clear or quick pass only
+            return {Action::Passing, Action::Longpass};
+        } else if (underPressure) {
+            // Under pressure: pass or try to move
+            return {Action::Passing, Action::Longpass, Action::Move};
+        } else {
+            // Space available: can build up
+            return {Action::Passing, Action::Longpass, Action::Move, Action::Dribble};
+        }
+    }
+
+    if (z == "Midfield") {
+        // Midfield: balanced options
+        if (heavyPressure) {
+            // Heavy pressure: pass or try to dribble out
+            return {Action::Passing, Action::Dribble};
+        } else {
+            // Standard midfield options
+            std::vector<Action> actions = {Action::Passing, Action::Longpass, Action::Move, Action::Dribble};
+            // Only allow long shots if in good position (central, not too deep)
+            if (progress >= 8 && std::abs(ball_.row - 4) <= 2) {
+                actions.push_back(Action::Longshot);
+            }
+            return actions;
+        }
+    }
+
+    // Attack zone
+    if (progress >= 12) {
+        // Very close to goal - shooting is priority
+        if (heavyPressure) {
+            return {Action::Passing, Action::Finish};  // Quick pass or shoot
+        } else {
+            return {Action::Passing, Action::Dribble, Action::Finish};
+        }
+    } else if (progress >= 10) {
+        // In box area - shooting and passing
+        std::vector<Action> actions = {Action::Passing, Action::Dribble};
+        // Allow shooting if in good position
+        if (std::abs(ball_.row - 4) <= 3) {  // Central or semi-central
+            actions.push_back(Action::Finish);
+            actions.push_back(Action::Longshot);
+        }
+        return actions;
+    } else {
+        // Attacking third but not in box
+        return {Action::Passing, Action::Move, Action::Dribble, Action::Longshot};
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -153,10 +222,32 @@ double MatchEngine::desire(const Player& p, Action a, const std::string& zone,
     }
     double zmod = cfg_.get("zonemod." + an + "." + zone, 1.0);
     score *= zmod;
+
     // Per-role appetite for each action (e.g. defenders rarely dribble).
     score *= cfg_.get("rolemod." + RoleName(p.role) + "." + an, 1.0);
+
+    // Context-specific bonuses
     if (a == Action::Dribble && opponentNearby)
         score += cfg_.get("bonus.Dribble.opponentNearby", 0.0);
+
+    // Shooting context: prefer finish over longshot when close and central
+    if (a == Action::Finish) {
+        int progress = zoneProgress(ball_, carrierSide_);
+        int centrality = std::abs(ball_.row - 4);  // 0=center, 4=edge
+        if (progress >= 12) score *= 1.5;  // Very close to goal
+        if (centrality == 0) score *= 1.3;  // Perfect central position
+        else if (centrality >= 3) score *= 0.7;  // Wide angle
+    } else if (a == Action::Longshot) {
+        int centrality = std::abs(ball_.row - 4);
+        if (centrality <= 1) score *= 1.2;  // Prefer from central positions
+        else if (centrality >= 3) score *= 0.5;  // Discourage from wide
+
+        // Players with high long shots rating are more willing
+        double longShotSkill = p.norm("Longshots");
+        if (longShotSkill > 0.7) score *= 1.3;
+        else if (longShotSkill < 0.4) score *= 0.6;
+    }
+
     // Tunable per-action multiplier (balancing knob, spec section 12).
     score *= cfg_.get("desire.scale." + an, 1.0);
     return score;
@@ -194,6 +285,9 @@ double MatchEngine::pressure(const Cell& at, int defendingSide, int& defenderCou
     double bestVal = 0.0;
     *best = nullptr;
     for (Player* d : sidePlayers_[defendingSide]) {
+        // Skip players on dispossession cooldown
+        if (d->dispossessionCooldown > 0) continue;
+
         if (CellDistance(d->pos, at) <= 1) {
             ++defenderCount;
             double v = 0.0;
@@ -263,14 +357,41 @@ void MatchEngine::resolveBallAction() {
     bool crowded = challenge >= 2;
     bool opponentNearby = opponentsNear(ball_, defendingSide, 2) > 0;  // for dribble
 
+    // Goalkeeper-specific restrictions
+    bool isGoalkeeper = (p.role == Role::GK);
+
     // Allowed actions (context rules: dribble needs an opponent; header only on
     // an aerial ball in the attacking zone).
     std::vector<Action> actions;
-    for (Action a : allowedActions(progress)) {
-        if (a == Action::Dribble && !opponentNearby) continue;
-        actions.push_back(a);
+
+    if (isGoalkeeper) {
+        // Goalkeepers should never dribble or move with ball if opponents nearby
+        // They should only pass or clear (long pass)
+        if (opponentNearby || pressured) {
+            // Under any pressure: only passing allowed
+            actions.push_back(Action::Passing);
+            actions.push_back(Action::Longpass);
+        } else {
+            // No pressure: can move within box, but prefer passing
+            for (Action a : allowedActions(progress)) {
+                // Skip dribble entirely for GK
+                if (a == Action::Dribble) continue;
+                // Allow move only if no opponents within 3 cells
+                if (a == Action::Move) {
+                    if (opponentsNear(ball_, defendingSide, 3) > 0) continue;
+                }
+                actions.push_back(a);
+            }
+        }
+    } else {
+        // Normal player action selection
+        for (Action a : allowedActions(progress)) {
+            if (a == Action::Dribble && !opponentNearby) continue;
+            actions.push_back(a);
+        }
+        if (aerial_ && zone == "Attack") actions.push_back(Action::Header);
     }
-    if (aerial_ && zone == "Attack") actions.push_back(Action::Header);
+
     if (actions.empty()) actions.push_back(Action::Passing);
 
     // Phase A: weighted-random selection on desire (section 6).
@@ -319,10 +440,33 @@ void MatchEngine::resolveBallAction() {
                 Player* target = choosePassTarget(isLong);
                 if (!target && isLong) target = choosePassTarget(false);
                 if (!target) {  // no outlet: clear the ball upfield
-                    ball_.col = clampCol(ball_.col + dir_[side] * 3);
+                    // Clear distance varies based on pressure and player ability
+                    double passingSkill = p.norm("Passing");
+                    double visionSkill = p.norm("Vision");
+
+                    // Base clear: 2-4 grid cells depending on skill
+                    float baseClear = 2.0f + (passingSkill + visionSkill);  // 2-4 cells
+
+                    // Under pressure: desperate clear is longer but less controlled
+                    if (pressured) {
+                        baseClear += rng_.real(1.0f, 2.0f);  // +1-2 cells
+                    }
+
+                    float clearDist = baseClear * (kPitchLength / kCols);
+                    ballPosition_.x += dir_[side] * clearDist;
+
+                    // Sideways variance (poor technique = less accurate)
+                    float lateralVariance = (1.0f - passingSkill * 0.7f) * (kPitchWidth / kRows);
+                    if (rng_.chance(0.6)) {
+                        ballPosition_.y += rng_.real(-lateralVariance, lateralVariance);
+                    }
+
+                    ballPosition_ = clampPosition(ballPosition_);
+                    ball_ = positionToCell(ballPosition_);
                     p.pos = ball_;
+                    p.position = ballPosition_;
                     aerial_ = true;
-                    logEvent(shirt(p) + " clears the ball upfield to " + CellName(ball_));
+                    logEvent(shirt(p) + (pressured ? " clears under pressure" : " launches it forward"));
                     break;
                 }
                 logEvent(shirt(p) + (isLong ? " plays a long ball to " : " passes to ") +
@@ -330,6 +474,17 @@ void MatchEngine::resolveBallAction() {
                 aerial_ = isLong;  // long balls arrive in the air
                 giveBall(target, side);
             } else {
+                // Failed pass: ball intercepted partway to target
+                Player* target = choosePassTarget(isLong);
+                if (target) {
+                    // Ball goes roughly halfway toward intended target
+                    Position2D targetPos = target->position;
+                    float interpFactor = rng_.real(0.3f, 0.6f);  // 30-60% of the way
+                    ballPosition_.x += (targetPos.x - ballPosition_.x) * interpFactor;
+                    ballPosition_.y += (targetPos.y - ballPosition_.y) * interpFactor;
+                    ballPosition_ = clampPosition(ballPosition_);
+                    ball_ = positionToCell(ballPosition_);
+                }
                 logEvent(shirt(p) + (isLong ? " over-hits a long ball" : " misplaces a pass") +
                          " - intercepted");
                 turnover("interception");
@@ -338,27 +493,88 @@ void MatchEngine::resolveBallAction() {
         }
         case Action::Move: {
             if (success) {
+                // Move ball forward in continuous space
                 int step = std::max(1, std::min(p.maxMovePerAction(), 2));
-                ball_.col = clampCol(ball_.col + dir_[side] * step);
-                if (rng_.chance(0.4)) ball_.row = clampRow(ball_.row + rng_.range(-1, 1));
+                float moveDist = step * (kPitchLength / kCols);  // Convert grid steps to meters
+
+                ballPosition_.x += dir_[side] * moveDist;
+
+                // Sideways drift based on technique (skilled players run straighter)
+                double technique = p.norm("Technique");
+                double driftChance = 0.3 * (1.0 - technique * 0.5);  // 15-30% based on skill
+                if (rng_.chance(driftChance)) {
+                    float maxDrift = (1.0f - technique * 0.3f) * (kPitchWidth / kRows);
+                    float sideDrift = rng_.real(-maxDrift, maxDrift);
+                    ballPosition_.y += sideDrift;
+                }
+
+                ballPosition_ = clampPosition(ballPosition_);
+
+                // Goalkeeper restriction: keep ball within penalty box
+                if (p.role == Role::GK) {
+                    // Box is approximately first/last 2 columns (16.5m box in 105m pitch)
+                    float boxLimit = (dir_[side] > 0) ? 
+                        (2.0f * kPitchLength / kCols) :  // ~16m for team attacking right
+                        kPitchLength - (2.0f * kPitchLength / kCols);  // ~89m for team attacking left
+
+                    if (dir_[side] > 0) {
+                        ballPosition_.x = std::min(ballPosition_.x, boxLimit);
+                    } else {
+                        ballPosition_.x = std::max(ballPosition_.x, boxLimit);
+                    }
+                }
+
+                ball_ = positionToCell(ballPosition_);
+
                 p.pos = ball_;
+                p.position = ballPosition_;
                 aerial_ = false;
-                logEvent(shirt(p) + " carries the ball forward to " + CellName(ball_));
+                logEvent(shirt(p) + " carries the ball forward");
             } else {
-                logEvent(shirt(p) + " is slowed down and loses the ball");
+                logEvent(shirt(p) + " is tackled by " +
+                         (bestDef ? shirt(*bestDef) : std::string("a defender")));
                 turnover("loss");
             }
             break;
         }
         case Action::Dribble: {
             if (success) {
+                // Dribble forward in continuous space
                 int step = std::max(1, std::min(p.maxMovePerAction(), 2));
-                ball_.col = clampCol(ball_.col + dir_[side] * step);
+                float dribbleDist = step * (kPitchLength / kCols);  // Convert grid steps to meters
+
+                ballPosition_.x += dir_[side] * dribbleDist;
+
+                // Skilled dribblers can beat the ball sideways slightly
+                double dribbling = p.norm("Dribbling");
+                if (dribbling > 0.7 && rng_.chance(0.3)) {
+                    float sideDrift = rng_.real(-0.5f, 0.5f) * (kPitchWidth / kRows);
+                    ballPosition_.y += sideDrift;
+                }
+
+                ballPosition_ = clampPosition(ballPosition_);
+                ball_ = positionToCell(ballPosition_);
+
                 p.pos = ball_;
+                p.position = ballPosition_;
                 aerial_ = false;
-                logEvent(shirt(p) + " dribbles past " +
-                         (bestDef ? shirt(*bestDef) : std::string("the defender")) +
-                         " into " + CellName(ball_));
+
+                // Apply dispossession cooldown to beaten defender(s)
+                if (bestDef) {
+                    bestDef->dispossessionCooldown = rng_.range(2, 3);
+                    logEvent(shirt(p) + " dribbles past " + shirt(*bestDef));
+                } else {
+                    logEvent(shirt(p) + " dribbles forward");
+                }
+
+                // Exceptional dribblers can occasionally beat multiple defenders
+                if (dribbling > 0.8 && defCount > 1 && rng_.chance(0.25)) {
+                    for (Player* d : sidePlayers_[defendingSide]) {
+                        if (d != bestDef && CellDistance(d->pos, ball_) <= 1) {
+                            d->dispossessionCooldown = rng_.range(1, 2);
+                        }
+                    }
+                }
             } else {
                 // A beaten defender concedes a foul some of the time, more often
                 // the more aggressive they are (stat counter only - no free kick).
@@ -427,6 +643,8 @@ void MatchEngine::moveOffBallPlayers() {
         // expressed in this side's own frame so the shape slides the right way
         // (towards the opponent goal when attacking, back when defending).
         int progress = zoneProgress(ball_, s) - 7;  // -6..+6
+        int ballProgress = zoneProgress(ball_, s);  // 1..13 absolute progress
+
         // The two closest defenders also actively close down the ball.
         std::vector<std::pair<int, Player*>> byDist;
         if (!attacking)
@@ -438,37 +656,282 @@ void MatchEngine::moveOffBallPlayers() {
         for (Player* p : sidePlayers_[s]) {
             if (p == carrier_) continue;
             if (p->role == Role::GK) {
-                // Keeper stays on its line near its own goal.
+                // Keeper stays in the penalty box near its own goal.
+                // Box is approximately columns 1-2 (defending left) or 12-13 (defending right)
+                int boxLimit = (dir_[s] > 0) ? 2 : 12;  // Max col GK can reach
+
+                // Keep GK at home position, but adjust slightly based on ball position
                 p->pos.row = clampRow(p->homePos.row);
-                p->pos.col = clampCol(p->homePos.col);
+
+                // If ball is very close, GK can move slightly toward it within box
+                if (ballProgress >= 12 && CellDistance(ball_, p->homePos) <= 3) {
+                    // Move toward ball but stay in box
+                    int targetCol = (dir_[s] > 0) ? 
+                        std::min(boxLimit, ball_.col) : 
+                        std::max(boxLimit, ball_.col);
+                    p->pos.col = targetCol;
+                } else {
+                    p->pos.col = clampCol(p->homePos.col);
+                }
+
+                p->position = cellToPosition(p->pos);
                 continue;
             }
 
             // Team-shape target: anchor column slid by the ball advance, in the
             // team's attacking direction.
-            double slide = attacking ? 1.0 : 0.6;
-            int targetCol = clampCol(p->homePos.col + dir_[s] * static_cast<int>(progress * slide));
-            int targetRow = p->homePos.row;
+            // Possession-based movement: push forward when attacking, drop back when defending
+            int targetCol, targetRow = p->homePos.row;
 
-            // The nearest two defenders press the ball directly.
+            if (attacking) {
+                // ATTACKING: Push forward based on ball position
+                int pushForward = 0;
+                if (ballProgress >= 11) pushForward = 6;      // Ball very deep - aggressive
+                else if (ballProgress >= 9) pushForward = 4;  // Ball in opp half - good push
+                else if (ballProgress >= 7) pushForward = 2;  // Midfield - moderate
+                else pushForward = 1;                          // Own half - minimal
+
+                // Role adjustments
+                if (p->role == Role::F && ballProgress >= 9) pushForward++;
+                else if (p->role == Role::D) pushForward = std::min(pushForward, 3);
+
+                targetCol = clampCol(p->homePos.col + dir_[s] * pushForward);
+            } else {
+                // DEFENDING: Drop back based on ball position
+                int dropBack = 0;
+                if (ballProgress >= 11) dropBack = -5;      // Ball very close to goal - deep block
+                else if (ballProgress >= 9) dropBack = -3;  // Own third - solid drop
+                else if (ballProgress >= 7) dropBack = -2;  // Midfield - moderate drop
+                else dropBack = -1;                          // Opp half - stay compact
+
+                // Role adjustments
+                if (p->role == Role::F) dropBack = std::max(dropBack, -2);
+                else if (p->role == Role::M && ballProgress >= 10) dropBack--;
+
+                targetCol = clampCol(p->homePos.col + dir_[s] * dropBack);
+            }
+
+            // Determine player's lateral constraint based on their home position
+            // This keeps wide players wide and central players central
+            int minRow = p->homePos.row;
+            int maxRow = p->homePos.row;
+
+            // Calculate how far from center (row 4) this position is
+            int lateralDistance = std::abs(p->homePos.row - 4);
+
+            if (lateralDistance >= 3) {
+                // Very wide positions (ML, MR, WBL, WBR, FL, FR, etc.)
+                // Allow only 1 row of movement to maintain width
+                minRow = std::max(0, p->homePos.row - 1);
+                maxRow = std::min(8, p->homePos.row + 1);
+            } else if (lateralDistance >= 2) {
+                // Wide-ish positions (AML, AMR, DL, DR)
+                // Allow 2 rows of movement
+                minRow = std::max(0, p->homePos.row - 2);
+                maxRow = std::min(8, p->homePos.row + 2);
+            } else {
+                // Central positions (GK, DC, DM, MC, AMC, FC)
+                // Allow 3 rows of movement for more fluidity
+                minRow = std::max(0, p->homePos.row - 3);
+                maxRow = std::min(8, p->homePos.row + 3);
+            }
+
+
+            // The nearest two defenders press the ball directly (but only if close enough)
             bool presser = false;
             if (!attacking) {
-                for (int i = 0; i < 2 && i < static_cast<int>(byDist.size()); ++i)
-                    if (byDist[i].second == p) presser = true;
+                for (int i = 0; i < 2 && i < static_cast<int>(byDist.size()); ++i) {
+                    if (byDist[i].second == p && byDist[i].first <= 4) {  // Only press if within 4 cells
+                        presser = true;
+                        break;
+                    }
+                }
             }
             if (presser) {
-                targetCol = ball_.col;
-                targetRow = ball_.row;
+                // Move towards ball but don't commit fully - maintain some shape
+                targetCol = clampCol(targetCol + (ball_.col - targetCol) / 2);
+                int rowAdjust = (ball_.row - targetRow) / 2;
+                targetRow = clampRow(targetRow + rowAdjust);
             }
 
-            int maxStep = p->maxMovePerAction();
-            auto stepToward = [&](int delta) {
-                if (delta > maxStep) return maxStep;
-                if (delta < -maxStep) return -maxStep;
-                return delta;
-            };
-            p->pos.row = clampRow(p->pos.row + stepToward(targetRow - p->pos.row));
-            p->pos.col = clampCol(p->pos.col + stepToward(targetCol - p->pos.col));
+            // Intelligent attacking movement during build-up play
+            if (attacking && !presser) {
+                int playerProgress = zoneProgress(p->homePos, s);
+
+                // If ball is in defensive/midfield zone (progress < 10)
+                if (ballProgress < 10) {
+                    // Forwards and attacking mids ahead of the ball drop back to offer support
+                    if ((p->role == Role::F || p->role == Role::AM) && playerProgress > ballProgress) {
+                        // Drop back towards the ball, but stay ahead slightly
+                        int dropBackTarget = ballProgress + 1;  // Less aggressive drop
+                        targetCol = clampCol(p->homePos.col + dir_[s] * (dropBackTarget - 7));
+
+                        // Wide players MUST stay in their lane
+                        targetRow = p->homePos.row;
+                    }
+                    // Central midfielders also provide passing options
+                    else if (p->role == Role::M || p->role == Role::DM) {
+                        // Stay between ball and forwards to link play
+                        if (playerProgress < ballProgress - 1) {
+                            // Push up slightly if too far back
+                            targetCol = clampCol(targetCol + dir_[s] * 1);
+                        }
+                        // Wide mids stay wide, central mids stay central
+                        targetRow = p->homePos.row;
+                    }
+                }
+                // Ball is in attacking zone (progress >= 10) - make forward runs
+                else if (ballProgress >= 10) {
+                    // Forwards make runs towards goal
+                    if (p->role == Role::F) {
+                        // Sprint towards goal if behind the ball or level
+                        int runTarget = std::min(13, ballProgress + 1);  // Less aggressive
+                        targetCol = clampCol(p->homePos.col + dir_[s] * (runTarget - 7));
+
+                        // Maintain positional discipline - wide players stay wide
+                        if (lateralDistance >= 2) {
+                            targetRow = p->homePos.row;  // Strict width
+                        } else {
+                            // Central forwards can make limited diagonal runs
+                            if (CellDistance(p->pos, ball_) > 4 && rng_.chance(0.4)) {
+                                int rowDiff = p->pos.row - ball_.row;
+                                if (std::abs(rowDiff) > 2) {
+                                    targetRow = clampRow(p->pos.row + (rowDiff > 0 ? -1 : 1));
+                                }
+                            }
+                        }
+                    }
+                    // Attacking mids make supporting runs
+                    else if (p->role == Role::AM) {
+                        // Push up behind the forwards
+                        int supportTarget = std::min(11, ballProgress);  // Stay behind forwards
+                        targetCol = clampCol(p->homePos.col + dir_[s] * (supportTarget - 7));
+
+                        // Maintain width
+                        targetRow = p->homePos.row;
+                    }
+                }
+                // Transitional zone (midfield to attack)
+                else {
+                    // All players maintain their width - no drifting
+                    targetRow = p->homePos.row;
+                    // Slight push forward for wide players
+                    if (lateralDistance >= 2) {
+                        targetCol = clampCol(targetCol + dir_[s] * 1);
+                    }
+                }
+            }
+
+            // Intelligent roaming to find space when tightly marked (simplified)
+            if (attacking) {
+                int defendingSide = 1 - s;
+                Player* closestMarker = nullptr;
+                int closestDist = 100;
+
+                for (Player* d : sidePlayers_[defendingSide]) {
+                    int dist = CellDistance(p->pos, d->pos);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestMarker = d;
+                    }
+                }
+
+                // Only roam if directly marked (same cell)
+                if (closestMarker && closestDist == 0) {
+                    // Make a small movement to create separation
+                    // Wide players can only move forward/back
+                    if (lateralDistance >= 3) {
+                        targetCol = clampCol(targetCol + dir_[s] * 1);
+                    }
+                    // Central players can move slightly laterally
+                    else if (lateralDistance <= 1) {
+                        if (p->pos.row > minRow && p->pos.row < 4) {
+                            targetRow = clampRow(targetRow - 1);
+                        } else if (p->pos.row < maxRow && p->pos.row > 4) {
+                            targetRow = clampRow(targetRow + 1);
+                        }
+                    }
+                }
+            }
+
+            // Clamp target row to respect positional constraints
+            targetRow = std::max(minRow, std::min(maxRow, targetRow));
+
+            // Calculate target position in continuous space
+            Position2D targetPosition = cellToPosition(Cell{targetRow, targetCol});
+
+            // Smooth continuous movement towards target
+            float maxSpeed = p->maxMovePerAction() * (kPitchLength / kCols);  // Convert to meters
+            maxSpeed *= 0.5f;  // Scale for smoother movement per action round
+
+            float dx = targetPosition.x - p->position.x;
+            float dy = targetPosition.y - p->position.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+
+            if (distance > 0.1f) {  // Only move if not already at target
+                float moveDistance = std::min(maxSpeed, distance);
+                float ratio = moveDistance / distance;
+
+                p->position.x += dx * ratio;
+                p->position.y += dy * ratio;
+                p->position = clampPosition(p->position);
+            }
+
+            // Update grid position for action logic
+            p->pos = positionToCell(p->position);
+        }
+    }
+
+    // Collision resolution: ensure no two players occupy the same cell
+    resolveCollisions();
+}
+
+// ---------------------------------------------------------------------------
+// Collision resolution: ensure no two players are too close
+// ---------------------------------------------------------------------------
+void MatchEngine::resolveCollisions() {
+    constexpr float minDistance = 1.5f;  // Minimum distance between players (meters)
+
+    for (int s1 = 0; s1 < 2; ++s1) {
+        for (size_t i = 0; i < sidePlayers_[s1].size(); ++i) {
+            Player* p1 = sidePlayers_[s1][i];
+
+            // Check against all other players
+            for (int s2 = 0; s2 < 2; ++s2) {
+                size_t startJ = (s1 == s2) ? i + 1 : 0;
+                for (size_t j = startJ; j < sidePlayers_[s2].size(); ++j) {
+                    Player* p2 = sidePlayers_[s2][j];
+
+                    float dist = p1->position.distanceTo(p2->position);
+                    if (dist < minDistance && dist > 0.01f) {
+                        // Players too close - push them apart
+                        // Ball carrier doesn't move
+                        Player* toMove = p1->hasBall ? p2 : (p2->hasBall ? p1 : p1);
+                        Player* fixed = (toMove == p1) ? p2 : p1;
+
+                        // Calculate push direction
+                        float dx = toMove->position.x - fixed->position.x;
+                        float dy = toMove->position.y - fixed->position.y;
+
+                        // Normalize and push
+                        float pushDist = minDistance - dist;
+                        if (dist > 0.01f) {
+                            dx /= dist;
+                            dy /= dist;
+                        } else {
+                            // If exactly on top, push in random direction
+                            float angle = rng_.real(0.0, 6.28318f);
+                            dx = std::cos(angle);
+                            dy = std::sin(angle);
+                        }
+
+                        toMove->position.x += dx * pushDist;
+                        toMove->position.y += dy * pushDist;
+                        toMove->position = clampPosition(toMove->position);
+                        toMove->pos = positionToCell(toMove->position);
+                    }
+                }
+            }
         }
     }
 }
@@ -478,8 +941,11 @@ void MatchEngine::moveOffBallPlayers() {
 // ---------------------------------------------------------------------------
 int MatchEngine::opponentsNear(const Cell& at, int defendingSide, int radius) const {
     int n = 0;
-    for (Player* d : sidePlayers_[defendingSide])
+    for (Player* d : sidePlayers_[defendingSide]) {
+        // Skip players on dispossession cooldown
+        if (d->dispossessionCooldown > 0) continue;
         if (CellDistance(d->pos, at) <= radius) ++n;
+    }
     return n;
 }
 
@@ -498,27 +964,108 @@ Player* MatchEngine::nearestOpponent(const Cell& at, int defendingSide) const {
 
 Player* MatchEngine::choosePassTarget(bool longPass) {
     int side = carrierSide_;
+    int defendingSide = 1 - side;
     std::vector<Player*> options;
     std::vector<double> weights;
     double total = 0.0;
+
+    int ballProgress = zoneProgress(ball_, side);
+
     for (Player* t : sidePlayers_[side]) {
         if (t == carrier_) continue;
+
         int dist = CellDistance(t->pos, ball_);
+
+        // Distance filtering
         if (longPass) {
-            if (dist < 4) continue;
+            if (dist < 4 || dist > 10) continue;  // Long passes: 4-10 cells
         } else {
-            if (dist < 1 || dist > 6) continue;
+            if (dist < 1 || dist > 5) continue;   // Short passes: 1-5 cells (tighter)
         }
-        // Prefer teammates further forward and less crowded.
-        int forward = (zoneProgress(t->pos, side) - zoneProgress(ball_, side));
-        int markers = opponentsNear(t->pos, 1 - side, 1);
-        double w = 1.0 + std::max(0, forward) * 0.4 - markers * 0.3;
+
+        // Calculate various factors
+        int forward = (zoneProgress(t->pos, side) - ballProgress);
+        int markers = opponentsNear(t->pos, defendingSide, 1);
+        int lateralDiff = std::abs(t->pos.row - ball_.row);
+
+        // Check for defenders blocking the passing lane
+        int defendersInLane = 0;
+        for (Player* d : sidePlayers_[defendingSide]) {
+            if (d->dispossessionCooldown > 0) continue;
+
+            // Simple lane check: is defender between passer and receiver?
+            int minCol = std::min(ball_.col, t->pos.col);
+            int maxCol = std::max(ball_.col, t->pos.col);
+            int minRow = std::min(ball_.row, t->pos.row);
+            int maxRow = std::max(ball_.row, t->pos.row);
+
+            if (d->pos.col >= minCol && d->pos.col <= maxCol &&
+                d->pos.row >= minRow && d->pos.row <= maxRow) {
+                defendersInLane++;
+            }
+        }
+
+        // Base weight
+        double w = 1.0;
+
+        // Passing lane penalty (defenders blocking the path)
+        if (defendersInLane > 0) {
+            w *= std::pow(0.6, defendersInLane);  // Each blocker reduces by 40%
+        }
+
+        // Forward progress bonus (prefer progressive passes)
+        if (forward > 0) {
+            w += forward * 0.5;  // Reward forward movement
+        } else if (forward < -2) {
+            w *= 0.4;  // Penalize backward passes heavily (but allow safety)
+        }
+
+        // Pressure penalty (avoid marked targets)
+        if (markers > 0) {
+            w *= (1.0 - markers * 0.35);  // Each marker reduces appeal by 35%
+        }
+
+        // Positional preferences based on zone
+        if (ballProgress <= 5) {
+            // Defensive zone: prefer safe passes, avoid risky forward balls
+            if (forward > 3) w *= 0.6;  // Long forward passes are risky from own half
+            if (markers == 0) w *= 1.4;  // Strongly prefer unmarked players
+        } else if (ballProgress <= 8) {
+            // Midfield: balanced approach
+            if (lateralDiff > 3) w *= 1.2;  // Slight bonus for wide switches
+        } else {
+            // Attacking zone: prefer penetrating passes
+            if (forward > 0) w *= 1.5;  // Strong bonus for through-balls
+            if (t->role == Role::F || t->role == Role::AM) {
+                w *= 1.3;  // Prefer forwards and attacking mids in final third
+            }
+        }
+
+        // Distance penalty (prefer closer passes for control)
+        if (!longPass) {
+            if (dist <= 2) w *= 1.3;  // Bonus for very close, safe passes
+            else if (dist >= 4) w *= 0.8;  // Penalty for longer passes
+        }
+
+        // Wide player bonus in attacking situations
+        if (ballProgress >= 7) {
+            int lateralPos = std::abs(t->pos.row - 4);
+            if (lateralPos >= 3) {  // Wide player
+                w *= 1.2;  // Use width in attack
+            }
+        }
+
+        // Ensure minimum weight
         w = std::max(0.05, w);
+
         options.push_back(t);
         weights.push_back(w);
         total += w;
     }
+
     if (options.empty()) return nullptr;
+
+    // Weighted random selection
     double pick = rng_.real(0.0, total);
     double acc = 0.0;
     for (size_t i = 0; i < options.size(); ++i) {
@@ -540,6 +1087,7 @@ void MatchEngine::giveBall(Player* p, int side) {
     carrierSide_ = side;
     p->hasBall = true;
     ball_ = p->pos;
+    ballPosition_ = p->position;
 }
 
 void MatchEngine::turnover(const std::string& reason) {
@@ -551,13 +1099,17 @@ void MatchEngine::turnover(const std::string& reason) {
     aerial_ = false;
     if (winner) {
         winner->pos = ball_;
+        winner->position = ballPosition_;
         giveBall(winner, newSide);
         // The dispossessed player has lost momentum: nudge them back towards
         // their own goal so the new carrier isn't instantly re-challenged at
         // point-blank range (which would cause endless ping-pong).
         if (loser) {
             loser->pos.col = clampCol(loser->pos.col - dir_[oldSide] * 2);
+            loser->position = cellToPosition(loser->pos);
             loser->hasBall = false;
+            // Set cooldown: player cannot challenge for possession for 2-3 rounds
+            loser->dispossessionCooldown = rng_.range(2, 3);
         }
     }
 }
@@ -571,9 +1123,12 @@ void MatchEngine::goalKick(int side) {
     // Nudge it slightly towards the kicking team's own half so their player
     // collects it.
     mid.col = clampCol(7 - dir_[side] * 1);
+    ballPosition_ = cellToPosition(mid);
+    ball_ = mid;
     Player* receiver = nearestOpponent(mid, side);  // nearest of 'side'
     if (receiver) {
         receiver->pos = mid;
+        receiver->position = ballPosition_;
         giveBall(receiver, side);
     } else if (Player* gk = goalkeeper(side)) {
         giveBall(gk, side);
@@ -617,7 +1172,24 @@ std::string MatchEngine::renderPitch() const {
         for (int c = 1; c <= kCols; ++c) os << grid[r][c];
         os << "\n";
     }
-    os << "  Home: shirt number    Away: (number)    Ball carrier: *    Ball: o\n";
+    // --- Match Status Controls ---
+    os << "  [STATUS] Possession Time: ";
+    if (carrier_) {
+        os << "Active";
+    } else {
+        os << "N/A";
+    }
+    os << "\n  [STATUS] Current Action: ";
+    if (carrier_) {
+        os << "In progress"; 
+    } else {
+        os << "Waiting for action";
+    }
+    os << "\n  [STATUS] Goal Chance: ";
+    if (carrier_) os << "Calculating";
+    else os << "N/A";
+    // --- End Status Controls ---
+    os << "\n";
     return os.str();
 }
 

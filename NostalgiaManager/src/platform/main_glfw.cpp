@@ -69,8 +69,15 @@ int main(int argc, char** argv) {
     const char* glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);  // Start maximized
 
-    GLFWwindow* window = glfwCreateWindow(1280, 800,
+    // Get monitor size for better initial window size
+    GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+    int windowW = mode->width * 3 / 4;   // 75% of screen width
+    int windowH = mode->height * 3 / 4;  // 75% of screen height
+
+    GLFWwindow* window = glfwCreateWindow(windowW, windowH,
                                           "Nostalgia Manager Simulation", nullptr, nullptr);
     if (!window) {
         glfwTerminate();

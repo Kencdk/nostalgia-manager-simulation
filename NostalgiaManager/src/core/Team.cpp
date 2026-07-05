@@ -3,10 +3,91 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_set>
+#include <vector>
 
 namespace nm {
 
-namespace {
+// Returns the specific positions for a formation layout.
+// Each formation defines exactly which positions to fill.
+std::vector<Position> getFormationPositions(const std::string& formation) {
+    // Strip " Custom" suffix if present
+    std::string baseFormation = formation;
+    const std::string customSuffix = " Custom";
+    if (baseFormation.size() >= customSuffix.size() && 
+        baseFormation.substr(baseFormation.size() - customSuffix.size()) == customSuffix) {
+        baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
+    }
+
+    if (baseFormation == "4-4-2") {
+        return {Position::GK, 
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::MR, Position::MC, Position::MC, Position::ML,
+                Position::FC, Position::FC};
+    }
+    if (formation == "4-3-3") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::DM, Position::MC, Position::MC,
+                Position::FL, Position::FC, Position::FR};
+    }
+    if (formation == "4-4-1-1") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::MR, Position::MC, Position::MC, Position::ML,
+                Position::AMC, Position::FC};
+    }
+    if (formation == "3-5-2") {
+        return {Position::GK,
+                Position::DC, Position::DC, Position::DC,
+                Position::MR, Position::DM, Position::MC, Position::MC, Position::ML,
+                Position::FC, Position::FC};
+    }
+    if (formation == "4-5-1") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::MR, Position::DM, Position::MC, Position::MC, Position::ML,
+                Position::FC};
+    }
+    if (formation == "5-3-2") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DC, Position::DL,
+                Position::MC, Position::MC, Position::MC,
+                Position::FC, Position::FC};
+    }
+    if (formation == "3-4-3") {
+        return {Position::GK,
+                Position::DC, Position::DC, Position::DC,
+                Position::MR, Position::MC, Position::MC, Position::ML,
+                Position::FL, Position::FC, Position::FR};
+    }
+    if (formation == "4-2-3-1") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::DM, Position::DM,
+                Position::AMR, Position::AMC, Position::AML,
+                Position::FC};
+    }
+    if (formation == "5-4-1") {
+        return {Position::GK,
+                Position::WBR, Position::DC, Position::DC, Position::DC, Position::WBL,
+                Position::MR, Position::MC, Position::MC, Position::ML,
+                Position::FC};
+    }
+    if (formation == "4-1-4-1") {
+        return {Position::GK,
+                Position::DR, Position::DC, Position::DC, Position::DL,
+                Position::DM,
+                Position::MR, Position::MC, Position::MC, Position::ML,
+                Position::FC};
+    }
+
+    // Default fallback (4-4-2)
+    return {Position::GK,
+            Position::DR, Position::DC, Position::DC, Position::DL,
+            Position::MR, Position::MC, Position::MC, Position::ML,
+            Position::FC, Position::FC};
+}
+
 // "4-4-2" -> {defenders, midfielders, forwards}; the first number is the
 // defensive line, the last the forward line, everything between is midfield.
 void parseFormation(const std::string& f, int& nd, int& nm, int& nf) {
@@ -33,61 +114,94 @@ void parseFormation(const std::string& f, int& nd, int& nm, int& nf) {
     }
     if (nd + nm + nf != 10) nm = std::max(0, 10 - nd - nf);
 }
-}  // namespace
 
 void Team::autoSelectXI() {
     startingXI.clear();
+    assignedPositions.clear();
 
-    int nd, nm, nf;
-    parseFormation(formation, nd, nm, nf);
+    // Get the specific positions for this formation
+    std::vector<Position> formationPos = getFormationPositions(formation);
 
-    std::vector<const Player*> gks, defs, mids, fwds, outfield;
-    for (const auto& p : squad) {
-        if (p.role == Role::GK) {
-            gks.push_back(&p);
-            continue;
-        }
-        outfield.push_back(&p);
-        if (p.role == Role::D)
-            defs.push_back(&p);
-        else if (p.role == Role::F)
-            fwds.push_back(&p);
-        else
-            mids.push_back(&p);  // DM / M / AM
-    }
-
+    // Group players by their best-fit for each position
     auto byAbility = [](const Player* a, const Player* b) {
         return PlayerAbility(*a) > PlayerAbility(*b);
     };
-    std::sort(gks.begin(), gks.end(), byAbility);
-    std::sort(defs.begin(), defs.end(), byAbility);
-    std::sort(mids.begin(), mids.end(), byAbility);
-    std::sort(fwds.begin(), fwds.end(), byAbility);
-    std::sort(outfield.begin(), outfield.end(), byAbility);
 
     std::unordered_set<int> chosen;
-    auto take = [&](const std::vector<const Player*>& pool, int count) {
-        for (const Player* p : pool) {
-            if (count <= 0) break;
-            if (chosen.insert(p->id).second) {
-                startingXI.push_back(p->id);
-                --count;
+
+    // For each position in the formation, find the best available player
+    for (Position pos : formationPos) {
+        const Player* best = nullptr;
+        double bestScore = -1.0;
+
+        for (const auto& p : squad) {
+            // Skip already chosen players
+            if (chosen.count(p.id)) continue;
+
+            // Calculate suitability score for this position
+            double score = PlayerAbility(p);
+
+            // Bonus if it's their primary position
+            if (p.primaryPos == pos) {
+                score *= 1.3;
+            }
+            // Bonus if they can play this position
+            else if (p.canPlay(pos)) {
+                score *= 1.1;
+            }
+            // Penalty if wrong role (but still allow as fallback)
+            else if (RoleOf(p.primaryPos) != RoleOf(pos)) {
+                score *= 0.5;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = &p;
             }
         }
-    };
 
-    if (!gks.empty()) {
-        startingXI.push_back(gks.front()->id);
-        chosen.insert(gks.front()->id);
+        if (best) {
+            startingXI.push_back(best->id);
+            assignedPositions.push_back(pos);
+            chosen.insert(best->id);
+        }
     }
-    take(defs, nd);
-    take(mids, nm);
-    take(fwds, nf);
 
-    // Fill any leftover slots (squad imbalance) with the best available outfield.
-    for (const Player* p : outfield) {
-        if (static_cast<int>(startingXI.size()) >= 11) break;
-        if (chosen.insert(p->id).second) startingXI.push_back(p->id);
+    // Fill any missing slots with best available (shouldn't happen with valid formations)
+    while (startingXI.size() < 11) {
+        const Player* best = nullptr;
+        double bestScore = -1.0;
+        for (const auto& p : squad) {
+            if (!chosen.count(p.id)) {
+                double score = PlayerAbility(p);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = &p;
+                }
+            }
+        }
+        if (!best) break;
+
+        startingXI.push_back(best->id);
+        assignedPositions.push_back(best->primaryPos);
+        chosen.insert(best->id);
+    }
+}
+
+void Team::updateFormationPositions() {
+    std::vector<Position> newPositions = getFormationPositions(formation);
+    if (newPositions.size() == assignedPositions.size()) {
+        assignedPositions = newPositions;
+    }
+}
+
+void Team::updatePlayerRoles() {
+    // Update each starting XI player's role to match their assigned tactical position
+    for (size_t i = 0; i < startingXI.size() && i < assignedPositions.size(); ++i) {
+        Player* p = findPlayer(startingXI[i]);
+        if (p) {
+            p->role = RoleOf(assignedPositions[i]);
+        }
     }
 }
 

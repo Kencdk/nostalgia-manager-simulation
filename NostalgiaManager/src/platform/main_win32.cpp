@@ -165,16 +165,23 @@ int main(int, char**) {
                      GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr,
                      _T("NostalgiaManager"), nullptr};
     ::RegisterClassEx(&wc);
+
+    // Get screen dimensions for better initial sizing
+    int screenW = ::GetSystemMetrics(SM_CXSCREEN);
+    int screenH = ::GetSystemMetrics(SM_CYSCREEN);
+
     HWND hwnd = ::CreateWindow(wc.lpszClassName, _T("Nostalgia Manager Simulation"),
-                               WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, nullptr,
-                               nullptr, wc.hInstance, nullptr);
+                               WS_OVERLAPPEDWINDOW, 
+                               CW_USEDEFAULT, CW_USEDEFAULT, 
+                               screenW * 3 / 4, screenH * 3 / 4,  // Start at 75% of screen size
+                               nullptr, nullptr, wc.hInstance, nullptr);
 
     if (!CreateDeviceD3D(hwnd)) {
         CleanupDeviceD3D();
         ::UnregisterClass(wc.lpszClassName, wc.hInstance);
         return 1;
     }
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::ShowWindow(hwnd, SW_SHOWMAXIMIZED);  // Start maximized
     ::UpdateWindow(hwnd);
 
     IMGUI_CHECKVERSION();

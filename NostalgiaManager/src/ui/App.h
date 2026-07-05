@@ -46,9 +46,22 @@ private:
         int minute = 0;
         std::string pitch;
         int hg = 0, ag = 0;
-        int ballCol = 7, ballRow = 5;  // 1..13 (length), 1..9 (width)
+        float ballX = 52.5f, ballY = 34.0f;  // Continuous ball position (0-105m, 0-68m)
+        int ballCol = 7, ballRow = 5;  // Grid position for compatibility (1..13, 0..8)
         int carrier = 0;               // 0 home, 1 away
         MatchStats stats;              // cumulative stats at this frame
+
+        // Player positions for graphical rendering
+        struct PlayerPos {
+            int shirtNumber = 0;
+            float x = 52.5f;  // Continuous X position (0-105m)
+            float y = 34.0f;  // Continuous Y position (0-68m)
+            int col = 7;      // Grid column for compatibility (1-13)
+            int row = 5;      // Grid row for compatibility (0-8)
+            int side = 0;
+            bool isCarrier = false;
+        };
+        std::vector<PlayerPos> players;
     };
 
     // Career standings row.
@@ -64,7 +77,7 @@ private:
     void renderFriendly();
     void renderTactics();
     void renderMatch();
-    void drawPitch(ImVec2 pos, ImVec2 size, const Frame* f);
+    void drawPitch(ImVec2 pos, ImVec2 size, const Frame* f, const Frame* nextF, float t);
     void renderDatabase();
     void renderCareer();
     void renderData();
@@ -98,6 +111,8 @@ private:
     int tacticsXiSel_ = -1;   // selected starter (player id) for a swap
     int tacticsSubSel_ = -1;  // selected substitute (player id) for a swap
     int matchSubsUsed_ = 0;   // substitutions made in the current match (max 3)
+    int tacticsDragPlayer_ = -1;  // player currently being dragged on pitch
+    int tacticsPlayerSel_ = -1;   // selected player for individual instructions
     static constexpr int kMaxMatchSubs = 3;
 
     // Friendly selection
@@ -118,6 +133,8 @@ private:
     float speed_ = 8.0f;  // events revealed per second
     bool playing_ = true;
     bool matchOver_ = false;
+    bool halftimePause_ = false;  // true when paused at halftime
+    size_t halftimeIdx_ = 0;       // frame index where halftime occurs
 
     // Database browse
     char dbSearch_[128] = "";
@@ -137,6 +154,11 @@ private:
     int careerRound_ = 0;
     std::unordered_map<int, Standing> table_;
     std::vector<std::string> careerLog_;
+
+    // Edit Tactics screen
+    int editTacticsLeague_ = 0;
+    int editTacticsTeamId_ = -1;
+    char editTacticsFilter_[64] = "";
 };
 
 }  // namespace nm

@@ -64,9 +64,39 @@ public:
 
     // Live state accessors for the graphical match screen (valid mid-sim).
     const MatchStats& stats() const { return stats_; }
-    int ballCol() const { return ball_.col; }   // 1..13, goal-to-goal
-    int ballRow() const { return ball_.row; }    // 1..9, across the pitch
+    float ballX() const { return ballPosition_.x; }  // 0-105m, continuous
+    float ballY() const { return ballPosition_.y; }  // 0-68m, continuous
+    int ballCol() const { return ball_.col; }   // 1..13, goal-to-goal (grid)
+    int ballRow() const { return ball_.row; }    // 0..8, across the pitch (grid)
     int carrierSide() const { return carrierSide_; }  // 0 home, 1 away, -1 none
+
+    // Player positions for graphical pitch rendering (valid mid-sim).
+    struct PlayerSnapshot {
+        int shirtNumber = 0;
+        float x = 52.5f;  // Continuous X position (0-105m)
+        float y = 34.0f;  // Continuous Y position (0-68m)
+        int col = 7;      // 1..13 (grid cell for compatibility)
+        int row = 5;      // 1..9 (grid cell for compatibility)
+        int side = 0;     // 0 home, 1 away
+        bool isCarrier = false;
+    };
+    std::vector<PlayerSnapshot> getPlayerPositions() const {
+        std::vector<PlayerSnapshot> result;
+        for (int s = 0; s < 2; ++s) {
+            for (const Player* p : sidePlayers_[s]) {
+                PlayerSnapshot ps;
+                ps.shirtNumber = p->shirtNumber;
+                ps.x = p->position.x;
+                ps.y = p->position.y;
+                ps.col = p->pos.col;
+                ps.row = p->pos.row;
+                ps.side = s;
+                ps.isCarrier = (p == carrier_);
+                result.push_back(ps);
+            }
+        }
+        return result;
+    }
 
 private:
     const Config& cfg_;
@@ -75,7 +105,8 @@ private:
     // --- live state ---
     std::vector<Player*> sidePlayers_[2];  // 0 = home, 1 = away
     int dir_[2] = {+1, -1};                 // attacking column direction per side
-    Cell ball_ = CentreSpot();
+    Position2D ballPosition_ = Position2D();  // Continuous ball position
+    Cell ball_ = CentreSpot();  // Grid cell (for action logic)
     int carrierSide_ = 0;
     Player* carrier_ = nullptr;
     bool aerial_ = false;
@@ -95,6 +126,7 @@ private:
     void runHalf(int half);
     void resolveBallAction();
     void moveOffBallPlayers();
+    void resolveCollisions();  // Prevent players from occupying same cell
 
     int zoneProgress(const Cell& c, int side) const;  // 1..13 toward goal
     std::string zoneName(int progress) const;         // Defensive/Midfield/Attack
