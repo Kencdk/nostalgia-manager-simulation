@@ -69,6 +69,37 @@ inline std::string PosName(Position p) {
     return "?";
 }
 
+// Parse a position string (e.g. "DMC", "FC", "AMR") to Position enum.
+// Supports both full names (e.g. "MC", "AMC") and CM-style abbreviations (e.g. "DMC" for DM).
+inline Position PositionFromString(const std::string& s) {
+    if (s.empty()) return Position::MC;
+
+    // Direct matches
+    if (s == "GK") return Position::GK;
+    if (s == "DR") return Position::DR;
+    if (s == "DC") return Position::DC;
+    if (s == "DL") return Position::DL;
+    if (s == "WBR") return Position::WBR;
+    if (s == "WBL") return Position::WBL;
+    if (s == "DM" || s == "DMC") return Position::DM;
+    if (s == "MR") return Position::MR;
+    if (s == "MC") return Position::MC;
+    if (s == "ML") return Position::ML;
+    if (s == "AMR") return Position::AMR;
+    if (s == "AMC") return Position::AMC;
+    if (s == "AML") return Position::AML;
+    if (s == "FR") return Position::FR;
+    if (s == "FC") return Position::FC;
+    if (s == "FL") return Position::FL;
+
+    // Fallback: try to infer from partial matches
+    if (s.find("GK") != std::string::npos) return Position::GK;
+    if (s.find("DM") != std::string::npos) return Position::DM;
+
+    // Default fallback
+    return Position::MC;
+}
+
 // The base engine Role that a Position maps to (wing-backs play as defenders).
 inline Role RoleOf(Position p) {
     switch (p) {

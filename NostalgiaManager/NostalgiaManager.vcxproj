@@ -101,6 +101,8 @@
     <ClInclude Include="src\ui\Game.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="data\BEST_POSITION_SETUP.md" />
+    <None Include="data\DATABASE_SETUP.md" />
     <None Include="data\TeamsDB.csv" />
     <None Include="data\PlayersDB.csv" />
   </ItemGroup>

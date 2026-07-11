@@ -296,6 +296,20 @@ bool Database::loadPlayers(const std::string& path) {
         int abil20 = static_cast<int>(std::lround(ability / 10.0));
         int baseline = ability > 0 ? clampStat(abil20) : 8;
 
+        // Try to read the best position directly from a position column or from column 11
+        std::string bestPosStr = h.get(r, {"position", "bestposition", "primaryposition", "pos"});
+        // If no header match, try column 11 directly (0-indexed) for CSV files with position there
+        if (bestPosStr.empty() && r.size() > 11) {
+            bestPosStr = Csv::trim(r[11]);
+        }
+        Position explicitBestPos = Position::MC;  // Default fallback
+        bool hasExplicitPos = false;
+        if (!bestPosStr.empty() && bestPosStr.size() >= 2 && bestPosStr.size() <= 4) {
+            // Only parse if it looks like a position string (2-4 chars, e.g., "MC", "AMC", "DR")
+            explicitBestPos = PositionFromString(bestPosStr);
+            hasExplicitPos = true;
+        }
+
         // Skills, rescaled to the engine's 1-20 range. Values above the plausible
         // ceiling are corrupt outliers and are treated as missing (filled from
         // the ability baseline) rather than dragging the rating up or down.
@@ -378,19 +392,28 @@ bool Database::loadPlayers(const std::string& path) {
             if (!any) p.playablePositions.push_back(sidedPos(rr.role, Side::Centre));
         }
 
-        // Primary = best-rated role on his best-rated flank.
-        Role bestRole = Role::M;
-        int bestRoleRating = -1;
-        for (const RoleRow& rr : roles)
-            if (rr.rating > bestRoleRating) { bestRoleRating = rr.rating; bestRole = rr.role; }
-        // Prefer wings over centre when ratings are equal (winger should be winger, not centre)
-        Side bestSide = Side::Centre;
-        int bestSideRating = sC;
-        if (sR >= bestSideRating) { bestSideRating = sR; bestSide = Side::Right; }
-        if (sL >= bestSideRating) { bestSideRating = sL; bestSide = Side::Left; }
-        p.primaryPos = sidedPos(bestRole, bestSide);
-        p.role = RoleOf(p.primaryPos);
-        if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);
+        // Primary = best-rated role on his best-rated flank, OR use explicit position if available.
+        if (hasExplicitPos) {
+            // Use the explicit best position from the CSV
+            p.primaryPos = explicitBestPos;
+            p.role = RoleOf(p.primaryPos);
+            // Ensure the explicit position is in playable positions
+            if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);
+        } else {
+            // Fall back to calculating from position ratings
+            Role bestRole = Role::M;
+            int bestRoleRating = -1;
+            for (const RoleRow& rr : roles)
+                if (rr.rating > bestRoleRating) { bestRoleRating = rr.rating; bestRole = rr.role; }
+            // Prefer wings over centre when ratings are equal (winger should be winger, not centre)
+            Side bestSide = Side::Centre;
+            int bestSideRating = sC;
+            if (sR >= bestSideRating) { bestSideRating = sR; bestSide = Side::Right; }
+            if (sL >= bestSideRating) { bestSideRating = sL; bestSide = Side::Left; }
+            p.primaryPos = sidedPos(bestRole, bestSide);
+            p.role = RoleOf(p.primaryPos);
+            if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);
+        }
 
         // Goalkeeping: no dedicated GK skill in the export, so derive it from a
         // keeper's overall Ability (0-200 -> ~1-20); outfielders get a low value.
