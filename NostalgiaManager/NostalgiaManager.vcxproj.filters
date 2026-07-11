@@ -107,13 +107,16 @@
     <ClInclude Include="src\core\TacticalSettings.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\TeamsDB.csv">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="data\PlayersDB.csv">
-      <Filter>Data Files</Filter>
-    </None>
     <None Include="data\DATABASE_SETUP.md" />
     <None Include="data\BEST_POSITION_SETUP.md" />
+    <None Include="data\PLAYER_DATA_SOURCE_VERIFICATION.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="data\PlayersDB.csv">
+      <Filter>Data Files</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="data\TeamsDB.csv">
+      <Filter>Data Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>

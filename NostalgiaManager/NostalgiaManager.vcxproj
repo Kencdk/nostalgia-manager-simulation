@@ -103,8 +103,13 @@
   <ItemGroup>
     <None Include="data\BEST_POSITION_SETUP.md" />
     <None Include="data\DATABASE_SETUP.md" />
-    <None Include="data\TeamsDB.csv" />
-    <None Include="data\PlayersDB.csv" />
+    <CopyFileToFolders Include="data\TeamsDB.csv">
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="data\PlayersDB.csv">
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+    <None Include="data\PLAYER_DATA_SOURCE_VERIFICATION.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
