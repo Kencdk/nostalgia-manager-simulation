@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,12 +33,27 @@ void ApplyNostalgiaTheme();
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
+    // Per-player match statistics (for tracking performance)
+    struct PlayerMatchStats {
+        int goals = 0;
+        int assists = 0;
+        int shots = 0;
+        int shotsOnTarget = 0;
+        int passes = 0;
+        int passesCompleted = 0;
+        int tackles = 0;
+        int interceptions = 0;
+        int fouls = 0;
+        int minutesPlayed = 0;
+        bool isSubstitute = false;
+    };
+
     bool init(const std::string& dataDir);
     void render();  // call once per frame
     bool wantQuit() const { return quit_; }
 
 private:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail };
 
     // One snapshot of the match at the moment an event was narrated.
     struct Frame {
@@ -83,11 +99,13 @@ private:
     void renderCareer();
     void renderData();
     void renderAbout();
+    void renderPlayerDetail();
 
     void teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
                     size_t filterSz);
     void startMatch(Team* home, Team* away);
     void openTactics(Team* team, Screen returnTo);
+    void openPlayerDetail(const Player* player, Screen returnTo);
     Team* teamById(int id);
 
     // Career helpers
@@ -128,6 +146,11 @@ private:
     std::string matchHome_, matchAway_;
     int finalHG_ = 0, finalAG_ = 0, finalHS_ = 0, finalAS_ = 0;
     std::vector<std::pair<int, std::string>> homeScorers_, awayScorers_;
+
+    // Per-player match statistics (shirt number -> stats)
+    std::map<int, PlayerMatchStats> homePlayerStats_;
+    std::map<int, PlayerMatchStats> awayPlayerStats_;
+
     Team* matchHomeTeam_ = nullptr;
     Team* matchAwayTeam_ = nullptr;
     size_t playIdx_ = 0;
@@ -161,6 +184,11 @@ private:
     int editTacticsLeague_ = 0;
     int editTacticsTeamId_ = -1;
     char editTacticsFilter_[64] = "";
+
+    // Player Detail screen
+    const Player* detailPlayer_ = nullptr;
+    int detailTeamId_ = -1;
+    Screen detailReturn_ = Screen::Main;
 };
 
 }  // namespace nm

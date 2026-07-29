@@ -6,7 +6,9 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <functional>
 #include <map>
+#include <set>
 
 #include "imgui.h"
 
@@ -139,7 +141,9 @@ void panelHeader(const char* title, ImU32 col = IM_COL32(120, 70, 40, 255)) {
 }
 
 // Squad list panel (Starting XI then Substitutes), as in the match mock-up.
-void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& size) {
+void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& size,
+                const std::map<int, App::PlayerMatchStats>* stats = nullptr,
+                std::function<void(const Player*)> onPlayerClick = nullptr) {
     ImGui::BeginChild(id, size, true);
     panelHeader(title);
     if (!t) {
@@ -158,17 +162,136 @@ void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& 
                          t->startingXI.end();
         if (!isStarter) subs.push_back(&p);
     }
-    auto line = [](const Player* p) {
-        ImGui::Text("%2d  %-3s %s", p->shirtNumber, PosName(p->primaryPos).c_str(),
-                    p->name.c_str());
+
+    // Helper to calculate rating from stats
+    auto calculateRating = [](const App::PlayerMatchStats& ps) -> float {
+        if (ps.minutesPlayed < 1) return 0.0f;
+
+        float rating = 6.0f;  // Base rating
+
+        // Goals are very valuable
+        rating += ps.goals * 1.5f;
+
+        // Assists
+        rating += ps.assists * 1.0f;
+
+        // Shots
+        if (ps.shots > 0) {
+            float shotAccuracy = (float)ps.shotsOnTarget / ps.shots;
+            rating += (ps.shots * 0.1f) + (shotAccuracy * 0.5f);
+        }
+
+        // Passing
+        if (ps.passes > 0) {
+            float passAccuracy = (float)ps.passesCompleted / ps.passes;
+            rating += (passAccuracy - 0.7f) * 2.0f;  // Bonus/penalty around 70% baseline
+        }
+
+        // Defensive actions
+        rating += ps.tackles * 0.2f;
+        rating += ps.interceptions * 0.2f;
+
+        // Fouls penalty
+        rating -= ps.fouls * 0.3f;
+
+        // Clamp between 1-10
+        if (rating < 1.0f) rating = 1.0f;
+        if (rating > 10.0f) rating = 10.0f;
+
+        return rating;
     };
+
+    // Column headers
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.86f, 0.78f, 0.55f, 1));
+    ImGui::Columns(4, "player_headers", true);
+    ImGui::SetColumnWidth(0, size.x * 0.50f);  // Name column
+    ImGui::SetColumnWidth(1, size.x * 0.15f);  // Goals
+    ImGui::SetColumnWidth(2, size.x * 0.15f);  // Assists
+    ImGui::SetColumnWidth(3, size.x * 0.20f);  // Rating
+    ImGui::Text("Name");
+    ImGui::NextColumn();
+    ImGui::Text("G");
+    ImGui::NextColumn();
+    ImGui::Text("A");
+    ImGui::NextColumn();
+    ImGui::Text("Rating");
+    ImGui::NextColumn();
+    ImGui::Separator();
+    ImGui::Columns(1);
+    ImGui::PopStyleColor();
+
+    auto line = [stats, calculateRating, onPlayerClick](const Player* p) {
+        ImGui::Columns(4, "player_stats", true);
+        ImGui::SetColumnWidth(0, ImGui::GetWindowWidth() * 0.50f);
+        ImGui::SetColumnWidth(1, ImGui::GetWindowWidth() * 0.15f);
+        ImGui::SetColumnWidth(2, ImGui::GetWindowWidth() * 0.15f);
+        ImGui::SetColumnWidth(3, ImGui::GetWindowWidth() * 0.20f);
+
+        // Name - make it clickable if callback provided
+        char nameLabel[256];
+        std::snprintf(nameLabel, sizeof(nameLabel), "%2d %-3s %s", 
+                     p->shirtNumber, PosName(p->primaryPos).c_str(),
+                     shortName(p->name).c_str());
+
+        if (onPlayerClick) {
+            if (ImGui::Selectable(nameLabel, false)) {
+                onPlayerClick(p);
+            }
+        } else {
+            ImGui::Text("%s", nameLabel);
+        }
+        ImGui::NextColumn();
+
+        // Goals
+        if (stats) {
+            auto it = stats->find(p->shirtNumber);
+            if (it != stats->end() && it->second.goals > 0) {
+                ImGui::Text("%d", it->second.goals);
+            } else {
+                ImGui::Text("-");
+            }
+        } else {
+            ImGui::Text("-");
+        }
+        ImGui::NextColumn();
+
+        // Assists
+        if (stats) {
+            auto it = stats->find(p->shirtNumber);
+            if (it != stats->end() && it->second.assists > 0) {
+                ImGui::Text("%d", it->second.assists);
+            } else {
+                ImGui::Text("-");
+            }
+        } else {
+            ImGui::Text("-");
+        }
+        ImGui::NextColumn();
+
+        // Rating
+        if (stats) {
+            auto it = stats->find(p->shirtNumber);
+            if (it != stats->end() && it->second.minutesPlayed > 0) {
+                float rating = calculateRating(it->second);
+                ImGui::Text("%.1f", rating);
+            } else {
+                ImGui::Text("-");
+            }
+        } else {
+            ImGui::Text("-");
+        }
+        ImGui::NextColumn();
+
+        ImGui::Columns(1);
+    };
+
     ImGui::TextColored(ImVec4(0.86f, 0.78f, 0.55f, 1), "Starting XI");
     for (const Player* p : starters) line(p);
     ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.86f, 0.78f, 0.55f, 1), "Substitutes");
     int shown = 0;
     for (const Player* p : subs) {
-        if (shown++ >= 7) break;
+        if (shown++ >= 5) break;
         line(p);
     }
     ImGui::EndChild();
@@ -383,6 +506,7 @@ void App::render() {
         case Screen::Career: renderCareer(); break;
         case Screen::Data: renderData(); break;
         case Screen::About: renderAbout(); break;
+        case Screen::PlayerDetail: renderPlayerDetail(); break;
     }
 }
 
@@ -598,6 +722,10 @@ void App::renderTactics() {
         if (ImGui::Selectable(lbl, tacticsPlayerSel_ == p->id)) {
             tacticsPlayerSel_ = (tacticsPlayerSel_ == p->id) ? -1 : p->id;
         }
+        // Double-click to view player details
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+            openPlayerDetail(p, Screen::Tactics);
+        }
 
         // Drag source - can drag from starting XI
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
@@ -646,6 +774,10 @@ void App::renderTactics() {
         if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
             if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
             else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
+        }
+        // Double-click to view player details
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+            openPlayerDetail(&pl, Screen::Tactics);
         }
 
         // Make substitutes draggable
@@ -704,6 +836,10 @@ void App::renderTactics() {
             if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
                 if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
                 else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
+            }
+            // Double-click to view player details
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+                openPlayerDetail(&pl, Screen::Tactics);
             }
 
             // Make rest of squad draggable
@@ -1218,6 +1354,22 @@ void App::startMatch(Team* home, Team* away) {
     matchSubsUsed_ = 0;
     homeScorers_.clear();
     awayScorers_.clear();
+    homePlayerStats_.clear();
+    awayPlayerStats_.clear();
+
+    // Initialize player stats for starting XI
+    for (int pid : home->startingXI) {
+        const Player* p = home->findPlayer(pid);
+        if (p) {
+            homePlayerStats_[p->shirtNumber] = PlayerMatchStats();
+        }
+    }
+    for (int pid : away->startingXI) {
+        const Player* p = away->findPlayer(pid);
+        if (p) {
+            awayPlayerStats_[p->shirtNumber] = PlayerMatchStats();
+        }
+    }
 
     MatchEngine engine(cfg_, static_cast<unsigned>(std::time(nullptr)));
     MatchEngine* ep = &engine;
@@ -1256,24 +1408,182 @@ void App::startMatch(Team* home, Team* away) {
     finalHS_ = r.homeShots;
     finalAS_ = r.awayShots;
 
-    // Fill running score across frames and collect scorers per side.
+    // Process events to track player stats and collect scorers
     int hg = 0, ag = 0;
+    int lastMinute = 0;
+
     for (auto& f : frames_) {
+        // Track minutes played for all active players
+        if (f.minute > lastMinute) {
+            for (auto& ps : homePlayerStats_) ps.second.minutesPlayed++;
+            for (auto& ps : awayPlayerStats_) ps.second.minutesPlayed++;
+            lastMinute = f.minute;
+        }
+
+        // Process goals and assists
         int h, a;
         if (f.text.rfind("GOAL!", 0) == 0 && parseScore(f.text, h, a)) {
-            // Extract scorer name: "GOAL! #<n> <Name> scores! (h-a)".
+            // Extract scorer: "GOAL! #<n> <Name> scores! (h-a)" or "GOAL! #<n> <Name> (assist: #<m> <AssistName>) scores! (h-a)"
             std::string who;
+            int shirtNum = -1;
+            int assistShirtNum = -1;
+
+            // Find shirt number after "GOAL! #"
+            size_t hashPos = f.text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < f.text.size() && std::isdigit(f.text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    shirtNum = std::stoi(f.text.substr(hashPos + 1, numEnd - hashPos - 1));
+                }
+            }
+
+            // Extract scorer name
             size_t s = f.text.find(' ');
             size_t e = f.text.find(" scores!");
-            if (s != std::string::npos && e != std::string::npos && e > s)
+            if (s != std::string::npos && e != std::string::npos && e > s) {
                 who = f.text.substr(s + 1, e - s - 1);
+                // Remove assist part if present
+                size_t assistPos = who.find(" (assist:");
+                if (assistPos != std::string::npos) {
+                    // Extract assist shirt number
+                    size_t assistHashPos = who.find('#', assistPos);
+                    if (assistHashPos != std::string::npos) {
+                        size_t assistNumEnd = assistHashPos + 1;
+                        while (assistNumEnd < who.size() && std::isdigit(who[assistNumEnd])) 
+                            assistNumEnd++;
+                        if (assistNumEnd > assistHashPos + 1) {
+                            assistShirtNum = std::stoi(who.substr(assistHashPos + 1, 
+                                                       assistNumEnd - assistHashPos - 1));
+                        }
+                    }
+                    who = who.substr(0, assistPos);
+                }
+            }
+
             char line[160];
             std::snprintf(line, sizeof(line), "%s  %d'", who.c_str(), f.minute);
-            if (h > hg) homeScorers_.emplace_back(f.minute, line);
-            else if (a > ag) awayScorers_.emplace_back(f.minute, line);
+
+            if (h > hg) {
+                homeScorers_.emplace_back(f.minute, line);
+                if (shirtNum >= 0) {
+                    homePlayerStats_[shirtNum].goals++;
+                    homePlayerStats_[shirtNum].shotsOnTarget++;
+                }
+                if (assistShirtNum >= 0) homePlayerStats_[assistShirtNum].assists++;
+            } else if (a > ag) {
+                awayScorers_.emplace_back(f.minute, line);
+                if (shirtNum >= 0) {
+                    awayPlayerStats_[shirtNum].goals++;
+                    awayPlayerStats_[shirtNum].shotsOnTarget++;
+                }
+                if (assistShirtNum >= 0) awayPlayerStats_[assistShirtNum].assists++;
+            }
             hg = h;
             ag = a;
         }
+
+        // Parse other events for stats
+        std::string& text = f.text;
+
+        // Shots: "shoots" or "SHOT"
+        if (text.find("shoots") != std::string::npos || text.find("SHOT") != std::string::npos) {
+            size_t hashPos = text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < text.size() && std::isdigit(text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
+                    if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
+                        homePlayerStats_[shirtNum].shots++;
+                        if (text.find("on target") != std::string::npos || 
+                            text.find("saved") != std::string::npos) {
+                            homePlayerStats_[shirtNum].shotsOnTarget++;
+                        }
+                    } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
+                        awayPlayerStats_[shirtNum].shots++;
+                        if (text.find("on target") != std::string::npos || 
+                            text.find("saved") != std::string::npos) {
+                            awayPlayerStats_[shirtNum].shotsOnTarget++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Passes: "passes to" or "pass"
+        if (text.find("passes") != std::string::npos || text.find("pass") != std::string::npos) {
+            size_t hashPos = text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < text.size() && std::isdigit(text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
+                    bool completed = text.find("intercepted") == std::string::npos && 
+                                   text.find("loses") == std::string::npos;
+
+                    if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
+                        homePlayerStats_[shirtNum].passes++;
+                        if (completed) homePlayerStats_[shirtNum].passesCompleted++;
+                    } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
+                        awayPlayerStats_[shirtNum].passes++;
+                        if (completed) awayPlayerStats_[shirtNum].passesCompleted++;
+                    }
+                }
+            }
+        }
+
+        // Tackles: "tackles" or "tackle"
+        if (text.find("tackle") != std::string::npos) {
+            size_t hashPos = text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < text.size() && std::isdigit(text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
+                    if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
+                        homePlayerStats_[shirtNum].tackles++;
+                    } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
+                        awayPlayerStats_[shirtNum].tackles++;
+                    }
+                }
+            }
+        }
+
+        // Interceptions: "intercepts"
+        if (text.find("intercept") != std::string::npos) {
+            size_t hashPos = text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < text.size() && std::isdigit(text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
+                    if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
+                        homePlayerStats_[shirtNum].interceptions++;
+                    } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
+                        awayPlayerStats_[shirtNum].interceptions++;
+                    }
+                }
+            }
+        }
+
+        // Fouls: "fouls" or "foul"
+        if (text.find("foul") != std::string::npos && text.find("Foul") == std::string::npos) {
+            size_t hashPos = text.find('#');
+            if (hashPos != std::string::npos) {
+                size_t numEnd = hashPos + 1;
+                while (numEnd < text.size() && std::isdigit(text[numEnd])) numEnd++;
+                if (numEnd > hashPos + 1) {
+                    int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
+                    if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
+                        homePlayerStats_[shirtNum].fouls++;
+                    } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
+                        awayPlayerStats_[shirtNum].fouls++;
+                    }
+                }
+            }
+        }
+
         f.hg = hg;
         f.ag = ag;
     }
@@ -1470,7 +1780,10 @@ void App::renderMatch() {
 
     // ---- Left: Team 1 lineup (full height) ----
     ImGui::BeginGroup();
-    squadPanel("home_sq", matchHome_.c_str(), matchHomeTeam_, ImVec2(sideW, totalAvailH - tacticsH - spacing));
+    squadPanel("home_sq", matchHome_.c_str(), matchHomeTeam_, 
+               ImVec2(sideW, totalAvailH - tacticsH - spacing),
+               &homePlayerStats_,
+               [this](const Player* p) { openPlayerDetail(p, Screen::Match); });
     bool homeTac = !matchOver_ && matchHomeTeam_;
     if (!homeTac) ImGui::BeginDisabled();
     if (tintButton("Go to Tactics##h", IM_COL32(150, 120, 60, 255), ImVec2(sideW, tacticsH))) {
@@ -1481,15 +1794,18 @@ void App::renderMatch() {
     ImGui::EndGroup();
     ImGui::SameLine();
 
-    // ---- Center: Pitch + Commentary below it ----
+    // ---- Center: Pitch + Commentary and Stats below it ----
     ImGui::BeginGroup();
 
     ImVec2 pitchPos = ImGui::GetCursorScreenPos();
     drawPitch(pitchPos, ImVec2(pitchW, pitchH), f, nextF, interpT);
     ImGui::Dummy(ImVec2(pitchW, pitchH));
 
-    // Match events feed (commentary) below pitch - match pitch width
-    ImGui::BeginChild("feed", ImVec2(pitchW, feedH), true);
+    // Split the space below pitch: Match Events (left half) and Statistics (right half)
+    float halfPitchW = (pitchW - spacing) * 0.5f;
+
+    // Match events feed (commentary) - left half
+    ImGui::BeginChild("feed", ImVec2(halfPitchW, feedH), true);
     panelHeader("Match Events");
     size_t shown = playIdx_;
     size_t startI = shown > 40 ? shown - 40 : 0;
@@ -1503,12 +1819,119 @@ void App::renderMatch() {
     if (playing_) ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
 
+    ImGui::SameLine();
+
+    // Match statistics - right half
+    ImGui::BeginChild("stats", ImVec2(halfPitchW, feedH), true);
+    panelHeader("Match Statistics");
+
+    if (f) {
+        const MatchStats& stats = f->stats;
+
+        // Possession
+        long totalPoss = stats.possTicks[0] + stats.possTicks[1];
+        int homePoss = totalPoss > 0 ? (int)((stats.possTicks[0] * 100) / totalPoss) : 50;
+        int awayPoss = 100 - homePoss;
+
+        ImGui::Spacing();
+        ImGui::Text("Possession");
+        ImGui::Columns(3, "poss", false);
+        ImGui::SetColumnWidth(0, 50);
+        ImGui::SetColumnWidth(1, halfPitchW - 120);
+        ImGui::SetColumnWidth(2, 50);
+        ImGui::Text("%d%%", homePoss);
+        ImGui::NextColumn();
+        // Draw possession bar
+        float barW = ImGui::GetColumnWidth() - 10;
+        ImVec2 barPos = ImGui::GetCursorScreenPos();
+        float homeBarW = (barW * homePoss) / 100.0f;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(barPos, ImVec2(barPos.x + homeBarW, barPos.y + 16), 
+                         IM_COL32(120, 180, 255, 255));
+        dl->AddRectFilled(ImVec2(barPos.x + homeBarW, barPos.y), 
+                         ImVec2(barPos.x + barW, barPos.y + 16), 
+                         IM_COL32(255, 180, 120, 255));
+        ImGui::Dummy(ImVec2(barW, 16));
+        ImGui::NextColumn();
+        ImGui::Text("%d%%", awayPoss);
+        ImGui::Columns(1);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Stats table
+        ImGui::Columns(3, "stats_table", false);
+        ImGui::SetColumnWidth(0, 60);
+        ImGui::SetColumnWidth(1, halfPitchW - 140);
+        ImGui::SetColumnWidth(2, 60);
+
+        // Header
+        ImGui::Text("Home");
+        ImGui::NextColumn();
+        ImGui::NextColumn();
+        ImGui::Text("Away");
+        ImGui::NextColumn();
+        ImGui::Separator();
+
+        // Shots
+        ImGui::Text("%d", stats.shots[0]);
+        ImGui::NextColumn();
+        ImGui::Text("Shots");
+        ImGui::NextColumn();
+        ImGui::Text("%d", stats.shots[1]);
+        ImGui::NextColumn();
+
+        // On Target
+        ImGui::Text("%d", stats.onTarget[0]);
+        ImGui::NextColumn();
+        ImGui::Text("On Target");
+        ImGui::NextColumn();
+        ImGui::Text("%d", stats.onTarget[1]);
+        ImGui::NextColumn();
+
+        // Passing accuracy
+        int homePassPct = stats.passAtt[0] > 0 ? (stats.passOk[0] * 100) / stats.passAtt[0] : 0;
+        int awayPassPct = stats.passAtt[1] > 0 ? (stats.passOk[1] * 100) / stats.passAtt[1] : 0;
+        ImGui::Text("%d%%", homePassPct);
+        ImGui::NextColumn();
+        ImGui::Text("Pass Accuracy");
+        ImGui::NextColumn();
+        ImGui::Text("%d%%", awayPassPct);
+        ImGui::NextColumn();
+
+        // Corners
+        ImGui::Text("%d", stats.corners[0]);
+        ImGui::NextColumn();
+        ImGui::Text("Corners");
+        ImGui::NextColumn();
+        ImGui::Text("%d", stats.corners[1]);
+        ImGui::NextColumn();
+
+        // Fouls
+        ImGui::Text("%d", stats.fouls[0]);
+        ImGui::NextColumn();
+        ImGui::Text("Fouls");
+        ImGui::NextColumn();
+        ImGui::Text("%d", stats.fouls[1]);
+        ImGui::NextColumn();
+
+        ImGui::Columns(1);
+    } else {
+        ImGui::TextDisabled("No statistics available yet");
+    }
+
+    ImGui::EndChild();
+
     ImGui::EndGroup();
     ImGui::SameLine();
 
     // ---- Right: Team 2 lineup (full height) ----
     ImGui::BeginGroup();
-    squadPanel("away_sq", matchAway_.c_str(), matchAwayTeam_, ImVec2(sideW, totalAvailH - tacticsH - spacing));
+    squadPanel("away_sq", matchAway_.c_str(), matchAwayTeam_, 
+               ImVec2(sideW, totalAvailH - tacticsH - spacing),
+               &awayPlayerStats_,
+               [this](const Player* p) { openPlayerDetail(p, Screen::Match); });
     bool awayTac = !matchOver_ && matchAwayTeam_;
     if (!awayTac) ImGui::BeginDisabled();
     if (tintButton("Go to Tactics##a", IM_COL32(150, 120, 60, 255), ImVec2(sideW, tacticsH))) {
@@ -1747,7 +2170,10 @@ void App::renderDatabase() {
             const Player* p = pr.second;
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(p->name.c_str());
+            // Make player name clickable
+            if (ImGui::Selectable(p->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
+                openPlayerDetail(p, Screen::Database);
+            }
             ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(t ? t->name.c_str() : "-");
             ImGui::TableSetColumnIndex(2);
@@ -2038,6 +2464,294 @@ void App::renderAbout() {
         "thresholds (data/engine.cfg).\n\n"
         "This window is a Dear ImGui front-end over the same engine, database "
         "loader (Championship Manager / FM CSV exports) and career logic.");
+    ImGui::End();
+}
+
+void App::openPlayerDetail(const Player* player, Screen returnTo) {
+    detailPlayer_ = player;
+    detailReturn_ = returnTo;
+    screen_ = Screen::PlayerDetail;
+}
+
+void App::renderPlayerDetail() {
+    drawCyclingBackground();
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->WorkPos);
+    ImGui::SetNextWindowSize(vp->WorkSize);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+    ImGui::Begin("##playerdetail", nullptr, wf);
+
+    if (!detailPlayer_) {
+        ImGui::Text("No player selected");
+        if (ImGui::Button("< Back")) screen_ = detailReturn_;
+        ImGui::End();
+        return;
+    }
+
+    const Player& p = *detailPlayer_;
+
+    // Header with back button
+    if (ImGui::Button("< Back", ImVec2(120, 40))) {
+        screen_ = detailReturn_;
+    }
+    ImGui::SameLine();
+    ImVec4 gold = ImVec4(0.95f, 0.92f, 0.82f, 1);
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::SetWindowFontScale(2.0f);
+    ImGui::Text("%s", p.name.c_str());
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    float fullW = ImGui::GetContentRegionAvail().x;
+    float fullH = ImGui::GetContentRegionAvail().y;
+
+    // Two column layout
+    float leftW = fullW * 0.65f;
+    float rightW = fullW * 0.35f;
+
+    // Left column - Player info and categorized attributes
+    ImGui::BeginChild("player_info", ImVec2(leftW, fullH), true);
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Player Information");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Shirt Number:"); ImGui::SameLine(150); ImGui::Text("%d", p.shirtNumber);
+    ImGui::Text("Primary Position:"); ImGui::SameLine(150); ImGui::Text("%s", PosName(p.primaryPos).c_str());
+    ImGui::Text("Role:"); ImGui::SameLine(150); ImGui::Text("%s", RoleName(p.role).c_str());
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Playable Positions");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    std::string posStr;
+    for (size_t i = 0; i < p.playablePositions.size(); ++i) {
+        if (i > 0) posStr += ", ";
+        posStr += PosName(p.playablePositions[i]);
+    }
+    if (posStr.empty()) posStr = PosName(p.primaryPos);
+    ImGui::TextWrapped("%s", posStr.c_str());
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Overall rating
+    double overall = PlayerAbility(p);
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::SetWindowFontScale(1.3f);
+    ImGui::Text("Overall Rating: %.1f", overall);
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Helper to display attribute with color
+    auto displayAttr = [&p](const char* name) {
+        int val = p.attr.get(name);
+
+        // Color code the value
+        ImVec4 color;
+        if (val >= 15) color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);      // Excellent - green
+        else if (val >= 12) color = ImVec4(0.6f, 0.8f, 1.0f, 1.0f); // Good - light blue
+        else if (val >= 9) color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);  // Average - white
+        else if (val >= 6) color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);  // Below avg - orange
+        else color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);                // Poor - red
+
+        ImGui::Text("%s", name);
+        ImGui::SameLine(150);
+        ImGui::TextColored(color, "%d", val);
+    };
+
+    // Display attributes in categories
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("TECHNICAL");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    displayAttr("Passing");
+    displayAttr("Shooting");
+    displayAttr("Dribbling");
+    displayAttr("Crossing");
+    displayAttr("Finishing");
+    displayAttr("FirstTouch");
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("TACTICAL");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    displayAttr("Vision");
+    displayAttr("Positioning");
+    displayAttr("Teamwork");
+    displayAttr("WorkRate");
+    displayAttr("Decisions");
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("PHYSICAL");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    displayAttr("Pace");
+    displayAttr("Stamina");
+    displayAttr("Strength");
+    displayAttr("Agility");
+    displayAttr("Jumping");
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("OTHER");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    displayAttr("Tackling");
+    displayAttr("Marking");
+    displayAttr("Heading");
+    displayAttr("Bravery");
+
+    // Add Goalkeeping if applicable
+    if (p.role == Role::GK) {
+        displayAttr("Goalkeeping");
+    }
+
+    ImGui::EndChild();
+    ImGui::SameLine();
+
+    // Right column - Smaller pitch visualization
+    ImGui::BeginChild("player_pitch", ImVec2(rightW, fullH), true);
+
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Position Map");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+
+    // Make pitch smaller and centered
+    float pitchRatio = 105.0f / 68.0f;
+    float pitchW, pitchH;
+    float maxW = canvasSize.x - 40;
+    float maxH = canvasSize.y * 0.6f;  // Use less vertical space
+
+    if (maxW / maxH > pitchRatio) {
+        pitchH = maxH;
+        pitchW = pitchH * pitchRatio;
+    } else {
+        pitchW = maxW;
+        pitchH = pitchW / pitchRatio;
+    }
+
+    float offsetX = (canvasSize.x - pitchW) * 0.5f;
+    float offsetY = 20;
+
+    ImVec2 pitchMin(canvasPos.x + offsetX, canvasPos.y + offsetY);
+    ImVec2 pitchMax(pitchMin.x + pitchW, pitchMin.y + pitchH);
+
+    // Draw pitch background
+    dl->AddRectFilled(pitchMin, pitchMax, IM_COL32(74, 132, 62, 255), 4.0f);
+
+    // Draw stripes
+    int stripes = 10;
+    for (int s = 0; s < stripes; ++s) {
+        if (s % 2 == 0) continue;
+        float y0 = pitchMin.y + (pitchH * s) / stripes;
+        float y1 = pitchMin.y + (pitchH * (s + 1)) / stripes;
+        dl->AddRectFilled(ImVec2(pitchMin.x, y0), ImVec2(pitchMax.x, y1), IM_COL32(82, 142, 68, 255));
+    }
+
+    // Draw lines
+    ImU32 lineCol = IM_COL32(255, 255, 255, 180);
+    dl->AddRect(pitchMin, pitchMax, lineCol, 0, 0, 2.0f);
+    dl->AddLine(ImVec2(pitchMin.x, pitchMin.y + pitchH * 0.5f),
+                ImVec2(pitchMax.x, pitchMin.y + pitchH * 0.5f), lineCol, 2.0f);
+    dl->AddCircle(ImVec2(pitchMin.x + pitchW * 0.5f, pitchMin.y + pitchH * 0.5f),
+                  pitchW * 0.1f, lineCol, 32, 2.0f);
+
+    // Helper to get position coordinates (normalized 0-1)
+    auto getPosCoords = [](Position pos) -> std::pair<float, float> {
+        float yPos = 0.5f, xPos = 0.5f;
+        switch (pos) {
+            case Position::GK:  yPos = 0.95f; xPos = 0.50f; break;
+            case Position::DR:  yPos = 0.80f; xPos = 0.78f; break;
+            case Position::DC:  yPos = 0.83f; xPos = 0.50f; break;
+            case Position::DL:  yPos = 0.80f; xPos = 0.22f; break;
+            case Position::WBR: yPos = 0.74f; xPos = 0.88f; break;
+            case Position::WBL: yPos = 0.74f; xPos = 0.12f; break;
+            case Position::DM:  yPos = 0.65f; xPos = 0.50f; break;
+            case Position::MR:  yPos = 0.48f; xPos = 0.85f; break;
+            case Position::MC:  yPos = 0.48f; xPos = 0.50f; break;
+            case Position::ML:  yPos = 0.48f; xPos = 0.15f; break;
+            case Position::AMR: yPos = 0.28f; xPos = 0.80f; break;
+            case Position::AMC: yPos = 0.28f; xPos = 0.50f; break;
+            case Position::AML: yPos = 0.28f; xPos = 0.20f; break;
+            case Position::FR:  yPos = 0.08f; xPos = 0.75f; break;
+            case Position::FC:  yPos = 0.08f; xPos = 0.50f; break;
+            case Position::FL:  yPos = 0.08f; xPos = 0.25f; break;
+        }
+        return {xPos, yPos};
+    };
+
+    // Draw playable positions
+    for (Position pos : p.playablePositions) {
+        auto [xNorm, yNorm] = getPosCoords(pos);
+        ImVec2 dotPos(pitchMin.x + pitchW * xNorm, pitchMin.y + pitchH * yNorm);
+
+        // Primary position is larger and brighter
+        bool isPrimary = (pos == p.primaryPos);
+        float radius = isPrimary ? 16.0f : 12.0f;
+        ImU32 dotColor = isPrimary ? IM_COL32(255, 220, 50, 255) : IM_COL32(100, 200, 255, 255);
+
+        dl->AddCircleFilled(dotPos, radius, dotColor);
+        dl->AddCircle(dotPos, radius, IM_COL32(255, 255, 255, 255), 32, 2.0f);
+
+        // Label - smaller font for smaller pitch
+        const char* label = PosName(pos).c_str();
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1.0f);
+        float oldScale = ImGui::GetFont()->Scale;
+        ImGui::GetFont()->Scale = 0.85f;
+        ImGui::PushFont(ImGui::GetFont());
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+        ImVec2 textPos(dotPos.x - textSize.x * 0.5f, dotPos.y - textSize.y * 0.5f);
+        dl->AddText(textPos, IM_COL32(0, 0, 0, 255), label);
+        ImGui::PopFont();
+        ImGui::GetFont()->Scale = oldScale;
+        ImGui::PopStyleVar();
+    }
+
+    ImGui::Dummy(ImVec2(pitchW + offsetX * 2, pitchH + offsetY * 2));
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Legend
+    ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.3f, 1.0f), "Yellow");
+    ImGui::SameLine();
+    ImGui::Text("= Primary");
+
+    ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Blue");
+    ImGui::SameLine();
+    ImGui::Text("= Can Play");
+
+    ImGui::EndChild();
+
     ImGui::End();
 }
 

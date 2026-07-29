@@ -1,5 +1,5 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-29T12:54:05.3202167+02:00
+# Generated: 2026-07-29T13:38:26.2483487+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
@@ -14,6 +14,7 @@ Architecture:
 - File: README.md
   Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
 - File: Models\Player.cs
+  Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
@@ -100,7 +101,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\App.cpp
   Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <map> #includ..."
 - File: NostalgiaManager\src\ui\App.h
-  Preview: "#pragma once #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '../engine/Config...."
+  Preview: "#pragma once #include <map> #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '....."
 - File: NostalgiaManager\src\ui\Console.h
   Preview: "#pragma once #include <iostream> #include <limits> #include <string> namespace nm { // Small helpers for the text UI. class Console { public:   static..."
 - File: NostalgiaManager\src\ui\Game.cpp
