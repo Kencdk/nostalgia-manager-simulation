@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-04T22:33:57.4649756+02:00
+# Generated: 2026-07-29T08:21:53.3425242+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 49 relevant source files
+  Scale: 53 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -14,10 +14,17 @@ Architecture:
 - File: README.md
   Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
 - File: Models\Player.cs
-  Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
+- File: NostalgiaManager\data\BEST_POSITION_SETUP.md
+  Preview: "# Best Position Display from PlayersDB.CSV ## Changes Implemented ? The system now reads and displays the **best position** from column 12 (index 11) ..."
+- File: NostalgiaManager\data\DATABASE_SETUP.md
+  Preview: "# Database Configuration ## Your Custom Databases Are Now Active! ? The game is configured to use your custom CSV databases: ### Current Configuration..."
+- File: NostalgiaManager\data\HALFTIME_SWITCH_IMPLEMENTATION.md
+  Preview: "# Half-Time Team Switching Implementation ## ? Teams Now Switch Ends at Half-Time The match engine now properly swaps team ends at half-time, just lik..."
+- File: NostalgiaManager\data\PLAYER_DATA_SOURCE_VERIFICATION.md
+  Preview: "# Player Data Source Verification ## ? All Player Data Uses PlayersDB.CSV Database I've verified that **all player data throughout the application is ..."
 - File: NostalgiaManager\src\main.cpp
   Preview: "#include <cstdio> #include <cstdlib> #include <fstream> #include <string> #include <vector> #include 'data/Database.h' #include 'engine/MatchEngine.h'..."
 - File: third_party\imgui\imconfig.h

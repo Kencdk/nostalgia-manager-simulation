@@ -79,6 +79,38 @@ ImU32 shade(ImU32 c, float m) {
     return ImGui::ColorConvertFloat4ToU32(ImVec4(cl(v.x * m), cl(v.y * m), cl(v.z * m), v.w));
 }
 
+// Parse a color name to ImU32 (RGBA). Supports common color names.
+ImU32 parseColor(const std::string& colorName) {
+    std::string lower = colorName;
+    for (char& c : lower) c = std::tolower(c);
+
+    // Common football kit colors
+    if (lower == "red") return IM_COL32(220, 50, 50, 255);
+    if (lower == "blue") return IM_COL32(50, 100, 220, 255);
+    if (lower == "green") return IM_COL32(50, 180, 50, 255);
+    if (lower == "yellow") return IM_COL32(255, 220, 50, 255);
+    if (lower == "orange") return IM_COL32(255, 140, 50, 255);
+    if (lower == "purple" || lower == "violet") return IM_COL32(150, 50, 200, 255);
+    if (lower == "white") return IM_COL32(240, 240, 240, 255);
+    if (lower == "black") return IM_COL32(40, 40, 40, 255);
+    if (lower == "grey" || lower == "gray") return IM_COL32(150, 150, 150, 255);
+    if (lower == "pink") return IM_COL32(255, 150, 180, 255);
+    if (lower == "brown") return IM_COL32(140, 90, 50, 255);
+    if (lower == "navy") return IM_COL32(30, 40, 100, 255);
+    if (lower == "skyblue" || lower == "sky blue" || lower == "lightblue" || lower == "light blue") 
+        return IM_COL32(135, 206, 250, 255);
+    if (lower == "darkblue" || lower == "dark blue") return IM_COL32(20, 50, 150, 255);
+    if (lower == "darkgreen" || lower == "dark green") return IM_COL32(30, 100, 30, 255);
+    if (lower == "lightgreen" || lower == "light green") return IM_COL32(144, 238, 144, 255);
+    if (lower == "maroon") return IM_COL32(128, 0, 0, 255);
+    if (lower == "teal") return IM_COL32(0, 128, 128, 255);
+    if (lower == "gold") return IM_COL32(255, 215, 0, 255);
+    if (lower == "silver") return IM_COL32(192, 192, 192, 255);
+
+    // Default to white if color not recognized
+    return IM_COL32(240, 240, 240, 255);
+}
+
 // A glossy, beveled coloured button matching the start-menu art.
 bool tintButton(const char* label, ImU32 base, const ImVec2& size) {
     ImGui::PushStyleColor(ImGuiCol_Button, base);
@@ -223,6 +255,18 @@ bool App::init(const std::string& dataDir) {
         return false;
     }
     AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
+
+    // Load team screenshots from data/images/teams/ directory
+    // Screenshots should be named with team ID (e.g., "1.png", "42.jpg")
+    for (const auto& team : db_.teams) {
+        AppTexture screenshot;
+        // Try PNG first, then JPG
+        if (AppLoadTexture(dataDir_ + "/images/teams/" + std::to_string(team.id) + ".png", &screenshot) ||
+            AppLoadTexture(dataDir_ + "/images/teams/" + std::to_string(team.id) + ".jpg", &screenshot)) {
+            teamScreenshots_[team.id] = screenshot;
+        }
+    }
+
     leagues_ = db_.leagues();
     status_ = "Loaded " + std::to_string(db_.teams.size()) + " teams across " +
               std::to_string(leagues_.size()) + " leagues.";
@@ -378,12 +422,45 @@ void App::teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
     ImGui::BeginChild("teamlist", ImVec2(360, 240), true);
     for (Team* t : teams) {
         if (!contains(t->name, filter)) continue;
+
+        // Check if screenshot exists for this team
+        auto it = teamScreenshots_.find(t->id);
+        bool hasScreenshot = (it != teamScreenshots_.end() && it->second.ok);
+
         char label[160];
         std::snprintf(label, sizeof(label), "%s  (%d players)", t->name.c_str(),
                       static_cast<int>(t->squad.size()));
-        if (ImGui::Selectable(label, teamId == t->id)) teamId = t->id;
+
+        if (hasScreenshot) {
+            // Display small thumbnail next to team name
+            ImGui::BeginGroup();
+            const AppTexture& screenshot = it->second;
+            float thumbSize = 24.0f;
+            ImGui::Image(screenshot.id, ImVec2(thumbSize, thumbSize));
+            ImGui::SameLine();
+            if (ImGui::Selectable(label, teamId == t->id, 0, ImVec2(0, thumbSize))) 
+                teamId = t->id;
+            ImGui::EndGroup();
+        } else {
+            if (ImGui::Selectable(label, teamId == t->id)) teamId = t->id;
+        }
     }
     ImGui::EndChild();
+
+    // Show larger preview of selected team's screenshot
+    Team* selectedTeam = teamById(teamId);
+    if (selectedTeam) {
+        auto it = teamScreenshots_.find(selectedTeam->id);
+        if (it != teamScreenshots_.end() && it->second.ok) {
+            const AppTexture& screenshot = it->second;
+            ImGui::Spacing();
+            ImGui::Text("Preview:");
+            float previewWidth = 360.0f;
+            float previewHeight = previewWidth * (float)screenshot.h / (float)screenshot.w;
+            ImGui::Image(screenshot.id, ImVec2(previewWidth, previewHeight));
+        }
+    }
+
     ImGui::PopID();
 }
 
@@ -1216,10 +1293,39 @@ void App::renderMatch() {
     ImVec2 asz = ImGui::CalcTextSize(matchAway_.c_str());
     float cx = ImGui::GetCursorScreenPos().x + fullW * 0.5f;
     float y0 = ImGui::GetCursorScreenPos().y + 4;
-    dl->AddText(ImVec2(cx - fullW * 0.25f - hsz.x * 0.5f, y0 + 6),
-                IM_COL32(140, 200, 255, 255), matchHome_.c_str());
-    dl->AddText(ImVec2(cx + fullW * 0.25f - asz.x * 0.5f, y0 + 6),
-                IM_COL32(255, 200, 140, 255), matchAway_.c_str());
+
+    // Home team name with background (color1) and text (color2)
+    ImU32 homeBg = matchHomeTeam_ && !matchHomeTeam_->homeColor1.empty()
+        ? parseColor(matchHomeTeam_->homeColor1)
+        : IM_COL32(140, 200, 255, 255);
+    ImU32 homeText = matchHomeTeam_ && !matchHomeTeam_->homeColor2.empty()
+        ? parseColor(matchHomeTeam_->homeColor2)
+        : IM_COL32(255, 255, 255, 255);
+
+    // Away team name with background (color1) and text (color2)
+    ImU32 awayBg = matchAwayTeam_ && !matchAwayTeam_->awayColor1.empty()
+        ? parseColor(matchAwayTeam_->awayColor1)
+        : IM_COL32(255, 200, 140, 255);
+    ImU32 awayText = matchAwayTeam_ && !matchAwayTeam_->awayColor2.empty()
+        ? parseColor(matchAwayTeam_->awayColor2)
+        : IM_COL32(255, 255, 255, 255);
+
+    // Draw home team name background and text
+    float homePadding = 8.0f;
+    ImVec2 homePos(cx - fullW * 0.25f - hsz.x * 0.5f, y0 + 6);
+    dl->AddRectFilled(ImVec2(homePos.x - homePadding, homePos.y - 2),
+                      ImVec2(homePos.x + hsz.x + homePadding, homePos.y + hsz.y + 2),
+                      homeBg, 3.0f);
+    dl->AddText(homePos, homeText, matchHome_.c_str());
+
+    // Draw away team name background and text
+    float awayPadding = 8.0f;
+    ImVec2 awayPos(cx + fullW * 0.25f - asz.x * 0.5f, y0 + 6);
+    dl->AddRectFilled(ImVec2(awayPos.x - awayPadding, awayPos.y - 2),
+                      ImVec2(awayPos.x + asz.x + awayPadding, awayPos.y + asz.y + 2),
+                      awayBg, 3.0f);
+    dl->AddText(awayPos, awayText, matchAway_.c_str());
+
     ImGui::SetWindowFontScale(2.0f);
     dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
                 ImVec2(cx - ssz.x * 0.5f, y0), IM_COL32(255, 240, 190, 255), score);
@@ -1465,26 +1571,41 @@ void App::drawPitch(ImVec2 p0, ImVec2 size, const Frame* f, const Frame* nextF, 
         float px = a.x + (b.x - a.x) * (x / 105.0f);
         float py = a.y + (b.y - a.y) * (y / 68.0f);
 
-        // Player circle color: home = red, away = blue
-        ImU32 playerCol = (p.side == 0)
-            ? IM_COL32(220, 50, 50, 255)     // home red
-            : IM_COL32(50, 100, 220, 255);   // away blue
+        // Get team colors based on side (home/away)
+        ImU32 playerCol, trimCol;
+        if (p.side == 0) {
+            // Home team uses home colors
+            playerCol = matchHomeTeam_ && !matchHomeTeam_->homeColor1.empty() 
+                ? parseColor(matchHomeTeam_->homeColor1) 
+                : IM_COL32(220, 50, 50, 255);  // Default red
+            trimCol = matchHomeTeam_ && !matchHomeTeam_->homeColor2.empty()
+                ? parseColor(matchHomeTeam_->homeColor2)
+                : IM_COL32(255, 255, 255, 255);  // Default white
+        } else {
+            // Away team uses away colors
+            playerCol = matchAwayTeam_ && !matchAwayTeam_->awayColor1.empty()
+                ? parseColor(matchAwayTeam_->awayColor1)
+                : IM_COL32(50, 100, 220, 255);  // Default blue
+            trimCol = matchAwayTeam_ && !matchAwayTeam_->awayColor2.empty()
+                ? parseColor(matchAwayTeam_->awayColor2)
+                : IM_COL32(255, 255, 255, 255);  // Default white
+        }
 
         // Highlight ball carrier with a bright ring
         if (isCarrier) {
             dl->AddCircleFilled(ImVec2(px, py), 12.0f, IM_COL32(255, 255, 100, 255));
         }
 
-        // Draw player circle
+        // Draw player circle with team colors
         dl->AddCircleFilled(ImVec2(px, py), 10.0f, playerCol);
-        dl->AddCircle(ImVec2(px, py), 10.0f, IM_COL32(255, 255, 255, 255), 16, 2.0f);
+        dl->AddCircle(ImVec2(px, py), 10.0f, trimCol, 16, 2.0f);
 
-        // Draw shirt number in white
+        // Draw shirt number in trim color
         char numStr[4];
         std::snprintf(numStr, sizeof(numStr), "%d", p.shirtNumber);
         ImVec2 textSize = ImGui::CalcTextSize(numStr);
         dl->AddText(ImVec2(px - textSize.x * 0.5f, py - textSize.y * 0.5f),
-                    IM_COL32(255, 255, 255, 255), numStr);
+                    trimCol, numStr);
     }
 
     // Ball at its continuous position with smooth interpolation.

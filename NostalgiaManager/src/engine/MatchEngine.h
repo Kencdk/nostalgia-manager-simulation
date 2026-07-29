@@ -29,6 +29,9 @@ struct MatchStats {
     int passAtt[2] = {0, 0};     // passes attempted
     int passOk[2] = {0, 0};      // passes completed
     int fouls[2] = {0, 0};
+    int corners[2] = {0, 0};     // corner kicks awarded
+    int throwIns[2] = {0, 0};    // throw-ins awarded
+    int freeKicks[2] = {0, 0};   // free kicks awarded
     long possTicks[2] = {0, 0};  // ball-action ticks spent in possession
 };
 
@@ -123,6 +126,7 @@ private:
     // --- helpers ---
     void setup(Team& home, Team& away);
     void kickoff(int controllingSide);
+    void swapEnds(Team& home, Team& away);  // Switch sides at half-time
     void runHalf(int half);
     void resolveBallAction();
     void moveOffBallPlayers();
@@ -148,6 +152,10 @@ private:
     void giveBall(Player* p, int side);
     void turnover(const std::string& reason);
     void goalKick(int side);
+    void cornerKick(int attackingSide);
+    void throwIn(int side, const Position2D& pos);
+    void freeKick(int attackingSide, const Position2D& foulPos);
+    bool checkBallOutOfBounds();  // Returns true if ball went out
     void onShot(Action a, double finalScore, double thr);
 
     void logEvent(const std::string& text, bool key = false);

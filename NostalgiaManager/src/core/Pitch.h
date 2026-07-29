@@ -88,4 +88,20 @@ inline Position2D clampPosition(const Position2D& pos) {
     return Position2D(x, y);
 }
 
+// Check if position is out of bounds (beyond pitch boundaries)
+inline bool isOutOfBounds(const Position2D& pos) {
+    return pos.x < 0.0f || pos.x > kPitchLength || pos.y < 0.0f || pos.y > kPitchWidth;
+}
+
+// Determine which boundary the ball crossed (for throw-ins, corners, goal kicks)
+enum class OutType { None, SidelineTop, SidelineBottom, GoallineLeft, GoallineRight };
+
+inline OutType getOutType(const Position2D& pos) {
+    if (pos.y < 0.0f) return OutType::SidelineTop;
+    if (pos.y > kPitchWidth) return OutType::SidelineBottom;
+    if (pos.x < 0.0f) return OutType::GoallineLeft;
+    if (pos.x > kPitchLength) return OutType::GoallineRight;
+    return OutType::None;
+}
+
 }  // namespace nm

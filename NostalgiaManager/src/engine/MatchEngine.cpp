@@ -71,6 +71,28 @@ void MatchEngine::kickoff(int controllingSide) {
     if (nearest) giveBall(nearest, controllingSide);
 }
 
+void MatchEngine::swapEnds(Team& home, Team& away) {
+    // Swap attacking directions
+    dir_[0] = -dir_[0];
+    dir_[1] = -dir_[1];
+
+    // Reposition all players to their home positions on the opposite side
+    // Mirror column positions: col -> (kCols + 1 - col)
+    for (int s = 0; s < 2; ++s) {
+        for (Player* p : sidePlayers_[s]) {
+            // Mirror the home position column
+            p->homePos.col = kCols + 1 - p->homePos.col;
+            p->homePosition = cellToPosition(p->homePos);
+
+            // Reset current position to new home position
+            p->pos = p->homePos;
+            p->position = p->homePosition;
+            p->hasBall = false;
+            p->dispossessionCooldown = 0;
+        }
+    }
+}
+
 MatchResult MatchEngine::simulate(Team& home, Team& away, bool verbose,
                                   const EventHook& hook) {
     MatchResult res;
@@ -94,6 +116,9 @@ MatchResult MatchEngine::simulate(Team& home, Team& away, bool verbose,
     logEvent("Half time: " + home.name + " " + std::to_string(score_[0]) + " - " +
                  std::to_string(score_[1]) + " " + away.name,
              true);
+
+    // Switch ends for second half: teams swap directions
+    swapEnds(home, away);
 
     // Second half: other side kicks off.
     int secondControl = 1 - controlling;
@@ -365,7 +390,7 @@ void MatchEngine::resolveBallAction() {
     std::vector<Action> actions;
 
     if (isGoalkeeper) {
-        // Goalkeepers should never dribble or move with ball if opponents nearby
+        // Goalkeepers should never dribble, shoot, or move with ball if opponents nearby
         // They should only pass or clear (long pass)
         if (opponentNearby || pressured) {
             // Under any pressure: only passing allowed
@@ -374,8 +399,9 @@ void MatchEngine::resolveBallAction() {
         } else {
             // No pressure: can move within box, but prefer passing
             for (Action a : allowedActions(progress)) {
-                // Skip dribble entirely for GK
-                if (a == Action::Dribble) continue;
+                // Skip shooting, dribble, and header entirely for GK
+                if (a == Action::Dribble || a == Action::Finish || 
+                    a == Action::Longshot || a == Action::Header) continue;
                 // Allow move only if no opponents within 3 cells
                 if (a == Action::Move) {
                     if (opponentsNear(ball_, defendingSide, 3) > 0) continue;
@@ -461,27 +487,102 @@ void MatchEngine::resolveBallAction() {
                         ballPosition_.y += rng_.real(-lateralVariance, lateralVariance);
                     }
 
+                    aerial_ = true;
+                    logEvent(shirt(p) + (pressured ? " clears under pressure" : " launches it forward"));
+
+                    // Check if clearance went out of bounds
+                    if (checkBallOutOfBounds()) {
+                        break;  // Ball went out - restart handled
+                    }
+
+                    // Ball stayed in - update position
                     ballPosition_ = clampPosition(ballPosition_);
                     ball_ = positionToCell(ballPosition_);
                     p.pos = ball_;
                     p.position = ballPosition_;
-                    aerial_ = true;
-                    logEvent(shirt(p) + (pressured ? " clears under pressure" : " launches it forward"));
                     break;
                 }
                 logEvent(shirt(p) + (isLong ? " plays a long ball to " : " passes to ") +
                          shirt(*target));
                 aerial_ = isLong;  // long balls arrive in the air
+
+                // Check if defenders can deflect the aerial ball
+                if (isLong && aerial_) {
+                    int defendingSide = 1 - side;
+                    // Count defenders near the target
+                    int nearbyDefenders = 0;
+                    for (Player* d : sidePlayers_[defendingSide]) {
+                        if (d->position.distanceTo(target->position) < 8.0f) {
+                            nearbyDefenders++;
+                        }
+                    }
+
+                    // Chance of deflection increases with nearby defenders
+                    double deflectionChance = nearbyDefenders * 0.08;  // 8% per defender
+                    if (rng_.chance(deflectionChance)) {
+                        // Ball is deflected - add random deflection
+                        float deflectX = rng_.real(-10.0f, 10.0f);
+                        float deflectY = rng_.real(-8.0f, 8.0f);
+
+                        Position2D deflectedPos = target->position;
+                        deflectedPos.x += deflectX;
+                        deflectedPos.y += deflectY;
+                        ballPosition_ = deflectedPos;
+
+                        if (checkBallOutOfBounds()) {
+                            logEvent("Cross deflected out of play");
+                            break;
+                        }
+
+                        // Deflection stayed in - ball is loose
+                        ballPosition_ = clampPosition(ballPosition_);
+                        ball_ = positionToCell(ballPosition_);
+                        aerial_ = false;
+                        logEvent("Ball is deflected - loose ball!");
+
+                        // Nearest player to deflection wins it
+                        Player* winner = nearestOpponent(ball_, side);
+                        Player* defWinner = nearestOpponent(ball_, defendingSide);
+                        if (defWinner && (!winner || 
+                            defWinner->position.distanceTo(ballPosition_) < 
+                            winner->position.distanceTo(ballPosition_))) {
+                            winner = defWinner;
+                            side = defendingSide;
+                        }
+                        if (winner) {
+                            winner->pos = ball_;
+                            winner->position = ballPosition_;
+                            giveBall(winner, side);
+                        }
+                        break;
+                    }
+                }
+
                 giveBall(target, side);
             } else {
-                // Failed pass: ball intercepted partway to target
+                // Failed pass: ball intercepted partway to target or goes out
                 Player* target = choosePassTarget(isLong);
                 if (target) {
                     // Ball goes roughly halfway toward intended target
                     Position2D targetPos = target->position;
                     float interpFactor = rng_.real(0.3f, 0.6f);  // 30-60% of the way
+
+                    // Chance of over-hitting and sending out of bounds
+                    if (isLong && rng_.chance(0.25)) {
+                        // Long pass over-hit - ball travels further and may go out
+                        interpFactor = rng_.real(0.8f, 1.3f);
+                    }
+
                     ballPosition_.x += (targetPos.x - ballPosition_.x) * interpFactor;
                     ballPosition_.y += (targetPos.y - ballPosition_.y) * interpFactor;
+
+                    // Check if over-hit pass went out
+                    if (checkBallOutOfBounds()) {
+                        logEvent(shirt(p) + (isLong ? " over-hits a long ball" : " misplaces a pass") +
+                                 " out of play");
+                        break;
+                    }
+
                     ballPosition_ = clampPosition(ballPosition_);
                     ball_ = positionToCell(ballPosition_);
                 }
@@ -577,15 +678,25 @@ void MatchEngine::resolveBallAction() {
                 }
             } else {
                 // A beaten defender concedes a foul some of the time, more often
-                // the more aggressive they are (stat counter only - no free kick).
+                // the more aggressive they are.
                 double aggr = bestDef ? bestDef->norm("Aggression") : 0.5;
-                if (rng_.chance(cfg_.get("foul.base", 0.05) +
-                                cfg_.get("foul.aggression", 0.10) * aggr))
+                double foulChance = cfg_.get("foul.base", 0.05) + 
+                                   cfg_.get("foul.aggression", 0.10) * aggr;
+
+                if (rng_.chance(foulChance)) {
                     ++stats_.fouls[defendingSide];
-                logEvent(shirt(p) + " tries to dribble past " +
-                         (bestDef ? shirt(*bestDef) : std::string("the defender")) +
-                         ", but loses possession");
-                turnover("turnover");
+
+                    // Award free kick to attacking side
+                    Position2D foulPosition = ballPosition_;
+                    logEvent(shirt(p) + " is fouled by " + 
+                            (bestDef ? shirt(*bestDef) : std::string("the defender")), true);
+                    freeKick(side, foulPosition);
+                } else {
+                    logEvent(shirt(p) + " tries to dribble past " +
+                            (bestDef ? shirt(*bestDef) : std::string("the defender")) +
+                            ", but loses possession");
+                    turnover("turnover");
+                }
             }
             break;
         }
@@ -608,8 +719,18 @@ void MatchEngine::onShot(Action a, double finalScore, double thr) {
                            ? "lets fly from distance"
                            : (a == Action::Header ? "rises for a header" : "shoots");
     if (finalScore < thr) {
-        logEvent(shirt(*shooter) + " " + kind + " but it is off target / blocked", true);
-        goalKick(defendingSide);
+        // Shot off target or blocked
+        // Determine if it's deflected for a corner or goes out for goal kick
+        // ~40% chance of corner if blocked/deflected, otherwise goal kick
+        bool isCorner = rng_.chance(0.40);
+
+        if (isCorner) {
+            logEvent(shirt(*shooter) + " " + kind + " but it's deflected for a corner", true);
+            cornerKick(side);
+        } else {
+            logEvent(shirt(*shooter) + " " + kind + " but it is off target / blocked", true);
+            goalKick(defendingSide);
+        }
         return;
     }
     ++stats_.onTarget[side];
@@ -621,14 +742,19 @@ void MatchEngine::onShot(Action a, double finalScore, double thr) {
                         cfg_.get("gk.save.skill", 0.45) * gkNorm - 0.20 * margin;
     saveChance = std::max(0.05, std::min(0.95, saveChance));
     if (gk && rng_.chance(saveChance)) {
-        logEvent(shirt(*shooter) + " " + kind + " - SAVED by " + shirt(*gk), true);
-        goalKick(defendingSide);
+        // Saved shots result in corners (keeper parries/deflects the ball)
+        logEvent(shirt(*shooter) + " " + kind + " - SAVED by " + shirt(*gk) + 
+                 ", corner kick", true);
+        cornerKick(side);
     } else {
         ++score_[side];
         logEvent("GOAL! " + shirt(*shooter) + " scores! (" +
                      std::to_string(score_[0]) + "-" + std::to_string(score_[1]) + ")",
                  true);
-        kickoff(defendingSide);  // conceding side kicks off
+        // Reset to center and give ball to conceding side for kickoff
+        kickoff(defendingSide);
+        // Note: kickoff() resets ball to center, repositions all players to home positions,
+        // and gives possession to the conceding team for restart
     }
 }
 
@@ -857,8 +983,54 @@ void MatchEngine::moveOffBallPlayers() {
             // Clamp target row to respect positional constraints
             targetRow = std::max(minRow, std::min(maxRow, targetRow));
 
+            // Proactive collision avoidance: check if target is too close to other players
+            // and adjust to maintain spacing before movement
+            Position2D candidateTarget = cellToPosition(Cell{targetRow, targetCol});
+            constexpr float avoidanceRadius = 3.5f;  // Same as collision resolution
+
+            for (int otherSide = 0; otherSide < 2; ++otherSide) {
+                for (Player* other : sidePlayers_[otherSide]) {
+                    if (other == p) continue;
+
+                    float distToOther = candidateTarget.distanceTo(other->position);
+                    if (distToOther < avoidanceRadius) {
+                        // Target is too close to another player - adjust laterally
+                        // Try to move away from the crowded area
+                        float dx = candidateTarget.x - other->position.x;
+                        float dy = candidateTarget.y - other->position.y;
+
+                        if (std::abs(dx) > 0.01f || std::abs(dy) > 0.01f) {
+                            float dist = std::sqrt(dx * dx + dy * dy);
+                            float adjustX = (dx / dist) * avoidanceRadius;
+                            float adjustY = (dy / dist) * avoidanceRadius;
+
+                            candidateTarget.x = other->position.x + adjustX;
+                            candidateTarget.y = other->position.y + adjustY;
+                            candidateTarget = clampPosition(candidateTarget);
+                        }
+                    }
+                }
+            }
+
             // Calculate target position in continuous space
-            Position2D targetPosition = cellToPosition(Cell{targetRow, targetCol});
+            Position2D targetPosition = candidateTarget;
+
+            // Add slight positional variance to prevent exact overlap at formation spots
+            // Players within same cell should occupy slightly different positions
+            int nearbyCount = 0;
+            for (int otherSide = 0; otherSide < 2; ++otherSide) {
+                for (Player* other : sidePlayers_[otherSide]) {
+                    if (other == p) continue;
+                    if (other->pos == p->pos) {
+                        nearbyCount++;
+                        // Add small offset based on player number to create consistent spacing
+                        float offsetAngle = (p->shirtNumber * 2.0f + nearbyCount * 1.5f) * 0.5f;
+                        targetPosition.x += std::cos(offsetAngle) * 1.5f;
+                        targetPosition.y += std::sin(offsetAngle) * 1.5f;
+                        targetPosition = clampPosition(targetPosition);
+                    }
+                }
+            }
 
             // Smooth continuous movement towards target
             float maxSpeed = p->maxMovePerAction() * (kPitchLength / kCols);  // Convert to meters
@@ -890,7 +1062,7 @@ void MatchEngine::moveOffBallPlayers() {
 // Collision resolution: ensure no two players are too close
 // ---------------------------------------------------------------------------
 void MatchEngine::resolveCollisions() {
-    constexpr float minDistance = 1.5f;  // Minimum distance between players (meters)
+    constexpr float minDistance = 3.5f;  // Minimum distance between players (meters)
 
     for (int s1 = 0; s1 < 2; ++s1) {
         for (size_t i = 0; i < sidePlayers_[s1].size(); ++i) {
@@ -1097,7 +1269,27 @@ void MatchEngine::turnover(const std::string& reason) {
     Player* loser = carrier_;
     Player* winner = nearestOpponent(ball_, newSide);
     aerial_ = false;
+
     if (winner) {
+        // Check if winner commits a foul during the challenge
+        // More likely in dangerous areas (attacking third) and with aggressive players
+        double winnerAggr = winner->norm("Aggression");
+        int progress = zoneProgress(ball_, oldSide);  // How far attacking team had advanced
+        bool dangerousArea = progress >= 10;  // In attacking third
+
+        double foulChance = 0.03;  // Base 3% chance during challenges
+        if (dangerousArea) foulChance += 0.04;  // +4% in dangerous area
+        foulChance += winnerAggr * 0.06;  // Up to +6% for aggressive defenders
+
+        if (rng_.chance(foulChance)) {
+            ++stats_.fouls[newSide];
+            Position2D foulPosition = ballPosition_;
+            logEvent(shirt(*loser) + " is fouled by " + shirt(*winner), true);
+            freeKick(oldSide, foulPosition);
+            return;  // Free kick awarded - no turnover
+        }
+
+        // Normal turnover
         winner->pos = ball_;
         winner->position = ballPosition_;
         giveBall(winner, newSide);
@@ -1132,6 +1324,780 @@ void MatchEngine::goalKick(int side) {
         giveBall(receiver, side);
     } else if (Player* gk = goalkeeper(side)) {
         giveBall(gk, side);
+    }
+}
+
+void MatchEngine::cornerKick(int attackingSide) {
+    // Corner kick: realistic set piece with proper positioning
+    ++stats_.corners[attackingSide];
+
+    int defendingSide = 1 - attackingSide;
+
+    logEvent("Corner kick for " + (attackingSide == 0 ? res_->homeName : res_->awayName));
+
+    // Determine which corner based on which side the ball went out
+    // For now, randomly choose top or bottom corner at attacking end
+    bool topCorner = rng_.chance(0.5);
+    int cornerRow = topCorner ? 0 : 8;  // Row 0 (top) or 8 (bottom)
+    int cornerCol = (dir_[attackingSide] > 0) ? 13 : 1;  // Attacking end
+
+    Cell cornerFlag{cornerRow, cornerCol};
+    Position2D cornerPosition = cellToPosition(cornerFlag);
+
+    // Adjust corner position to be at the actual corner flag (edge of pitch)
+    if (dir_[attackingSide] > 0) {
+        cornerPosition.x = kPitchLength - 1.0f;  // Right corner
+    } else {
+        cornerPosition.x = 1.0f;  // Left corner
+    }
+    cornerPosition.y = topCorner ? 1.0f : kPitchWidth - 1.0f;
+
+    // --- STEP 1: Find corner taker (good crossing/passing ability) ---
+    Player* cornerTaker = nullptr;
+    double bestSkill = 0.0;
+    for (Player* p : sidePlayers_[attackingSide]) {
+        // Prefer wide players or players with good crossing ability
+        double skill = p->norm("Passing") * 0.5 + p->norm("Crossing") * 0.3 + 
+                      p->norm("Technique") * 0.2;
+        if (skill > bestSkill) {
+            bestSkill = skill;
+            cornerTaker = p;
+        }
+    }
+
+    if (!cornerTaker) {
+        cornerTaker = sidePlayers_[attackingSide].front();
+    }
+
+    // Position corner taker at corner flag
+    cornerTaker->position = cornerPosition;
+    cornerTaker->pos = positionToCell(cornerPosition);
+    ballPosition_ = cornerPosition;
+    ball_ = cornerTaker->pos;
+    giveBall(cornerTaker, attackingSide);
+
+    logEvent(shirt(*cornerTaker) + " prepares to take the corner");
+
+    // --- STEP 2: Position players in and around the box (fluid formation) ---
+
+    // Define the penalty box area
+    int boxColDeep = (dir_[attackingSide] > 0) ? 12 : 2;    // Deep in box (6-yard)
+    int boxColCenter = (dir_[attackingSide] > 0) ? 11 : 3;  // Penalty spot area
+    int boxColEdge = (dir_[attackingSide] > 0) ? 10 : 4;    // Edge of box
+    int boxColOutside = (dir_[attackingSide] > 0) ? 9 : 5;  // Just outside box
+    int midfield = 7;  // Halfway line
+
+    // Position attacking players (fluid, varied positioning)
+    std::vector<Player*> attackers;
+    for (Player* p : sidePlayers_[attackingSide]) {
+        if (p != cornerTaker) {
+            attackers.push_back(p);
+        }
+    }
+
+    // Position defenders
+    std::vector<Player*> defenders = sidePlayers_[defendingSide];
+    Player* gk = goalkeeper(defendingSide);
+
+    // ATTACKING TEAM POSITIONING (total 10 outfield):
+    // - 5 in the box (varied positions)
+    // - 1 short option near corner
+    // - 2 just outside box for clearances/rebounds
+    // - 2 center backs staying deep to defend counter-attacks
+
+    int attackerIdx = 0;
+    for (Player* p : attackers) {
+        // Identify player type by role for smart positioning
+        bool isDefender = (p->role == Role::D || p->role == Role::DM);
+        bool isTallStriker = (p->role == Role::F && p->norm("Heading") > 0.65);
+
+        if (attackerIdx == 0) {
+            // Player 1: Short option near corner (for short corner variation)
+            float shortDist = topCorner ? 12.0f : 10.0f;  // 10-12m from corner
+            p->position.x = cornerPosition.x + (dir_[attackingSide] > 0 ? -shortDist : shortDist);
+            p->position.y = cornerPosition.y + (topCorner ? shortDist : -shortDist);
+            p->position = clampPosition(p->position);
+
+        } else if (attackerIdx >= 1 && attackerIdx <= 5) {
+            // Players 2-6: IN THE BOX (5 players)
+            // Vary positions - near post, far post, penalty spot, 6-yard line
+
+            if (attackerIdx == 1) {
+                // Near post runner (where corner is coming from)
+                p->pos.col = boxColDeep;
+                p->pos.row = topCorner ? 2 : 6;
+                p->position = cellToPosition(p->pos);
+                p->position.y += rng_.real(-2.0f, 2.0f);  // Add variation
+
+            } else if (attackerIdx == 2 && isTallStriker) {
+                // Big striker at penalty spot
+                p->pos.col = boxColCenter;
+                p->pos.row = 4;
+                p->position = cellToPosition(p->pos);
+                p->position.x += rng_.real(-1.5f, 1.5f);
+                p->position.y += rng_.real(-1.5f, 1.5f);
+
+            } else if (attackerIdx == 3) {
+                // Far post attacker
+                p->pos.col = boxColDeep;
+                p->pos.row = topCorner ? 6 : 2;
+                p->position = cellToPosition(p->pos);
+                p->position.y += rng_.real(-2.0f, 2.0f);
+
+            } else if (attackerIdx == 4) {
+                // Central box runner
+                p->pos.col = boxColCenter;
+                p->pos.row = 3 + rng_.range(0, 2);
+                p->position = cellToPosition(p->pos);
+                p->position.x += rng_.real(-2.0f, 2.0f);
+                p->position.y += rng_.real(-2.0f, 2.0f);
+
+            } else {  // attackerIdx == 5
+                // Lurking at edge of 6-yard box
+                p->pos.col = boxColDeep;
+                p->pos.row = 4;
+                p->position = cellToPosition(p->pos);
+                p->position.y += rng_.real(-3.0f, 3.0f);
+            }
+
+        } else if (attackerIdx >= 6 && attackerIdx <= 7) {
+            // Players 7-8: Just OUTSIDE the box for rebounds/clearances
+            p->pos.col = boxColEdge;
+            p->pos.row = (attackerIdx == 6) ? 3 : 5;
+            p->position = cellToPosition(p->pos);
+            // Add some variation
+            p->position.x += rng_.real(-2.0f, 2.0f);
+            p->position.y += rng_.real(-3.0f, 3.0f);
+
+        } else {
+            // Players 9-10: Center backs staying DEEP (ready for counter-attack)
+            p->pos.col = midfield - dir_[attackingSide] * 2;  // On own half
+            p->pos.row = (attackerIdx == 8) ? 3 : 5;
+            p->position = cellToPosition(p->pos);
+            p->position.x += rng_.real(-3.0f, 3.0f);
+        }
+
+        p->position = clampPosition(p->position);
+        p->pos = positionToCell(p->position);
+        attackerIdx++;
+    }
+
+    // DEFENDING TEAM POSITIONING:
+    // - Goalkeeper on line
+    // - 6-7 defenders in box marking zones/players
+    // - 2-3 at edge of box
+    // - 1 midfielder deep for clearances
+
+    int defenderIdx = 0;
+    for (Player* d : defenders) {
+        if (d == gk) {
+            // Goalkeeper on goal line, slightly off-center
+            d->pos.col = (dir_[attackingSide] > 0) ? 13 : 1;
+            d->pos.row = 4;
+            d->position = cellToPosition(d->pos);
+            d->position.y += rng_.real(-1.0f, 1.0f);  // Slight positioning variance
+
+        } else if (defenderIdx < 3) {
+            // Defenders 1-3: Marking in 6-yard box (near/far post, central)
+            if (defenderIdx == 0) {
+                // Near post marker
+                d->pos.col = boxColDeep;
+                d->pos.row = topCorner ? 2 : 6;
+            } else if (defenderIdx == 1) {
+                // Central 6-yard box
+                d->pos.col = boxColDeep;
+                d->pos.row = 4;
+            } else {
+                // Far post marker
+                d->pos.col = boxColDeep;
+                d->pos.row = topCorner ? 6 : 2;
+            }
+            d->position = cellToPosition(d->pos);
+            d->position.x += rng_.real(-1.0f, 1.0f);
+            d->position.y += rng_.real(-2.0f, 2.0f);
+
+        } else if (defenderIdx < 7) {
+            // Defenders 4-7: Zonal marking in penalty area
+            d->pos.col = boxColCenter;
+            d->pos.row = 2 + (defenderIdx - 3);
+            d->position = cellToPosition(d->pos);
+            d->position.x += rng_.real(-2.0f, 2.0f);
+            d->position.y += rng_.real(-2.5f, 2.5f);
+
+        } else if (defenderIdx < 9) {
+            // Defenders 8-9: Edge of box (for clearances)
+            d->pos.col = boxColEdge;
+            d->pos.row = (defenderIdx == 7) ? 3 : 5;
+            d->position = cellToPosition(d->pos);
+            d->position.x += rng_.real(-2.0f, 2.0f);
+            d->position.y += rng_.real(-3.0f, 3.0f);
+
+        } else {
+            // Defender 10: Deep midfielder position (counter-attack outlet)
+            d->pos.col = boxColOutside;
+            d->pos.row = 4;
+            d->position = cellToPosition(d->pos);
+            d->position.x += rng_.real(-4.0f, 4.0f);
+        }
+
+        d->position = clampPosition(d->position);
+        d->pos = positionToCell(d->position);
+        defenderIdx++;
+    }
+
+    // --- STEP 3: Deliver the corner (cross into box) ---
+
+    aerial_ = true;
+
+    // Determine crossing quality
+    double crossQuality = cornerTaker->norm("Passing") * 0.4 + 
+                         cornerTaker->norm("Crossing") * 0.4 + 
+                         cornerTaker->norm("Technique") * 0.2;
+
+    // Choose target area in box (near post, far post, or penalty spot)
+    double targetChoice = rng_.real(0.0, 1.0);
+    int targetRow;
+    int targetCol = boxColCenter;
+
+    if (targetChoice < 0.35) {
+        // Near post
+        targetRow = topCorner ? 2 : 6;
+        logEvent(shirt(*cornerTaker) + " swings the corner towards the near post");
+    } else if (targetChoice < 0.70) {
+        // Penalty spot / central
+        targetRow = 4;
+        logEvent(shirt(*cornerTaker) + " delivers the corner to the penalty spot");
+    } else {
+        // Far post
+        targetRow = topCorner ? 6 : 2;
+        logEvent(shirt(*cornerTaker) + " aims for the far post");
+    }
+
+    Cell targetArea{targetRow, targetCol};
+
+    // Check crossing quality - poor crosses may be cleared
+    bool goodCross = rng_.chance(crossQuality * 0.8 + 0.2);  // 20-100% based on skill
+
+    if (!goodCross) {
+        // Poor delivery - cleared by defense
+        logEvent("Poor corner delivery - cleared by the defense");
+
+        // Ball cleared to midfield
+        Cell clearTarget{4, 7};
+        ballPosition_ = cellToPosition(clearTarget);
+        ball_ = clearTarget;
+        aerial_ = false;
+
+        Player* clearer = nearestOpponent(clearTarget, defendingSide);
+        if (clearer) {
+            clearer->pos = clearTarget;
+            clearer->position = ballPosition_;
+            giveBall(clearer, defendingSide);
+        }
+        return;
+    }
+
+    // Good cross - find players near target area
+    std::vector<Player*> nearbyAttackers;
+    std::vector<Player*> nearbyDefenders;
+
+    for (Player* p : attackers) {
+        if (CellDistance(p->pos, targetArea) <= 2) {
+            nearbyAttackers.push_back(p);
+        }
+    }
+
+    for (Player* d : defenders) {
+        if (CellDistance(d->pos, targetArea) <= 2) {
+            nearbyDefenders.push_back(d);
+        }
+    }
+
+    if (nearbyAttackers.empty()) {
+        // No attackers near - defenders clear easily
+        logEvent("Corner cleared by the defense");
+
+        if (rng_.chance(0.40)) {
+            // Cleared out for another corner
+            logEvent("Ball deflected out - another corner!");
+            cornerKick(attackingSide);
+        } else {
+            // Cleared away
+            Cell clearTarget{4, 7};
+            ballPosition_ = cellToPosition(clearTarget);
+            ball_ = clearTarget;
+            aerial_ = false;
+
+            Player* clearer = nearestOpponent(clearTarget, defendingSide);
+            if (clearer) {
+                clearer->pos = clearTarget;
+                clearer->position = ballPosition_;
+                giveBall(clearer, defendingSide);
+            }
+        }
+        return;
+    }
+
+    // --- STEP 4: Contested aerial duel ---
+
+    ballPosition_ = cellToPosition(targetArea);
+    ball_ = targetArea;
+
+    // Select the best attacker and best defender in area
+    Player* bestAttacker = nearbyAttackers[0];
+    double bestAttackScore = 0.0;
+    for (Player* a : nearbyAttackers) {
+        double score = a->norm("Heading") * 0.6 + a->norm("Jumping") * 0.3 + 
+                      a->norm("Positioning") * 0.1;
+        if (score > bestAttackScore) {
+            bestAttackScore = score;
+            bestAttacker = a;
+        }
+    }
+
+    Player* bestDefender = nearbyDefenders.empty() ? nullptr : nearbyDefenders[0];
+    double bestDefendScore = 0.0;
+    if (bestDefender) {
+        for (Player* d : nearbyDefenders) {
+            double score = d->norm("Heading") * 0.5 + d->norm("Jumping") * 0.3 + 
+                          d->norm("Marking") * 0.2;
+            if (score > bestDefendScore) {
+                bestDefendScore = score;
+                bestDefender = d;
+            }
+        }
+    }
+
+    logEvent(shirt(*bestAttacker) + " rises for the header!", true);
+
+    // Aerial contest
+    double attackerQuality = bestAttacker->norm("Heading") * 0.7 + 
+                            bestAttacker->norm("Jumping") * 0.3;
+    double defenderQuality = bestDefender ? 
+                            (bestDefender->norm("Heading") * 0.6 + 
+                             bestDefender->norm("Marking") * 0.4) : 0.3;
+
+    // Include goalkeeper if close
+    if (gk && CellDistance(gk->pos, targetArea) <= 2) {
+        double gkClaim = gk->norm("Goalkeeping") * 0.5 + gk->norm("Positioning") * 0.3;
+        if (gkClaim > defenderQuality) {
+            defenderQuality = gkClaim;
+            if (rng_.chance(0.40)) {
+                logEvent(shirt(*gk) + " comes out to punch clear!");
+
+                // Goalkeeper punches clear
+                Cell clearTarget{4, 6 + rng_.range(-1, 1)};
+                ballPosition_ = cellToPosition(clearTarget);
+                ball_ = clearTarget;
+                aerial_ = false;
+
+                Player* receiver = nearestOpponent(clearTarget, defendingSide);
+                if (receiver) {
+                    receiver->pos = clearTarget;
+                    receiver->position = ballPosition_;
+                    giveBall(receiver, defendingSide);
+                }
+                return;
+            }
+        }
+    }
+
+    double contestResult = attackerQuality - defenderQuality + rng_.real(-0.25, 0.25);
+
+    if (contestResult > 0.05) {
+        // Attacker wins the header - attempt on goal
+        bestAttacker->pos = targetArea;
+        bestAttacker->position = ballPosition_;
+        giveBall(bestAttacker, attackingSide);
+
+        logEvent(shirt(*bestAttacker) + " heads towards goal!", true);
+
+        // Header attempt on goal
+        double headerScore = attackerQuality + rng_.real(-0.2, 0.2);
+        Action headerAction = Action::Header;
+        ++shots_[attackingSide];
+        ++stats_.shots[attackingSide];
+        onShot(headerAction, headerScore, 0.45);
+    } else {
+        // Defender wins - clear the ball
+        if (bestDefender) {
+            logEvent(shirt(*bestDefender) + " heads clear!");
+        } else {
+            logEvent("Headed clear by the defense");
+        }
+
+        // Ball cleared - could go out for another corner or to midfield
+        if (rng_.chance(0.25)) {
+            logEvent("Cleared out for another corner");
+            cornerKick(attackingSide);
+        } else {
+            Cell clearTarget{4, 6 + rng_.range(-2, 2)};
+            ballPosition_ = cellToPosition(clearTarget);
+            ball_ = clearTarget;
+            aerial_ = false;
+
+            Player* clearer = nearestOpponent(clearTarget, defendingSide);
+            if (clearer) {
+                clearer->pos = clearTarget;
+                clearer->position = ballPosition_;
+                giveBall(clearer, defendingSide);
+            }
+        }
+    }
+}
+
+void MatchEngine::throwIn(int side, const Position2D& outPos) {
+    // Throw-in: ball went out over the sideline
+    ++stats_.throwIns[side];
+    aerial_ = false;
+
+    // Clamp to sideline - keep X position, set Y to boundary
+    Position2D throwPos = outPos;
+    if (outPos.y < 0.0f) {
+        throwPos.y = 2.0f;  // Just inside top sideline
+    } else {
+        throwPos.y = kPitchWidth - 2.0f;  // Just inside bottom sideline
+    }
+    throwPos.x = std::max(5.0f, std::min(kPitchLength - 5.0f, outPos.x));
+
+    ballPosition_ = throwPos;
+    ball_ = positionToCell(ballPosition_);
+
+    logEvent("Throw-in for " + (side == 0 ? res_->homeName : res_->awayName));
+
+    // Find nearest player from throwing team to take the throw
+    Player* thrower = nearestOpponent(ball_, side);
+    if (thrower) {
+        thrower->pos = ball_;
+        thrower->position = ballPosition_;
+        giveBall(thrower, side);
+    }
+}
+
+void MatchEngine::freeKick(int attackingSide, const Position2D& foulPos) {
+    // Free kick awarded to attacking side at foul position
+    ++stats_.freeKicks[attackingSide];
+
+    // Position ball at foul location (slightly adjusted to be in bounds)
+    ballPosition_ = clampPosition(foulPos);
+    ball_ = positionToCell(ballPosition_);
+
+    int defendingSide = 1 - attackingSide;
+
+    // Calculate distance to goal and position
+    float goalX = (dir_[attackingSide] > 0) ? kPitchLength : 0.0f;
+    float distanceToGoal = std::abs(ballPosition_.x - goalX);
+    int progress = zoneProgress(ball_, attackingSide);
+    bool inShootingRange = distanceToGoal < 30.0f && progress >= 10;  // Within ~30m and in attacking zone
+
+    // Central position check (good for shooting)
+    float centerY = kPitchWidth * 0.5f;
+    float lateralDist = std::abs(ballPosition_.y - centerY);
+    bool centralPosition = lateralDist < 15.0f;  // Within 15m of center
+
+    logEvent("Free kick for " + (attackingSide == 0 ? res_->homeName : res_->awayName));
+
+    // Find the best free kick taker (highest combination of passing, shooting, technique)
+    Player* taker = nullptr;
+    double bestScore = 0.0;
+    for (Player* p : sidePlayers_[attackingSide]) {
+        double score = p->norm("Passing") * 0.3 + 
+                      p->norm("Shooting") * 0.3 + 
+                      p->norm("Technique") * 0.3 +
+                      p->norm("Freekicks") * 0.1;
+        if (score > bestScore) {
+            bestScore = score;
+            taker = p;
+        }
+    }
+
+    if (!taker) {
+        // Fallback - just give to nearest player
+        taker = nearestOpponent(ball_, attackingSide);
+    }
+
+    if (!taker) return;
+
+    // Decide on free kick type based on position and player attributes
+    double shootingSkill = taker->norm("Shooting");
+    double freeKickSkill = taker->norm("Freekicks");
+    double passingSkill = taker->norm("Passing");
+
+    // Weighted decision based on position and skills
+    double shootChance = 0.0;
+    double crossChance = 0.0;
+    double passChance = 0.0;
+
+    if (inShootingRange && centralPosition) {
+        // Good shooting position
+        shootChance = 0.40 * (1.0 + shootingSkill + freeKickSkill);
+        crossChance = 0.30 * (1.0 + passingSkill);
+        passChance = 0.30 * (1.0 + passingSkill);
+    } else if (inShootingRange) {
+        // Wide free kick in attacking third
+        shootChance = 0.15 * (1.0 + shootingSkill);
+        crossChance = 0.50 * (1.0 + passingSkill);
+        passChance = 0.35 * (1.0 + passingSkill);
+    } else {
+        // Deep position - passing or crossing
+        shootChance = 0.05;
+        crossChance = 0.45 * (1.0 + passingSkill);
+        passChance = 0.50 * (1.0 + passingSkill);
+    }
+
+    double total = shootChance + crossChance + passChance;
+    double pick = rng_.real(0.0, total);
+
+    // Position taker at ball
+    taker->pos = ball_;
+    taker->position = ballPosition_;
+    giveBall(taker, attackingSide);
+
+    aerial_ = true;  // Free kicks are typically lofted
+
+    if (pick < shootChance) {
+        // OPTION 1: Direct shot on goal
+        logEvent(shirt(*taker) + " lines up a direct free kick shot", true);
+
+        // Calculate shot quality
+        double shotQuality = (shootingSkill * 0.4 + freeKickSkill * 0.4 + 
+                             taker->norm("Technique") * 0.2);
+
+        // Distance penalty
+        double distanceFactor = 1.0 - (distanceToGoal / 40.0);  // Decreases with distance
+        distanceFactor = std::max(0.3, distanceFactor);
+
+        // Angle penalty
+        double angleFactor = 1.0 - (lateralDist / 30.0);
+        angleFactor = std::max(0.4, angleFactor);
+
+        double finalScore = shotQuality * distanceFactor * angleFactor + rng_.real(-0.15, 0.15);
+
+        // Thresholds
+        double onTargetThreshold = 0.45;
+        double scoreThreshold = 0.65;
+
+        if (finalScore < onTargetThreshold) {
+            // Off target
+            bool isCorner = rng_.chance(0.30);
+            if (isCorner) {
+                logEvent(shirt(*taker) + "'s free kick is deflected for a corner", true);
+                cornerKick(attackingSide);
+            } else {
+                logEvent(shirt(*taker) + "'s free kick goes wide", true);
+                goalKick(defendingSide);
+            }
+        } else {
+            // On target
+            ++stats_.onTarget[attackingSide];
+            ++shots_[attackingSide];
+            ++stats_.shots[attackingSide];
+
+            Player* gk = goalkeeper(defendingSide);
+            double gkNorm = gk ? gk->norm("Goalkeeping") : 0.2;
+            double saveChance = 0.55 + 0.35 * gkNorm - 0.25 * (finalScore - onTargetThreshold);
+            saveChance = std::max(0.15, std::min(0.85, saveChance));
+
+            if (gk && rng_.chance(saveChance)) {
+                logEvent(shirt(*taker) + "'s free kick saved by " + shirt(*gk), true);
+                // Saved free kick -> corner or collected
+                if (rng_.chance(0.60)) {
+                    cornerKick(attackingSide);
+                } else {
+                    logEvent(shirt(*gk) + " collects the ball");
+                    giveBall(gk, defendingSide);
+                }
+            } else {
+                // GOAL from free kick!
+                ++score_[attackingSide];
+                logEvent("GOAL! " + shirt(*taker) + " scores from the free kick! (" +
+                        std::to_string(score_[0]) + "-" + std::to_string(score_[1]) + ")", true);
+                kickoff(defendingSide);
+            }
+        }
+    } else if (pick < shootChance + crossChance) {
+        // OPTION 2: Cross into the box
+        logEvent(shirt(*taker) + " floats the free kick into the box");
+
+        // Target dangerous area in box
+        int targetCol = (dir_[attackingSide] > 0) ? 11 : 3;
+        int targetRow = 4 + rng_.range(-2, 2);
+        Cell target{targetRow, targetCol};
+
+        // Check for receivers and defenders
+        std::vector<Player*> attackers;
+        std::vector<Player*> defenders;
+
+        for (Player* p : sidePlayers_[attackingSide]) {
+            if (CellDistance(p->pos, target) <= 3) {
+                attackers.push_back(p);
+            }
+        }
+        for (Player* p : sidePlayers_[defendingSide]) {
+            if (CellDistance(p->pos, target) <= 3) {
+                defenders.push_back(p);
+            }
+        }
+
+        // Quality of delivery
+        double crossQuality = passingSkill * 0.7 + freeKickSkill * 0.3;
+        bool goodDelivery = rng_.chance(crossQuality);
+
+        if (!goodDelivery || attackers.empty()) {
+            // Poor delivery or no attackers
+            if (rng_.chance(0.5)) {
+                logEvent("Free kick delivery is poor - cleared by defense");
+                goalKick(defendingSide);
+            } else {
+                logEvent("Free kick is cleared by the defense");
+                // Ball cleared to midfield
+                Cell clearTarget{4, 7};
+                ballPosition_ = cellToPosition(clearTarget);
+                ball_ = clearTarget;
+                Player* clearer = nearestOpponent(ball_, defendingSide);
+                if (clearer) {
+                    clearer->pos = ball_;
+                    clearer->position = ballPosition_;
+                    giveBall(clearer, defendingSide);
+                }
+            }
+        } else {
+            // Good delivery - contested header
+            ballPosition_ = cellToPosition(target);
+            ball_ = target;
+
+            Player* attacker = attackers[rng_.range(0, static_cast<int>(attackers.size()) - 1)];
+            double attackerHeading = attacker->norm("Heading");
+
+            double defenseQuality = 0.5;
+            if (!defenders.empty()) {
+                Player* defender = defenders[rng_.range(0, static_cast<int>(defenders.size()) - 1)];
+                defenseQuality = defender->norm("Heading") * 0.7 + defender->norm("Jumping") * 0.3;
+            }
+
+            double contestResult = attackerHeading - defenseQuality + rng_.real(-0.2, 0.2);
+
+            if (contestResult > 0.15) {
+                // Attacker wins header - attempt on goal
+                logEvent(shirt(*attacker) + " rises to meet the free kick!", true);
+                attacker->pos = target;
+                attacker->position = ballPosition_;
+                giveBall(attacker, attackingSide);
+
+                // Header attempt
+                double headerScore = attackerHeading + rng_.real(-0.2, 0.2);
+                Action headerAction = Action::Header;
+                onShot(headerAction, headerScore, 0.50);
+            } else {
+                // Defender clears or ball deflected
+                if (rng_.chance(0.50)) {
+                    logEvent("Headed clear by the defense");
+                    cornerKick(attackingSide);
+                } else {
+                    logEvent("Defense clears the free kick");
+                    Cell clearTarget{4, 7};
+                    ballPosition_ = cellToPosition(clearTarget);
+                    ball_ = clearTarget;
+                    Player* clearer = nearestOpponent(ball_, defendingSide);
+                    if (clearer) {
+                        clearer->pos = ball_;
+                        clearer->position = ballPosition_;
+                        giveBall(clearer, defendingSide);
+                    }
+                }
+            }
+        }
+    } else {
+        // OPTION 3: Short pass to teammate
+        logEvent(shirt(*taker) + " takes a short free kick");
+
+        // Find nearby teammate
+        Player* target = nullptr;
+        int bestDist = 1000;
+        for (Player* p : sidePlayers_[attackingSide]) {
+            if (p == taker) continue;
+            int dist = CellDistance(p->pos, ball_);
+            if (dist >= 2 && dist <= 5 && dist < bestDist) {
+                bestDist = dist;
+                target = p;
+            }
+        }
+
+        if (target) {
+            logEvent(shirt(*taker) + " passes to " + shirt(*target));
+            aerial_ = false;
+            giveBall(target, attackingSide);
+        } else {
+            // No good target - just play it safe
+            logEvent(shirt(*taker) + " plays it simple");
+            aerial_ = false;
+            // Ball stays with taker
+        }
+    }
+}
+
+bool MatchEngine::checkBallOutOfBounds() {
+    // Check if ball has left the pitch
+    if (!isOutOfBounds(ballPosition_)) {
+        return false;  // Ball is still in play
+    }
+
+    OutType outType = getOutType(ballPosition_);
+    Position2D outPos = ballPosition_;  // Save position before clamping
+
+    // Determine which team gets possession based on who last touched it
+    int lastTouch = carrierSide_;
+    int oppositeSide = 1 - lastTouch;
+
+    switch (outType) {
+        case OutType::SidelineTop:
+        case OutType::SidelineBottom:
+            // Ball over sideline -> throw-in for opposite team
+            logEvent("Ball out of play over the sideline");
+            throwIn(oppositeSide, outPos);
+            return true;
+
+        case OutType::GoallineLeft:
+        case OutType::GoallineRight: {
+            // Ball over goal line - determine if corner or goal kick
+            // Check which goal line: left (0) or right (105)
+            bool isLeftLine = (outType == OutType::GoallineLeft);
+
+            // Team 0 (home) attacks right (towards x=105), defends left (x=0)
+            // Team 1 (away) attacks left (towards x=0), defends right (x=105)
+            bool isHomeDefendingEnd = isLeftLine;  // Left end is home's goal
+
+            // If ball went out at defending team's end and attacking team touched last -> corner
+            // If ball went out at defending team's end and defending team touched last -> goal kick
+            if (isHomeDefendingEnd) {
+                // Ball went out at home's (left) end
+                if (lastTouch == 1) {
+                    // Away team touched last -> corner for away
+                    logEvent("Ball goes behind for a corner");
+                    cornerKick(1);
+                } else {
+                    // Home team touched last -> goal kick for home
+                    logEvent("Ball out for a goal kick");
+                    goalKick(0);
+                }
+            } else {
+                // Ball went out at away's (right) end
+                if (lastTouch == 0) {
+                    // Home team touched last -> corner for home
+                    logEvent("Ball goes behind for a corner");
+                    cornerKick(0);
+                } else {
+                    // Away team touched last -> goal kick for away
+                    logEvent("Ball out for a goal kick");
+                    goalKick(1);
+                }
+            }
+            return true;
+        }
+
+        case OutType::None:
+        default:
+            return false;
     }
 }
 

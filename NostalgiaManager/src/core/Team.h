@@ -25,6 +25,12 @@ struct Team {
     std::string preferredFormation = "4-4-2";  // Club's default formation (from database)
     Mentality mentality = Mentality::Standard;
 
+    // Team colors from TeamsDB
+    std::string homeColor1;      // Main jersey color (fill)
+    std::string homeColor2;      // Trim/number color
+    std::string awayColor1;      // Away main color
+    std::string awayColor2;      // Away trim/number color
+
     TeamTactics tactics;
 
     std::vector<Player> squad;

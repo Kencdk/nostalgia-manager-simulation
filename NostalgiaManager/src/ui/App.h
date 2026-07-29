@@ -104,6 +104,7 @@ private:
 
     AppTexture menuBg_;
     std::vector<std::string> leagues_;
+    std::unordered_map<int, AppTexture> teamScreenshots_;  // team id -> screenshot texture
 
     // Tactics screen
     Team* tacticsTeam_ = nullptr;

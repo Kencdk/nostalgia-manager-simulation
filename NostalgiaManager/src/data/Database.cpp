@@ -192,6 +192,13 @@ bool Database::loadTeams(const std::string& path) {
         }
         std::string m = h.get(r, {"mentality", "mentalitiy"});
         if (!m.empty()) t.mentality = mentalityFromString(m);
+
+        // Load team colors
+        t.homeColor1 = h.get(r, {"teamcolourmain1", "teamcolormain1", "homecolor1", "homecolour1"});
+        t.homeColor2 = h.get(r, {"teamcolourmain2", "teamcolormain2", "homecolor2", "homecolour2"});
+        t.awayColor1 = h.get(r, {"awaycolour1", "awaycolor1"});
+        t.awayColor2 = h.get(r, {"awaycolour2", "awaycolor2"});
+
         teams.push_back(std::move(t));
     }
     return !teams.empty();
@@ -349,12 +356,30 @@ bool Database::loadPlayers(const std::string& path) {
                            pos({"rightforward"}), pos({"leftforward"}),
                            pos({"attack"})});
 
-        // Flank ratings (summary block). When the file has no flank columns we
-        // assume central so a position is still produced.
+        // Flank ratings (summary block). When the file has no flank columns,
+        // derive them from the position-specific columns.
         int sR = pos({"right"});
         int sL = pos({"left"});
         int sC = pos({"centre", "center"});
-        if (sR <= 0 && sL <= 0 && sC <= 0) sC = 1;
+
+        // If no summary flank columns exist, derive from position-specific ratings
+        if (sR <= 0 && sL <= 0 && sC <= 0) {
+            // Calculate right preference from right-sided positions
+            sR = std::max({pos({"defenderright"}), pos({"wingbackright"}),
+                           pos({"midfielderright"}), pos({"attackingmidfielderright"}),
+                           pos({"rightforward"})});
+            // Calculate left preference from left-sided positions
+            sL = std::max({pos({"defenderleft"}), pos({"wingbackleft"}),
+                           pos({"midfielderleft"}), pos({"attackingmidfielderleft"}),
+                           pos({"leftforward"})});
+            // Calculate centre preference from central positions
+            sC = std::max({pos({"defendercentral"}), pos({"defensivemidfielder"}),
+                           pos({"midfieldercentral"}), pos({"attackingmidfieldercentral"}),
+                           pos({"centerforward"}), pos({"centreforward"})});
+
+            // If still no flank data, assume central
+            if (sR <= 0 && sL <= 0 && sC <= 0) sC = 1;
+        }
 
         auto sidedPos = [](Role role, Side s) -> Position {
             switch (role) {
