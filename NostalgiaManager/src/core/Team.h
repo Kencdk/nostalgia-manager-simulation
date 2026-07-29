@@ -48,6 +48,10 @@ struct Team {
     // explicit XI is configured.
     void autoSelectXI();
 
+    // Order substitutes to ensure positional balance (1 GK, min 1 DEF, min 1 MID, min 1 ATT)
+    // Reorders the squad so the first 5 non-starters are balanced substitutes
+    void autoOrderSubstitutes();
+
     // Update assigned positions to match current formation (without changing players)
     void updateFormationPositions();
 

@@ -73,6 +73,7 @@ private:
 
     void beginScreen(const char* title);
     void beginFullscreen(const char* id, bool withBackground);
+    void drawCyclingBackground();  // Helper for cycling screenshot backgrounds
     void renderMain();
     void renderFriendly();
     void renderTactics();
@@ -104,7 +105,7 @@ private:
 
     AppTexture menuBg_;
     std::vector<std::string> leagues_;
-    std::unordered_map<int, AppTexture> teamScreenshots_;  // team id -> screenshot texture
+    std::vector<AppTexture> friendlyScreenshots_;  // Decorative images for Friendly screen
 
     // Tactics screen
     Team* tacticsTeam_ = nullptr;

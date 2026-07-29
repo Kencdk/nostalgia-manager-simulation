@@ -212,4 +212,88 @@ double Team::averageAbility() const {
     return sum / squad.size();
 }
 
+void Team::autoOrderSubstitutes() {
+    // Get all non-starting players
+    std::vector<Player*> bench;
+    for (auto& p : squad) {
+        bool isStarter = std::find(startingXI.begin(), startingXI.end(), p.id) != startingXI.end();
+        if (!isStarter) {
+            bench.push_back(&p);
+        }
+    }
+
+    if (bench.size() < 5) return;  // Not enough for proper substitutes
+
+    // Sort bench by ability
+    std::sort(bench.begin(), bench.end(), [](const Player* a, const Player* b) {
+        return PlayerAbility(*a) > PlayerAbility(*b);
+    });
+
+    // Ensure balanced substitutes: 1 GK, min 1 DEF, min 1 MID, min 1 ATT
+    std::vector<Player*> orderedSubs;
+    orderedSubs.reserve(5);
+
+    // Helper to check if a player's role matches categories
+    auto isGK = [](const Player* p) { return p->role == Role::GK; };
+    auto isDEF = [](const Player* p) { return p->role == Role::D; };
+    auto isMID = [](const Player* p) { return p->role == Role::DM || p->role == Role::M || p->role == Role::AM; };
+    auto isATT = [](const Player* p) { return p->role == Role::F; };
+
+    // Step 1: Pick best GK
+    auto gkIt = std::find_if(bench.begin(), bench.end(), isGK);
+    if (gkIt != bench.end()) {
+        orderedSubs.push_back(*gkIt);
+        bench.erase(gkIt);
+    }
+
+    // Step 2: Pick best DEF
+    auto defIt = std::find_if(bench.begin(), bench.end(), isDEF);
+    if (defIt != bench.end()) {
+        orderedSubs.push_back(*defIt);
+        bench.erase(defIt);
+    }
+
+    // Step 3: Pick best MID
+    auto midIt = std::find_if(bench.begin(), bench.end(), isMID);
+    if (midIt != bench.end()) {
+        orderedSubs.push_back(*midIt);
+        bench.erase(midIt);
+    }
+
+    // Step 4: Pick best ATT
+    auto attIt = std::find_if(bench.begin(), bench.end(), isATT);
+    if (attIt != bench.end()) {
+        orderedSubs.push_back(*attIt);
+        bench.erase(attIt);
+    }
+
+    // Step 5: Fill remaining slot with best available
+    while (orderedSubs.size() < 5 && !bench.empty()) {
+        orderedSubs.push_back(bench.front());
+        bench.erase(bench.begin());
+    }
+
+    // Reorder squad: startingXI players first, then ordered subs, then rest
+    std::vector<Player> reorderedSquad;
+
+    // Add starting XI in their current order
+    for (int id : startingXI) {
+        Player* p = findPlayer(id);
+        if (p) reorderedSquad.push_back(*p);
+    }
+
+    // Add ordered substitutes
+    for (Player* p : orderedSubs) {
+        reorderedSquad.push_back(*p);
+    }
+
+    // Add remaining players
+    for (Player* p : bench) {
+        reorderedSquad.push_back(*p);
+    }
+
+    // Replace squad with reordered version
+    squad = std::move(reorderedSquad);
+}
+
 }  // namespace nm

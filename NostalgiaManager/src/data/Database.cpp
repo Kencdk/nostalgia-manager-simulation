@@ -465,6 +465,7 @@ bool Database::loadPlayers(const std::string& path) {
             for (auto& pl : t.squad) pl.shirtNumber = n++;
         }
         if (t.startingXI.empty()) t.autoSelectXI();
+        t.autoOrderSubstitutes();  // Ensure substitutes have proper positional balance
     }
     return true;
 }

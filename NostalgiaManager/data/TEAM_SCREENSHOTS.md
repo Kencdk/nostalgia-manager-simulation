@@ -1,113 +1,166 @@
-# Team Screenshots Feature Guide
+# Screen Background Images Feature Guide
 
 ## Overview
 
-The Friendly Match team selection screen now supports displaying team screenshots. When you select teams for a friendly match, you can see visual previews of the teams if screenshots are available.
+All screens in Nostalgia Manager now display cycling background images that auto-cycle every 3 seconds. This creates an immersive, atmospheric visual experience throughout the entire application (except the Match screen which displays the pitch).
+
+## Screens With Backgrounds
+
+- ? **Main Menu** - Classic background (always had this)
+- ? **Friendly Match** - Team selection with backgrounds
+- ? **Tactics** - Formation and squad selection
+- ? **Database** - Player search and browse
+- ? **Career** - Season management
+- ? **Data Sources** - Custom CSV loading
+- ? **About** - Application information
+- ? **Match** - No background (shows pitch instead)
 
 ## What You'll See
 
-### In the Team Selection List
-- **Small thumbnails** (24x24px) appear next to team names that have screenshots
-- Teams without screenshots display normally (text-only)
-
-### Preview Panel
-- When you select a team that has a screenshot, a **larger preview** (360px width) appears below the team list
-- The preview maintains the original aspect ratio of your screenshot
+### Background Display
+- **Full-screen images** behind all UI elements
+- **Auto-cycling** - images change every 3 seconds
+- **Cover-scaled** - fills the entire window (like main menu)
+- **Dark overlay** - semi-transparent (47% opacity) ensures text remains readable
+- **Seamless transitions** - smooth cycling between images
+- **Consistent experience** - same backgrounds across all screens
 
 ## How to Add Screenshots
 
 ### Step 1: Prepare Your Images
-1. Take screenshots of your teams (stadium views, team photos, tactical screens, etc.)
+1. Collect football/soccer-related images:
+   - Stadium views (aerial shots, empty/full stadiums)
+   - Match action shots (goals, celebrations, tackles)
+   - Team photos (starting lineups, team groups)
+   - Tactical diagrams or formation boards
+   - Crowd scenes
+   - Trophy presentations
+   - Historic moments
+
 2. Save them as **PNG** or **JPG** files
-3. Recommended size: **640x480 pixels** (or any 4:3 aspect ratio)
+3. Recommended size: **1280x720 pixels** (16:9 aspect ratio) or **1024x768** (4:3)
 
-### Step 2: Find Team IDs
-Team IDs are assigned automatically when the database loads. To find them:
+### Step 2: Name Your Files Sequentially
+- Name files: `1.png`, `2.png`, `3.png`, `4.png`, etc.
+- Or use .jpg: `1.jpg`, `2.jpg`, `3.jpg`, etc.
+- **Important:** Start from 1 and number consecutively without gaps!
 
-**Method 1: Database Screen in the Application**
-1. Launch Nostalgia Manager
-2. Go to the **Database** screen
-3. Browse or search for your team - the ID will be shown
-
-**Method 2: Check During Team Selection**
-1. Go to **Friendly Match**
-2. Select a league and team
-3. The application internally assigns sequential IDs based on the order teams are loaded from `TeamsDB.csv`
-
-**Note:** Team IDs typically match the order teams appear in `TeamsDB.csv` (starting from 0 or 1), but the safest way is to check the Database screen.
-
-### Step 3: Name Your Files
-- Name each screenshot with the team ID followed by `.png` or `.jpg`
-- Examples:
-  - `1.png`
-  - `42.jpg`
-  - `100.png`
-
-### Step 4: Place Files in the Teams Folder
+### Step 3: Place Files in the Directory
 1. Navigate to `NostalgiaManager/data/images/teams/`
 2. Copy your screenshot files into this directory
-3. Restart the application to load the new screenshots
+3. Restart the application to load the images
 
 ## Example Setup
 
 ```
-NostalgiaManager/
-??? data/
-    ??? images/
-        ??? teams/
-            ??? README.md
-            ??? 1.png         ? Manchester United screenshot
-            ??? 2.png         ? Arsenal screenshot
-            ??? 3.jpg         ? Liverpool screenshot
-            ??? 10.png        ? Real Madrid screenshot
-            ??? 42.jpg        ? Barcelona screenshot
+NostalgiaManager/data/images/teams/
+??? 1.png     ? Wembley Stadium aerial view
+??? 2.jpg     ? Iconic goal celebration
+??? 3.png     ? Tactical formation diagram
+??? 4.jpg     ? Stadium floodlights at night
+??? 5.png     ? Team walking out to pitch
+??? 6.jpg     ? Crowd with flares
+??? 7.png     ? Historic moment (World Cup final)
+??? 8.jpg     ? Modern stadium interior
+??? 9.png     ? Team huddle before match
+??? 10.jpg    ? Trophy ceremony
+??? 11.png    ? Vintage football photo
 ```
 
 ## Technical Details
 
-### Supported Formats
-- **PNG** (.png) - recommended for quality
-- **JPEG** (.jpg) - good for smaller file sizes
-
 ### Image Loading
-- Screenshots are loaded when the application starts
-- Files are checked in this order: `{teamId}.png`, then `{teamId}.jpg`
-- The first valid image found is used
-- Invalid or missing images are silently skipped (no error messages)
+- The application loads images numbered 1 through 20
+- Loading stops at the first missing number (so 1,2,3,5 would only load 1,2,3)
+- Images are loaded at startup
+- Both PNG and JPG formats are supported
+
+### Display Behavior
+- **Auto-cycling:** Images change every 3 seconds automatically
+- **Centered:** Images are horizontally centered on screen
+- **Scaled:** Images scale to 80% of available width, maintaining aspect ratio
+- **Looping:** After the last image, the carousel returns to the first
 
 ### Performance
-- All screenshots are loaded into GPU memory at startup
-- This provides smooth rendering during team selection
-- Memory usage depends on the number and size of screenshots
+- All images are loaded into GPU memory at startup
+- Smooth transitions with no disk I/O during cycling
+- Memory usage depends on number and size of images
 
-## Tips
+## Image Recommendations
 
-1. **Consistent Sizing**: Use the same resolution for all screenshots for a uniform look
-2. **File Size**: Optimize your images to reduce loading time (PNG compression or JPEG quality settings)
-3. **Naming**: Double-check team IDs before naming files to avoid mismatches
-4. **Organization**: Keep a spreadsheet mapping team names to IDs for easy reference
+### Content Ideas
+
+**Stadium Views:**
+- Aerial shots of famous stadiums
+- Empty stadium at sunset
+- Stadium packed with fans
+- Floodlit stadium at night
+
+**Match Moments:**
+- Goal celebrations
+- Last-minute winners
+- Penalty shootouts
+- Tactical plays
+
+**Atmosphere:**
+- Crowd with tifos and banners
+- Pyrotechnics and flares
+- Referee controversies
+- Player emotions
+
+**Historical:**
+- Vintage football photos (1960s-1990s)
+- Classic kit designs
+- Legendary moments
+- Trophy wins
+
+### Aspect Ratios
+- **16:9 (1920x1080, 1280x720):** Best for modern widescreen displays
+- **4:3 (1024x768, 800x600):** Good for classic/vintage aesthetic
+- **Any aspect ratio works** - images will scale appropriately
+
+### Image Quality
+- Use high-resolution images for better display quality
+- Images scale down well, so larger is usually better
+- Compress JPEGs moderately (quality 80-90) to reduce file size
+- PNG is better for diagrams, text overlays, or images with transparency
 
 ## Troubleshooting
 
-**Screenshot not showing?**
-- Verify the file name exactly matches the team ID
-- Check the file extension is `.png` or `.jpg` (lowercase recommended)
-- Ensure the file is in the correct directory: `data/images/teams/`
-- Restart the application after adding new screenshots
-- Check the Database screen to confirm the correct team ID
+**No images showing?**
+- Verify files are named `1.png`, `2.png`, etc. (starting from 1)
+- Check files are in `NostalgiaManager/data/images/teams/`
+- Ensure file extensions are lowercase (.png or .jpg)
+- Restart the application
+- Check console output for loading messages
 
-**Image looks stretched or distorted?**
-- The preview maintains aspect ratio, so this shouldn't happen
-- If it does, check your source image isn't already distorted
+**Only first few images showing?**
+- The loader stops at the first gap in numbering
+- If you have 1.png, 2.png, 4.png (missing 3), only 1-2 will load
+- Renumber your files to be sequential: 1, 2, 3, 4, ...
 
-**Application slow to start?**
-- Large number of high-resolution screenshots can increase startup time
-- Consider reducing image file sizes or resolutions
+**Images cycling too fast/slow?**
+- Default is 3 seconds per image
+- This can be adjusted in the code if needed (search for `carouselTimer >= 3.0f`)
+
+**Images look stretched?**
+- This shouldn't happen as aspect ratio is maintained
+- Check if your source images are already distorted
+
+## Advanced: Customization
+
+If you want to modify the carousel behavior, edit `NostalgiaManager/src/ui/App.cpp` in the `renderFriendly()` function:
+
+- **Cycle speed:** Change `3.0f` to your desired seconds
+- **Image size:** Adjust `availWidth * 0.8f` (0.8 = 80% width)
+- **Max images:** Change the loop limit `i <= 20` to load more/fewer images
 
 ## Future Enhancements
 
-Potential improvements for this feature:
-- Team badges/logos alongside screenshots
-- Multiple images per team (carousel/gallery)
-- Screenshots in other screens (Career mode, Match setup, etc.)
-- Dynamic screenshot capture from within the application
+Potential improvements:
+- Manual navigation (previous/next buttons)
+- Pause/play controls
+- Random order instead of sequential
+- Fade transitions between images
+- Multiple carousel speeds
+- Image captions or descriptions

@@ -40,6 +40,10 @@ void MatchEngine::setup(Team& home, Team& away) {
     if (home.startingXI.empty()) home.autoSelectXI();
     if (away.startingXI.empty()) away.autoSelectXI();
 
+    // Ensure substitutes have proper positional balance
+    home.autoOrderSubstitutes();
+    away.autoOrderSubstitutes();
+
     // Update player roles to match their assigned tactical positions
     home.updatePlayerRoles();
     away.updatePlayerRoles();

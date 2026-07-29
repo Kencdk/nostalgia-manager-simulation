@@ -256,15 +256,31 @@ bool App::init(const std::string& dataDir) {
     }
     AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
 
-    // Load team screenshots from data/images/teams/ directory
-    // Screenshots should be named with team ID (e.g., "1.png", "42.jpg")
-    for (const auto& team : db_.teams) {
+    // Load decorative screenshots for Friendly Match screen
+    // Screenshots should be named 1.png, 2.png, 3.png, etc.
+    for (int i = 1; i <= 20; ++i) {  // Try loading up to 20 images
         AppTexture screenshot;
-        // Try PNG first, then JPG
-        if (AppLoadTexture(dataDir_ + "/images/teams/" + std::to_string(team.id) + ".png", &screenshot) ||
-            AppLoadTexture(dataDir_ + "/images/teams/" + std::to_string(team.id) + ".jpg", &screenshot)) {
-            teamScreenshots_[team.id] = screenshot;
+        std::string pngPath = dataDir_ + "/images/teams/" + std::to_string(i) + ".png";
+        std::string jpgPath = dataDir_ + "/images/teams/" + std::to_string(i) + ".jpg";
+
+        if (AppLoadTexture(pngPath, &screenshot)) {
+            friendlyScreenshots_.push_back(screenshot);
+            printf("Loaded screenshot %d from %s\n", i, pngPath.c_str());
+        } else if (AppLoadTexture(jpgPath, &screenshot)) {
+            friendlyScreenshots_.push_back(screenshot);
+            printf("Loaded screenshot %d from %s\n", i, jpgPath.c_str());
+        } else {
+            // Stop when we hit the first missing number
+            if (i == 1) {
+                printf("No screenshots found in data/images/teams/\n");
+            }
+            break;
         }
+    }
+
+    if (!friendlyScreenshots_.empty()) {
+        printf("Total screenshots loaded for Friendly screen: %d\n", 
+               (int)friendlyScreenshots_.size());
     }
 
     leagues_ = db_.leagues();
@@ -290,6 +306,57 @@ void App::beginScreen(const char* title) {
     ImGui::PopStyleColor();
     ImGui::Separator();
     ImGui::Spacing();
+}
+
+// Helper function to draw cycling screenshot backgrounds on any screen
+void App::drawCyclingBackground() {
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    const ImVec2 pos = vp->WorkPos;
+    const ImVec2 size = vp->WorkSize;
+    ImDrawList* bg = ImGui::GetBackgroundDrawList();
+
+    if (!friendlyScreenshots_.empty()) {
+        // Auto-cycle through screenshots
+        static float carouselTimer = 0.0f;
+        static int currentScreenshot = 0;
+
+        carouselTimer += ImGui::GetIO().DeltaTime;
+        if (carouselTimer >= 3.0f) {  // Change image every 3 seconds
+            carouselTimer = 0.0f;
+            currentScreenshot = (currentScreenshot + 1) % friendlyScreenshots_.size();
+        }
+
+        const AppTexture& screenshot = friendlyScreenshots_[currentScreenshot];
+
+        if (screenshot.ok && screenshot.w > 0 && screenshot.h > 0) {
+            // Scale image to cover the window (same logic as main menu background)
+            float ws = size.x / size.y;
+            float is = (float)screenshot.w / (float)screenshot.h;
+            ImVec2 uv0(0, 0), uv1(1, 1);
+
+            if (ws > is) {  // window wider than image: crop top/bottom
+                float v = is / ws;
+                uv0.y = (1 - v) * 0.5f;
+                uv1.y = 1 - uv0.y;
+            } else {  // crop left/right
+                float u = ws / is;
+                uv0.x = (1 - u) * 0.5f;
+                uv1.x = 1 - uv0.x;
+            }
+
+            // Draw background image covering full window
+            bg->AddImage(screenshot.id, pos, ImVec2(pos.x + size.x, pos.y + size.y), uv0, uv1);
+
+            // Add semi-transparent dark overlay so text is readable
+            bg->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), 
+                             IM_COL32(0, 0, 0, 120));
+        }
+    } else {
+        // Fallback: gradient background if no screenshots
+        bg->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                                    IM_COL32(20, 40, 70, 255), IM_COL32(20, 40, 70, 255),
+                                    IM_COL32(10, 20, 35, 255), IM_COL32(10, 20, 35, 255));
+    }
 }
 
 void App::beginFullscreen(const char* id, bool withBackground) {
@@ -422,49 +489,19 @@ void App::teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
     ImGui::BeginChild("teamlist", ImVec2(360, 240), true);
     for (Team* t : teams) {
         if (!contains(t->name, filter)) continue;
-
-        // Check if screenshot exists for this team
-        auto it = teamScreenshots_.find(t->id);
-        bool hasScreenshot = (it != teamScreenshots_.end() && it->second.ok);
-
         char label[160];
         std::snprintf(label, sizeof(label), "%s  (%d players)", t->name.c_str(),
                       static_cast<int>(t->squad.size()));
-
-        if (hasScreenshot) {
-            // Display small thumbnail next to team name
-            ImGui::BeginGroup();
-            const AppTexture& screenshot = it->second;
-            float thumbSize = 24.0f;
-            ImGui::Image(screenshot.id, ImVec2(thumbSize, thumbSize));
-            ImGui::SameLine();
-            if (ImGui::Selectable(label, teamId == t->id, 0, ImVec2(0, thumbSize))) 
-                teamId = t->id;
-            ImGui::EndGroup();
-        } else {
-            if (ImGui::Selectable(label, teamId == t->id)) teamId = t->id;
-        }
+        if (ImGui::Selectable(label, teamId == t->id)) teamId = t->id;
     }
     ImGui::EndChild();
-
-    // Show larger preview of selected team's screenshot
-    Team* selectedTeam = teamById(teamId);
-    if (selectedTeam) {
-        auto it = teamScreenshots_.find(selectedTeam->id);
-        if (it != teamScreenshots_.end() && it->second.ok) {
-            const AppTexture& screenshot = it->second;
-            ImGui::Spacing();
-            ImGui::Text("Preview:");
-            float previewWidth = 360.0f;
-            float previewHeight = previewWidth * (float)screenshot.h / (float)screenshot.w;
-            ImGui::Image(screenshot.id, ImVec2(previewWidth, previewHeight));
-        }
-    }
-
     ImGui::PopID();
 }
 
 void App::renderFriendly() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("Friendly Match");
     if (ImGui::Button("< Back")) screen_ = Screen::Main;
     ImGui::Spacing();
@@ -517,6 +554,9 @@ void App::openTactics(Team* team, Screen returnTo) {
 }
 
 void App::renderTactics() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("Tactics");
     Team* t = tacticsTeam_;
     if (ImGui::Button("< Back")) { screen_ = tacticsReturn_; ImGui::End(); return; }
@@ -596,7 +636,7 @@ void App::renderTactics() {
         bool starting = std::find(t->startingXI.begin(), t->startingXI.end(), pl.id) !=
                         t->startingXI.end();
         if (starting) continue;
-        if (shownSubs >= 7) break;
+        if (shownSubs >= 5) break;
         shownSubs++;
         char lbl[160];
         std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
@@ -642,7 +682,7 @@ void App::renderTactics() {
         subIdx++;
     }
 
-    // Rest of Squad (players beyond the first 7 subs) - only show when NOT in match
+    // Rest of Squad (players beyond the first 5 subs) - only show when NOT in match
     if (!inMatch) {
         ImGui::Spacing();
         ImGui::TextColored(gold, "Rest of Squad");
@@ -654,7 +694,7 @@ void App::renderTactics() {
             if (starting) continue;
 
             squadIdx++;
-            if (squadIdx <= 7) continue;  // Skip the first 7 subs (already shown)
+            if (squadIdx <= 5) continue;  // Skip the first 5 subs (already shown)
 
             char lbl[160];
             std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
@@ -688,6 +728,21 @@ void App::renderTactics() {
         }
         tacticsXiSel_ = tacticsSubSel_ = -1;
     }
+
+    // Handle swapping substitutes with each other (bench reordering)
+    if (swapSubSource != -1 && swapSubTarget != -1) {
+        // Find both players in the squad
+        auto itSource = std::find_if(t->squad.begin(), t->squad.end(),
+                                      [swapSubSource](const Player& p) { return p.id == swapSubSource; });
+        auto itTarget = std::find_if(t->squad.begin(), t->squad.end(),
+                                      [swapSubTarget](const Player& p) { return p.id == swapSubTarget; });
+
+        // Swap their positions in the squad vector
+        if (itSource != t->squad.end() && itTarget != t->squad.end()) {
+            std::iter_swap(itSource, itTarget);
+        }
+    }
+
     if (inMatch) {
         ImGui::Spacing();
         ImVec4 c = subsLeft ? gold : ImVec4(0.9f, 0.5f, 0.4f, 1);
@@ -1278,6 +1333,7 @@ void App::renderMatch() {
     ImGuiWindowFlags wf = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(255, 255, 255, 255));  // White background for match screen
     ImGui::Begin("##match", nullptr, wf);
 
     const float fullW = ImGui::GetContentRegionAvail().x;
@@ -1291,10 +1347,17 @@ void App::renderMatch() {
     ImGui::SetWindowFontScale(1.4f);
     ImVec2 hsz = ImGui::CalcTextSize(matchHome_.c_str());
     ImVec2 asz = ImGui::CalcTextSize(matchAway_.c_str());
+    ImGui::SetWindowFontScale(1.0f);
+    char clk[16];
+    std::snprintf(clk, sizeof(clk), "%2d'", minute);
+    ImVec2 csz = ImGui::CalcTextSize(clk);
+
     float cx = ImGui::GetCursorScreenPos().x + fullW * 0.5f;
     float y0 = ImGui::GetCursorScreenPos().y + 4;
+    float barHeight = ssz.y + csz.y + 10;
+    float x0 = ImGui::GetCursorScreenPos().x;
 
-    // Home team name with background (color1) and text (color2)
+    // Home team name with background (color1) and text (color2) - using home colors
     ImU32 homeBg = matchHomeTeam_ && !matchHomeTeam_->homeColor1.empty()
         ? parseColor(matchHomeTeam_->homeColor1)
         : IM_COL32(140, 200, 255, 255);
@@ -1302,63 +1365,108 @@ void App::renderMatch() {
         ? parseColor(matchHomeTeam_->homeColor2)
         : IM_COL32(255, 255, 255, 255);
 
-    // Away team name with background (color1) and text (color2)
-    ImU32 awayBg = matchAwayTeam_ && !matchAwayTeam_->awayColor1.empty()
-        ? parseColor(matchAwayTeam_->awayColor1)
+    // Away team name with background (color1) and text (color2) - using home colors
+    ImU32 awayBg = matchAwayTeam_ && !matchAwayTeam_->homeColor1.empty()
+        ? parseColor(matchAwayTeam_->homeColor1)
         : IM_COL32(255, 200, 140, 255);
-    ImU32 awayText = matchAwayTeam_ && !matchAwayTeam_->awayColor2.empty()
-        ? parseColor(matchAwayTeam_->awayColor2)
+    ImU32 awayText = matchAwayTeam_ && !matchAwayTeam_->homeColor2.empty()
+        ? parseColor(matchAwayTeam_->homeColor2)
         : IM_COL32(255, 255, 255, 255);
 
-    // Draw home team name background and text
-    float homePadding = 8.0f;
-    ImVec2 homePos(cx - fullW * 0.25f - hsz.x * 0.5f, y0 + 6);
-    dl->AddRectFilled(ImVec2(homePos.x - homePadding, homePos.y - 2),
-                      ImVec2(homePos.x + hsz.x + homePadding, homePos.y + hsz.y + 2),
-                      homeBg, 3.0f);
-    dl->AddText(homePos, homeText, matchHome_.c_str());
+    // Calculate center section width (for score and timer)
+    float centerWidth = ssz.x + 60;  // Score width plus padding
+    float centerLeft = cx - centerWidth * 0.5f;
+    float centerRight = cx + centerWidth * 0.5f;
 
-    // Draw away team name background and text
-    float awayPadding = 8.0f;
-    ImVec2 awayPos(cx + fullW * 0.25f - asz.x * 0.5f, y0 + 6);
-    dl->AddRectFilled(ImVec2(awayPos.x - awayPadding, awayPos.y - 2),
-                      ImVec2(awayPos.x + asz.x + awayPadding, awayPos.y + asz.y + 2),
-                      awayBg, 3.0f);
-    dl->AddText(awayPos, awayText, matchAway_.c_str());
+    // Draw home team background filling from left edge to center section
+    dl->AddRectFilled(ImVec2(x0, y0), ImVec2(centerLeft, y0 + barHeight), homeBg);
 
+    // Draw away team background filling from center section to right edge
+    dl->AddRectFilled(ImVec2(centerRight, y0), ImVec2(x0 + fullW, y0 + barHeight), awayBg);
+
+    // Draw dark green center section for score and timer
+    ImU32 centerBg = IM_COL32(24, 80, 24, 255);  // Dark green
+    ImU32 centerText = IM_COL32(255, 255, 255, 255);  // White
+    dl->AddRectFilled(ImVec2(centerLeft, y0), ImVec2(centerRight, y0 + barHeight), centerBg);
+
+    // Draw score and timer in white
     ImGui::SetWindowFontScale(2.0f);
     dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
-                ImVec2(cx - ssz.x * 0.5f, y0), IM_COL32(255, 240, 190, 255), score);
+                ImVec2(cx - ssz.x * 0.5f, y0), centerText, score);
     ImGui::SetWindowFontScale(1.0f);
-    char clk[16];
-    std::snprintf(clk, sizeof(clk), "%2d'", minute);
-    ImVec2 csz = ImGui::CalcTextSize(clk);
-    dl->AddText(ImVec2(cx - csz.x * 0.5f, y0 + ssz.y + 2), IM_COL32(220, 220, 210, 255), clk);
-    ImGui::Dummy(ImVec2(fullW, ssz.y + csz.y + 10));
+    dl->AddText(ImVec2(cx - csz.x * 0.5f, y0 + ssz.y + 2), centerText, clk);
 
-    // Scorers under each team name (only those that have happened so far).
-    ImGui::Columns(2, "scorers", false);
-    for (const auto& sc : homeScorers_)
-        if (sc.first <= minute) ImGui::TextDisabled("%s", sc.second.c_str());
-    ImGui::NextColumn();
-    for (const auto& sc : awayScorers_) {
-        if (sc.first > minute) continue;
-        ImVec2 t = ImGui::CalcTextSize(sc.second.c_str());
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - t.x - 16);
-        ImGui::TextDisabled("%s", sc.second.c_str());
+    // Draw team names and goalscorers in team colors within the bar
+    ImGui::SetWindowFontScale(1.4f);
+    ImVec2 homeNamePos(x0 + 15, y0 + 6);
+    dl->AddText(homeNamePos, homeText, matchHome_.c_str());
+
+    ImVec2 awayNamePos(x0 + fullW - asz.x - 15, y0 + 6);
+    dl->AddText(awayNamePos, awayText, matchAway_.c_str());
+
+    // Draw goalscorers within team sections
+    ImGui::SetWindowFontScale(0.9f);
+    float scorerY = y0 + 6 + hsz.y + 4;  // Below team name
+    float scorerX = x0 + 15;
+
+    // Home team scorers (left side)
+    for (const auto& sc : homeScorers_) {
+        if (sc.first <= minute) {
+            ImVec2 scorerSize = ImGui::CalcTextSize(sc.second.c_str());
+            if (scorerY + scorerSize.y < y0 + barHeight - 2) {  // Only draw if it fits
+                dl->AddText(ImVec2(scorerX, scorerY), homeText, sc.second.c_str());
+                scorerY += scorerSize.y + 2;
+            }
+        }
     }
-    ImGui::Columns(1);
+
+    // Away team scorers (right side, right-aligned)
+    scorerY = y0 + 6 + asz.y + 4;
+    for (const auto& sc : awayScorers_) {
+        if (sc.first <= minute) {
+            ImVec2 scorerSize = ImGui::CalcTextSize(sc.second.c_str());
+            if (scorerY + scorerSize.y < y0 + barHeight - 2) {  // Only draw if it fits
+                dl->AddText(ImVec2(x0 + fullW - scorerSize.x - 15, scorerY), awayText, sc.second.c_str());
+                scorerY += scorerSize.y + 2;
+            }
+        }
+    }
+
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::Dummy(ImVec2(fullW, barHeight));
     ImGui::Separator();
 
     // ---- New Layout: [Team 1 - Full Height] | [Pitch + Commentary] | [Team 2 - Full Height] ----
-    const float sideW = 220.0f;
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
     const float bottomH = 54.0f;
     const float feedH = 180.0f;  // Commentary height
     const float tacticsH = 38.0f;
 
     float totalAvailH = ImGui::GetContentRegionAvail().y - bottomH - 10;
-    float pitchAreaW = fullW - 2 * (sideW + spacing);
+
+    // First calculate pitch size to determine how much space we have
+    float pitchAvailH = totalAvailH - feedH - spacing;
+    const float pitchRatio = 105.0f / 68.0f;
+
+    // Start with maximum available width for pitch (leave some space for squads)
+    float minSquadW = 180.0f;  // Minimum squad panel width
+    float pitchMaxW = fullW - 2 * (minSquadW + spacing);
+    float pitchMaxH = pitchAvailH;
+    float pitchW, pitchH;
+
+    // Calculate size maintaining aspect ratio
+    if (pitchMaxW / pitchMaxH > pitchRatio) {
+        // Limited by height
+        pitchH = pitchMaxH;
+        pitchW = pitchH * pitchRatio;
+    } else {
+        // Limited by width
+        pitchW = pitchMaxW;
+        pitchH = pitchW / pitchRatio;
+    }
+
+    // Calculate squad panel width to fill from edge to pitch
+    float sideW = (fullW - pitchW - 2 * spacing) * 0.5f;
 
     // ---- Left: Team 1 lineup (full height) ----
     ImGui::BeginGroup();
@@ -1376,35 +1484,9 @@ void App::renderMatch() {
     // ---- Center: Pitch + Commentary below it ----
     ImGui::BeginGroup();
 
-    // Calculate pitch size
-    float pitchAvailH = totalAvailH - feedH - spacing;
-    const float pitchRatio = 105.0f / 68.0f;
-    float pitchMaxW = pitchAreaW;
-    float pitchMaxH = pitchAvailH;
-    float pitchW, pitchH;
-
-    // Calculate size maintaining aspect ratio
-    if (pitchMaxW / pitchMaxH > pitchRatio) {
-        // Limited by height
-        pitchH = pitchMaxH;
-        pitchW = pitchH * pitchRatio;
-    } else {
-        // Limited by width
-        pitchW = pitchMaxW;
-        pitchH = pitchW / pitchRatio;
-    }
-
-    // Center the pitch horizontally if needed
-    float pitchOffsetX = (pitchAreaW - pitchW) * 0.5f;
-
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + pitchOffsetX);
-
     ImVec2 pitchPos = ImGui::GetCursorScreenPos();
     drawPitch(pitchPos, ImVec2(pitchW, pitchH), f, nextF, interpT);
     ImGui::Dummy(ImVec2(pitchW, pitchH));
-
-    // Reset cursor X for commentary but keep it centered with pitch
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() - pitchOffsetX + pitchOffsetX);
 
     // Match events feed (commentary) below pitch - match pitch width
     ImGui::BeginChild("feed", ImVec2(pitchW, feedH), true);
@@ -1483,6 +1565,7 @@ void App::renderMatch() {
         ImGui::SliderFloat("Speed", &speed_, 2.0f, 40.0f, "%.0f ev/s");
     }
 
+    ImGui::PopStyleColor();  // Pop the white background color
     ImGui::End();
 }
 
@@ -1628,6 +1711,9 @@ void App::drawPitch(ImVec2 p0, ImVec2 size, const Frame* f, const Frame* nextF, 
 }
 
 void App::renderDatabase() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("Database");
     if (ImGui::Button("< Back")) screen_ = Screen::Main;
     ImGui::SameLine();
@@ -1806,6 +1892,9 @@ void App::careerLoad() {
 }
 
 void App::renderCareer() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("Career");
     if (ImGui::Button("< Back")) screen_ = Screen::Main;
     ImGui::SameLine();
@@ -1897,6 +1986,9 @@ void App::renderCareer() {
 }
 
 void App::renderData() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("Data Sources");
     if (ImGui::Button("< Back")) screen_ = Screen::Main;
     ImGui::Spacing();
@@ -1932,6 +2024,9 @@ void App::renderData() {
 }
 
 void App::renderAbout() {
+    // Draw cycling background
+    drawCyclingBackground();
+
     beginScreen("About");
     if (ImGui::Button("< Back")) screen_ = Screen::Main;
     ImGui::Spacing();

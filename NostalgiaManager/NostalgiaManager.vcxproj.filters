@@ -115,6 +115,7 @@
     <None Include="data\TEAM_SCREENSHOTS.md" />
     <None Include="data\TEAM_COLORS.md" />
     <None Include="data\TEAM_COLORS_EXAMPLES.md" />
+    <None Include="data\SCREENSHOTS_QUICKSTART.md" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="data\PlayersDB.csv">

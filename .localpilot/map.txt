@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-29T08:21:53.3425242+02:00
+# Generated: 2026-07-29T12:54:05.3202167+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 53 relevant source files
+  Scale: 59 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -17,6 +17,8 @@ Architecture:
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
+- File: tools\team_screenshot_helper.py
+  Preview: "#!/usr/bin/env python3 ''' Team Screenshot Helper Generates a mapping of Team IDs to Team Names from TeamsDB.csv This helps you name your screenshot f..."
 - File: NostalgiaManager\data\BEST_POSITION_SETUP.md
   Preview: "# Best Position Display from PlayersDB.CSV ## Changes Implemented ? The system now reads and displays the **best position** from column 12 (index 11) ..."
 - File: NostalgiaManager\data\DATABASE_SETUP.md
@@ -25,6 +27,14 @@ Architecture:
   Preview: "# Half-Time Team Switching Implementation ## ? Teams Now Switch Ends at Half-Time The match engine now properly swaps team ends at half-time, just lik..."
 - File: NostalgiaManager\data\PLAYER_DATA_SOURCE_VERIFICATION.md
   Preview: "# Player Data Source Verification ## ? All Player Data Uses PlayersDB.CSV Database I've verified that **all player data throughout the application is ..."
+- File: NostalgiaManager\data\SCREENSHOTS_QUICKSTART.md
+  Preview: "# Background Images - Quick Start ## What This Feature Does Displays full-screen auto-cycling background images behind **all screens** in the applicat..."
+- File: NostalgiaManager\data\TEAM_COLORS.md
+  Preview: "# Team Colors Feature Guide ## Overview Teams now display their official colors during matches. Colors are loaded from the `TeamsDB.csv` file and are ..."
+- File: NostalgiaManager\data\TEAM_COLORS_EXAMPLES.md
+  Preview: "# Sample Team Colors for TeamsDB.csv This file provides examples of team color configurations for popular football clubs. Copy these values into your ..."
+- File: NostalgiaManager\data\TEAM_SCREENSHOTS.md
+  Preview: "# Screen Background Images Feature Guide ## Overview All screens in Nostalgia Manager now display cycling background images that auto-cycle every 3 se..."
 - File: NostalgiaManager\src\main.cpp
   Preview: "#include <cstdio> #include <cstdlib> #include <fstream> #include <string> #include <vector> #include 'data/Database.h' #include 'engine/MatchEngine.h'..."
 - File: third_party\imgui\imconfig.h
@@ -115,3 +125,5 @@ Architecture:
   Preview: "// dear imgui: Platform Backend for Windows (standard windows API for 32-bits AND 64-bits applications) // This needs to be used along with a Renderer..."
 - File: third_party\imgui\backends\imgui_impl_win32.h
   Preview: "// dear imgui: Platform Backend for Windows (standard windows API for 32-bits AND 64-bits applications) // This needs to be used along with a Renderer..."
+- File: NostalgiaManager\data\images\teams\README.md
+  Preview: "# Application Background Images This directory contains background images that will be displayed **behind all UI elements** throughout the entire Nost..."
