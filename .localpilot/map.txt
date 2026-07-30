@@ -1,5 +1,5 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-29T13:38:26.2483487+02:00
+# Generated: 2026-07-29T21:55:57.3242307+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
@@ -99,7 +99,7 @@ Architecture:
 - File: NostalgiaManager\src\platform\main_win32.cpp
   Preview: "// Win32 + Direct3D 11 entry point for the Windows build (Visual Studio). No // external dependencies: d3d11 ships with Windows. The portable build us..."
 - File: NostalgiaManager\src\ui\App.cpp
-  Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <map> #includ..."
+  Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <functional> ..."
 - File: NostalgiaManager\src\ui\App.h
   Preview: "#pragma once #include <map> #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '....."
 - File: NostalgiaManager\src\ui\Console.h

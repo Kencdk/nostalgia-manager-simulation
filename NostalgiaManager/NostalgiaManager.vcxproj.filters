@@ -66,6 +66,8 @@
     <ClCompile Include="src\engine\MatchEngine.cpp">
       <Filter>Source Files\engine</Filter>
     </ClCompile>
+    <ClCompile Include="src\ui\UIHelpers.cpp" />
+    <ClCompile Include="src\ui\Tactics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Attributes.h">
@@ -105,6 +107,8 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\core\TacticalSettings.h" />
+    <ClInclude Include="src\ui\UIHelpers.h" />
+    <ClInclude Include="src\ui\Tactics.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\DATABASE_SETUP.md" />

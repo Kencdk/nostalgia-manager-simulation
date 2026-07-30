@@ -2467,12 +2467,6 @@ void App::renderAbout() {
     ImGui::End();
 }
 
-void App::openPlayerDetail(const Player* player, Screen returnTo) {
-    detailPlayer_ = player;
-    detailReturn_ = returnTo;
-    screen_ = Screen::PlayerDetail;
-}
-
 void App::renderPlayerDetail() {
     drawCyclingBackground();
 
@@ -2480,7 +2474,7 @@ void App::renderPlayerDetail() {
     ImGui::SetNextWindowPos(vp->WorkPos);
     ImGui::SetNextWindowSize(vp->WorkSize);
     ImGuiWindowFlags wf = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
     ImGui::Begin("##playerdetail", nullptr, wf);
 
     if (!detailPlayer_) {
@@ -2503,132 +2497,6 @@ void App::renderPlayerDetail() {
     ImGui::Text("%s", p.name.c_str());
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
-
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    float fullW = ImGui::GetContentRegionAvail().x;
-    float fullH = ImGui::GetContentRegionAvail().y;
-
-    // Two column layout
-    float leftW = fullW * 0.65f;
-    float rightW = fullW * 0.35f;
-
-    // Left column - Player info and categorized attributes
-    ImGui::BeginChild("player_info", ImVec2(leftW, fullH), true);
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Player Information");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImGui::Text("Shirt Number:"); ImGui::SameLine(150); ImGui::Text("%d", p.shirtNumber);
-    ImGui::Text("Primary Position:"); ImGui::SameLine(150); ImGui::Text("%s", PosName(p.primaryPos).c_str());
-    ImGui::Text("Role:"); ImGui::SameLine(150); ImGui::Text("%s", RoleName(p.role).c_str());
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Playable Positions");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    std::string posStr;
-    for (size_t i = 0; i < p.playablePositions.size(); ++i) {
-        if (i > 0) posStr += ", ";
-        posStr += PosName(p.playablePositions[i]);
-    }
-    if (posStr.empty()) posStr = PosName(p.primaryPos);
-    ImGui::TextWrapped("%s", posStr.c_str());
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    // Overall rating
-    double overall = PlayerAbility(p);
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::SetWindowFontScale(1.3f);
-    ImGui::Text("Overall Rating: %.1f", overall);
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Helper to display attribute with color
-    auto displayAttr = [&p](const char* name) {
-        int val = p.attr.get(name);
-
-        // Color code the value
-        ImVec4 color;
-        if (val >= 15) color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);      // Excellent - green
-        else if (val >= 12) color = ImVec4(0.6f, 0.8f, 1.0f, 1.0f); // Good - light blue
-        else if (val >= 9) color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);  // Average - white
-        else if (val >= 6) color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);  // Below avg - orange
-        else color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);                // Poor - red
-
-        ImGui::Text("%s", name);
-        ImGui::SameLine(150);
-        ImGui::TextColored(color, "%d", val);
-    };
-
-    // Display attributes in categories
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("TECHNICAL");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    displayAttr("Passing");
-    displayAttr("Shooting");
-    displayAttr("Dribbling");
-    displayAttr("Crossing");
-    displayAttr("Finishing");
-    displayAttr("FirstTouch");
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("TACTICAL");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    displayAttr("Vision");
-    displayAttr("Positioning");
-    displayAttr("Teamwork");
-    displayAttr("WorkRate");
-    displayAttr("Decisions");
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("PHYSICAL");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    displayAttr("Pace");
-    displayAttr("Stamina");
-    displayAttr("Strength");
-    displayAttr("Agility");
-    displayAttr("Jumping");
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("OTHER");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    displayAttr("Tackling");
-    displayAttr("Marking");
-    displayAttr("Heading");
-    displayAttr("Bravery");
-
-    // Add Goalkeeping if applicable
-    if (p.role == Role::GK) {
-        displayAttr("Goalkeeping");
-    }
-
     ImGui::EndChild();
     ImGui::SameLine();
 

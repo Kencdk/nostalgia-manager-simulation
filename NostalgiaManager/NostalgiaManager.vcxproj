@@ -84,6 +84,8 @@
     <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="src\ui\Tactics.cpp" />
+    <ClCompile Include="src\ui\UIHelpers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Attributes.h" />
@@ -99,6 +101,8 @@
     <ClInclude Include="src\engine\MatchEngine.h" />
     <ClInclude Include="src\ui\Console.h" />
     <ClInclude Include="src\ui\Game.h" />
+    <ClInclude Include="src\ui\Tactics.h" />
+    <ClInclude Include="src\ui\UIHelpers.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\BEST_POSITION_SETUP.md" />

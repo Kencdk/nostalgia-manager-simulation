@@ -28,11 +28,18 @@ bool AppLoadTexture(const std::string& path, AppTexture* out);
 // Applies the shared "nostalgia" visual style (colors, rounding, spacing).
 void ApplyNostalgiaTheme();
 
+// Forward declarations for component classes
+class TacticsScreen;
+class MatchScreen;
+class PlayerDetailScreen;
+
 // Dear ImGui application: the windowed front-end for Nostalgia Manager
 // Simulation. It drives the same Config / Database / MatchEngine core used by
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail };
+
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
         int goals = 0;
@@ -52,8 +59,12 @@ public:
     void render();  // call once per frame
     bool wantQuit() const { return quit_; }
 
+    // Allow component classes to access App internals
+    friend class TacticsScreen;
+    friend class MatchScreen;
+    friend class PlayerDetailScreen;
+
 private:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail };
 
     // One snapshot of the match at the moment an event was narrated.
     struct Frame {
