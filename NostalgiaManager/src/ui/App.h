@@ -32,13 +32,14 @@ void ApplyNostalgiaTheme();
 class TacticsScreen;
 class MatchScreen;
 class PlayerDetailScreen;
+class TeamOverviewScreen;
 
 // Dear ImGui application: the windowed front-end for Nostalgia Manager
 // Simulation. It drives the same Config / Database / MatchEngine core used by
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail, TeamOverview };
 
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
@@ -63,6 +64,7 @@ public:
     friend class TacticsScreen;
     friend class MatchScreen;
     friend class PlayerDetailScreen;
+    friend class TeamOverviewScreen;
 
 private:
 
@@ -111,12 +113,14 @@ private:
     void renderData();
     void renderAbout();
     void renderPlayerDetail();
+    void renderTeamOverview();
 
     void teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
                     size_t filterSz);
     void startMatch(Team* home, Team* away);
     void openTactics(Team* team, Screen returnTo);
     void openPlayerDetail(const Player* player, Screen returnTo);
+    void openTeamOverview(Team* team, Screen returnTo);
     Team* teamById(int id);
 
     // Career helpers
@@ -200,6 +204,10 @@ private:
     const Player* detailPlayer_ = nullptr;
     int detailTeamId_ = -1;
     Screen detailReturn_ = Screen::Main;
+
+    // Team Overview screen
+    Team* teamOverviewTeam_ = nullptr;
+    Screen teamOverviewReturn_ = Screen::Main;
 };
 
 }  // namespace nm

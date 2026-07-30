@@ -11,6 +11,7 @@
 #include <set>
 
 #include "imgui.h"
+#include "TeamOverview.h"
 
 namespace nm {
 
@@ -507,6 +508,7 @@ void App::render() {
         case Screen::Data: renderData(); break;
         case Screen::About: renderAbout(); break;
         case Screen::PlayerDetail: renderPlayerDetail(); break;
+        case Screen::TeamOverview: renderTeamOverview(); break;
     }
 }
 
@@ -644,6 +646,23 @@ void App::renderFriendly() {
     ImGui::Text("Selected: %s  vs  %s",
                 home ? home->name.c_str() : "(none)",
                 away ? away->name.c_str() : "(none)");
+
+    ImGui::Spacing();
+
+    // Buttons to view team overviews
+    if (home) {
+        if (ImGui::Button("View Home Team", ImVec2(180, 32))) {
+            openTeamOverview(home, Screen::Friendly);
+        }
+    }
+    ImGui::SameLine();
+    if (away) {
+        if (ImGui::Button("View Away Team", ImVec2(180, 32))) {
+            openTeamOverview(away, Screen::Friendly);
+        }
+    }
+
+    ImGui::Spacing();
 
     bool ok = home && away && home->id != away->id && home->squad.size() >= 7 &&
               away->squad.size() >= 7;
@@ -2175,7 +2194,14 @@ void App::renderDatabase() {
                 openPlayerDetail(p, Screen::Database);
             }
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(t ? t->name.c_str() : "-");
+            // Make team name clickable
+            if (t) {
+                if (ImGui::Selectable(t->name.c_str(), false)) {
+                    openTeamOverview(const_cast<Team*>(t), Screen::Database);
+                }
+            } else {
+                ImGui::TextUnformatted("-");
+            }
             ImGui::TableSetColumnIndex(2);
             ImGui::TextUnformatted(PosName(p->primaryPos).c_str());
             positionTooltip(*p);
@@ -2471,6 +2497,14 @@ void App::openPlayerDetail(const Player* player, Screen returnTo) {
     detailPlayer_ = player;
     detailReturn_ = returnTo;
     screen_ = Screen::PlayerDetail;
+}
+
+void App::openTeamOverview(Team* team, Screen returnTo) {
+    TeamOverviewScreen::openTeamOverview(this, team, returnTo);
+}
+
+void App::renderTeamOverview() {
+    TeamOverviewScreen::render(this);
 }
 
 void App::renderPlayerDetail() {

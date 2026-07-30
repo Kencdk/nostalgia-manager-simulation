@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-30T09:07:50.6915376+02:00
+# Generated: 2026-07-30T09:26:19.7210164+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 65 relevant source files
+  Scale: 68 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -15,6 +15,8 @@ Architecture:
   Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
 - File: REFACTORING_GUIDE.md
   Preview: "# App.cpp Refactoring Guide ## Overview This document outlines the refactoring of App.cpp into separate component files for better code organization. ..."
+- File: TEAM_OVERVIEW_IMPLEMENTATION.md
+  Preview: "# Team Overview Screen - Implementation Summary ## Overview Created a new Team Overview screen that displays comprehensive team information and squad ..."
 - File: Models\Player.cs
   Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
@@ -114,6 +116,10 @@ Architecture:
   Preview: "#include 'Tactics.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void TacticsScreen::openTactics(App* app, Team* team, App::Screen retu..."
 - File: NostalgiaManager\src\ui\Tactics.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TacticsScreen { public:   static void render(App* app);   static void openTactics(App* app, Team* t..."
+- File: NostalgiaManager\src\ui\TeamOverview.cpp
+  Preview: "#include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <map> namespace nm { void TeamOverviewScreen::openTeamOverview(App* app..."
+- File: NostalgiaManager\src\ui\TeamOverview.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class TeamOverviewScreen { public:   static void render(App* app);   static void openTeamOverview(App* ap..."
 - File: NostalgiaManager\src\ui\UIHelpers.cpp
   Preview: "#include 'UIHelpers.h' #include <algorithm> #include <cctype> #include '../core/Player.h' namespace nm { const char* const kFormations[] = {'4-4-2',  ..."
 - File: NostalgiaManager\src\ui\UIHelpers.h
