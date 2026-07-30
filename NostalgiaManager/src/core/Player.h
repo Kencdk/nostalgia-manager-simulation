@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <string>
 #include <vector>
 
@@ -145,6 +146,7 @@ struct Player {
     Role role = Role::M;
     Position primaryPos = Position::MC;       // natural (best) position
     std::vector<Position> playablePositions;  // every position he can fill
+    std::map<Position, int> positionRatings;  // position -> rating (0-100)
     int shirtNumber = 0;
     Attributes attr;
 
@@ -152,6 +154,12 @@ struct Player {
         for (Position p : playablePositions)
             if (p == pos) return true;
         return false;
+    }
+
+    // Get position rating (0 if not playable)
+    int getPositionRating(Position pos) const {
+        auto it = positionRatings.find(pos);
+        return it != positionRatings.end() ? it->second : 0;
     }
 
     // Live match state (reset each match).

@@ -335,89 +335,101 @@ bool Database::loadPlayers(const std::string& path) {
             p.attr.set("Jumping",
                        clampStat((p.attr.get("Heading") + p.attr.get("Strength")) / 2));
 
-        // Positions from the CM/FM ratings. Two layouts are supported: a
-        // detailed sided block (Defender Right, Midfielder Left, ...) and the
-        // summary block where role ratings (Defender, Midfield, ...) are stored
-        // separately from flank ratings (Right / Left / Centre). Either way we
-        // build the full set of positions the player can fill plus a primary.
+        // Positions from the CM/FM ratings. Read individual position ratings
+        // and only add positions that have actual ratings (not derived from role+side combos).
         auto pos = [&](std::initializer_list<const char*> keys) { return h.getInt(r, keys); };
+
+        // Read all specific position ratings
         int rGK = pos({"goalkeeper", "gk"});
-        int rD = std::max({pos({"defendercentral"}), pos({"defenderright"}),
-                           pos({"defenderleft"}), pos({"wingbackright"}),
-                           pos({"wingbackleft"}), pos({"sweeper"}), pos({"defender"})});
-        int rDM = std::max(pos({"defensivemidfielder"}),
-                           pos({"defensivemidfield", "anchor"}));
-        int rM = std::max({pos({"midfieldercentral"}), pos({"midfielderright"}),
-                           pos({"midfielderleft"}), pos({"midfieldcenter", "midfield"})});
-        int rAM = std::max({pos({"attackingmidfieldercentral"}),
-                            pos({"attackingmidfielderright"}),
-                            pos({"attackingmidfielderleft"}), pos({"support"})});
-        int rF = std::max({pos({"centerforward", "centreforward"}),
-                           pos({"rightforward"}), pos({"leftforward"}),
-                           pos({"attack"})});
+        int rDR = pos({"defenderright"});
+        int rDC = pos({"defendercentral", "sweeper"});
+        int rDL = pos({"defenderleft"});
+        int rWBR = pos({"wingbackright"});
+        int rWBL = pos({"wingbackleft"});
+        int rDM = pos({"defensivemidfielder", "defensivemidfield", "anchor"});
+        int rMR = pos({"midfielderright"});
+        int rMC = pos({"midfieldercentral", "midfieldcenter", "midfield"});
+        int rML = pos({"midfielderleft"});
+        int rAMR = pos({"attackingmidfielderright"});
+        int rAMC = pos({"attackingmidfieldercentral"});
+        int rAML = pos({"attackingmidfielderleft"});
+        int rFR = pos({"rightforward"});
+        int rFC = pos({"centerforward", "centreforward", "attack"});
+        int rFL = pos({"leftforward"});
 
-        // Flank ratings (summary block). When the file has no flank columns,
-        // derive them from the position-specific columns.
-        int sR = pos({"right"});
-        int sL = pos({"left"});
-        int sC = pos({"centre", "center"});
-
-        // If no summary flank columns exist, derive from position-specific ratings
-        if (sR <= 0 && sL <= 0 && sC <= 0) {
-            // Calculate right preference from right-sided positions
-            sR = std::max({pos({"defenderright"}), pos({"wingbackright"}),
-                           pos({"midfielderright"}), pos({"attackingmidfielderright"}),
-                           pos({"rightforward"})});
-            // Calculate left preference from left-sided positions
-            sL = std::max({pos({"defenderleft"}), pos({"wingbackleft"}),
-                           pos({"midfielderleft"}), pos({"attackingmidfielderleft"}),
-                           pos({"leftforward"})});
-            // Calculate centre preference from central positions
-            sC = std::max({pos({"defendercentral"}), pos({"defensivemidfielder"}),
-                           pos({"midfieldercentral"}), pos({"attackingmidfieldercentral"}),
-                           pos({"centerforward"}), pos({"centreforward"})});
-
-            // If still no flank data, assume central
-            if (sR <= 0 && sL <= 0 && sC <= 0) sC = 1;
-        }
-
-        auto sidedPos = [](Role role, Side s) -> Position {
-            switch (role) {
-                case Role::D:  return s == Side::Right ? Position::DR
-                                    : s == Side::Left ? Position::DL : Position::DC;
-                case Role::M:  return s == Side::Right ? Position::MR
-                                    : s == Side::Left ? Position::ML : Position::MC;
-                case Role::AM: return s == Side::Right ? Position::AMR
-                                    : s == Side::Left ? Position::AML : Position::AMC;
-                case Role::F:  return s == Side::Right ? Position::FR
-                                    : s == Side::Left ? Position::FL : Position::FC;
-                case Role::DM: return Position::DM;
-                case Role::GK: return Position::GK;
-            }
-            return Position::MC;
-        };
-
-        struct RoleRow { Role role; int rating; };
-        RoleRow roles[] = {{Role::GK, rGK}, {Role::D, rD}, {Role::DM, rDM},
-                           {Role::M, rM}, {Role::AM, rAM}, {Role::F, rF}};
-        const Side sides[3] = {Side::Right, Side::Centre, Side::Left};
-        const int sideRating[3] = {sR, sC, sL};
+        // Build playable positions only from positions with actual ratings
+        // Also store the ratings for each position
+        const int threshold = 1;  // Only add if rating > 0
 
         p.playablePositions.clear();
-        for (const RoleRow& rr : roles) {
-            if (rr.rating <= 0) continue;
-            if (rr.role == Role::GK) { p.playablePositions.push_back(Position::GK); continue; }
-            if (rr.role == Role::DM) { p.playablePositions.push_back(Position::DM); continue; }
-            bool any = false;
-            for (int si = 0; si < 3; ++si)
-                if (sideRating[si] > 0) {
-                    p.playablePositions.push_back(sidedPos(rr.role, sides[si]));
-                    any = true;
-                }
-            if (!any) p.playablePositions.push_back(sidedPos(rr.role, Side::Centre));
+        p.positionRatings.clear();
+
+        if (rGK > threshold) {
+            p.playablePositions.push_back(Position::GK);
+            p.positionRatings[Position::GK] = rGK;
+        }
+        if (rDR > threshold) {
+            p.playablePositions.push_back(Position::DR);
+            p.positionRatings[Position::DR] = rDR;
+        }
+        if (rDC > threshold) {
+            p.playablePositions.push_back(Position::DC);
+            p.positionRatings[Position::DC] = rDC;
+        }
+        if (rDL > threshold) {
+            p.playablePositions.push_back(Position::DL);
+            p.positionRatings[Position::DL] = rDL;
+        }
+        if (rWBR > threshold) {
+            p.playablePositions.push_back(Position::WBR);
+            p.positionRatings[Position::WBR] = rWBR;
+        }
+        if (rWBL > threshold) {
+            p.playablePositions.push_back(Position::WBL);
+            p.positionRatings[Position::WBL] = rWBL;
+        }
+        if (rDM > threshold) {
+            p.playablePositions.push_back(Position::DM);
+            p.positionRatings[Position::DM] = rDM;
+        }
+        if (rMR > threshold) {
+            p.playablePositions.push_back(Position::MR);
+            p.positionRatings[Position::MR] = rMR;
+        }
+        if (rMC > threshold) {
+            p.playablePositions.push_back(Position::MC);
+            p.positionRatings[Position::MC] = rMC;
+        }
+        if (rML > threshold) {
+            p.playablePositions.push_back(Position::ML);
+            p.positionRatings[Position::ML] = rML;
+        }
+        if (rAMR > threshold) {
+            p.playablePositions.push_back(Position::AMR);
+            p.positionRatings[Position::AMR] = rAMR;
+        }
+        if (rAMC > threshold) {
+            p.playablePositions.push_back(Position::AMC);
+            p.positionRatings[Position::AMC] = rAMC;
+        }
+        if (rAML > threshold) {
+            p.playablePositions.push_back(Position::AML);
+            p.positionRatings[Position::AML] = rAML;
+        }
+        if (rFR > threshold) {
+            p.playablePositions.push_back(Position::FR);
+            p.positionRatings[Position::FR] = rFR;
+        }
+        if (rFC > threshold) {
+            p.playablePositions.push_back(Position::FC);
+            p.positionRatings[Position::FC] = rFC;
+        }
+        if (rFL > threshold) {
+            p.playablePositions.push_back(Position::FL);
+            p.positionRatings[Position::FL] = rFL;
         }
 
-        // Primary = best-rated role on his best-rated flank, OR use explicit position if available.
+        // Primary = best-rated position, OR use explicit position if available.
         if (hasExplicitPos) {
             // Use the explicit best position from the CSV
             p.primaryPos = explicitBestPos;
@@ -425,17 +437,27 @@ bool Database::loadPlayers(const std::string& path) {
             // Ensure the explicit position is in playable positions
             if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);
         } else {
-            // Fall back to calculating from position ratings
-            Role bestRole = Role::M;
-            int bestRoleRating = -1;
-            for (const RoleRow& rr : roles)
-                if (rr.rating > bestRoleRating) { bestRoleRating = rr.rating; bestRole = rr.role; }
-            // Prefer wings over centre when ratings are equal (winger should be winger, not centre)
-            Side bestSide = Side::Centre;
-            int bestSideRating = sC;
-            if (sR >= bestSideRating) { bestSideRating = sR; bestSide = Side::Right; }
-            if (sL >= bestSideRating) { bestSideRating = sL; bestSide = Side::Left; }
-            p.primaryPos = sidedPos(bestRole, bestSide);
+            // Calculate primary position from the highest rated position
+            struct PosRating { Position pos; int rating; };
+            std::vector<PosRating> posRatings = {
+                {Position::GK, rGK}, {Position::DR, rDR}, {Position::DC, rDC}, {Position::DL, rDL},
+                {Position::WBR, rWBR}, {Position::WBL, rWBL}, {Position::DM, rDM},
+                {Position::MR, rMR}, {Position::MC, rMC}, {Position::ML, rML},
+                {Position::AMR, rAMR}, {Position::AMC, rAMC}, {Position::AML, rAML},
+                {Position::FR, rFR}, {Position::FC, rFC}, {Position::FL, rFL}
+            };
+
+            // Find the position with the highest rating
+            auto best = std::max_element(posRatings.begin(), posRatings.end(),
+                [](const PosRating& a, const PosRating& b) { return a.rating < b.rating; });
+
+            if (best != posRatings.end() && best->rating > 0) {
+                p.primaryPos = best->pos;
+            } else {
+                // Fallback to MC if no positions have ratings
+                p.primaryPos = Position::MC;
+            }
+
             p.role = RoleOf(p.primaryPos);
             if (!p.canPlay(p.primaryPos)) p.playablePositions.push_back(p.primaryPos);
         }

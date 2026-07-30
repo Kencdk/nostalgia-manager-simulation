@@ -18,6 +18,7 @@ bool parseScore(const std::string& text, int& h, int& a);
 double playerOverall(const Player& p);
 std::string shortName(const std::string& full);
 std::string playablePosStr(const Player& p);
+std::string playablePosByProficiency(const Player& p);  // Categorized by proficiency
 void positionTooltip(const Player& p);
 
 // Color and visual utilities

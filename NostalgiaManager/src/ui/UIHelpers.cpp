@@ -56,11 +56,77 @@ std::string playablePosStr(const Player& p) {
     return s.empty() ? PosName(p.primaryPos) : s;
 }
 
+std::string playablePosByProficiency(const Player& p) {
+    // Categorize positions by rating:
+    // Preferred: primary position
+    // Natural: rating = 100
+    // Accomplished: rating 70-99
+    // Competent: rating 40-69
+    // Unconvincing: rating 1-39
+
+    std::vector<Position> preferred, natural, accomplished, competent, unconvincing;
+
+    for (Position pos : p.playablePositions) {
+        int rating = p.getPositionRating(pos);
+
+        if (pos == p.primaryPos) {
+            preferred.push_back(pos);
+        } else if (rating == 100) {
+            natural.push_back(pos);
+        } else if (rating >= 70) {
+            accomplished.push_back(pos);
+        } else if (rating >= 40) {
+            competent.push_back(pos);
+        } else {
+            unconvincing.push_back(pos);
+        }
+    }
+
+    std::string result;
+
+    auto addCategory = [&](const std::string& label, const std::vector<Position>& positions) {
+        if (!positions.empty()) {
+            if (!result.empty()) result += "\n";
+            result += label + ": ";
+            for (size_t i = 0; i < positions.size(); ++i) {
+                if (i > 0) result += ", ";
+                result += PosName(positions[i]);
+            }
+        }
+    };
+
+    addCategory("Preferred", preferred);
+    addCategory("Natural", natural);
+    addCategory("Accomplished", accomplished);
+    addCategory("Competent", competent);
+    addCategory("Unconvincing", unconvincing);
+
+    return result.empty() ? "No positions" : result;
+}
+
 void positionTooltip(const Player& p) {
     if (!ImGui::IsItemHovered()) return;
     ImGui::BeginTooltip();
-    ImGui::Text("Natural: %s", PosName(p.primaryPos).c_str());
-    ImGui::Text("Can play: %s", playablePosStr(p).c_str());
+    ImGui::Text("Positions by proficiency:");
+    ImGui::Separator();
+
+    // Display categorized positions
+    std::string categorized = playablePosByProficiency(p);
+
+    // Split by newlines and display each category
+    size_t start = 0;
+    size_t end = categorized.find('\n');
+    while (end != std::string::npos) {
+        std::string line = categorized.substr(start, end - start);
+        ImGui::TextUnformatted(line.c_str());
+        start = end + 1;
+        end = categorized.find('\n', start);
+    }
+    // Last line
+    if (start < categorized.size()) {
+        ImGui::TextUnformatted(categorized.substr(start).c_str());
+    }
+
     ImGui::EndTooltip();
 }
 

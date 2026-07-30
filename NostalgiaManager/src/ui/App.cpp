@@ -2557,10 +2557,57 @@ void App::renderPlayerDetail() {
     ImGui::Spacing();
 
     // Basic info
-    ImGui::Text("Position: %s", PosName(p.primaryPos).c_str());
-    ImGui::Text("Can Play: %s", playablePosStr(p).c_str());
+    ImGui::Text("Primary Position: %s", PosName(p.primaryPos).c_str());
     ImGui::Text("Shirt Number: %d", p.shirtNumber);
     ImGui::Text("Overall: %.0f", playerOverall(p));
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Positions by Proficiency
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Positions by Proficiency");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    // Categorize positions
+    std::vector<Position> preferred, natural, accomplished, competent, unconvincing;
+
+    for (Position pos : p.playablePositions) {
+        int rating = p.getPositionRating(pos);
+
+        if (pos == p.primaryPos) {
+            preferred.push_back(pos);
+        } else if (rating == 100) {
+            natural.push_back(pos);
+        } else if (rating >= 70) {
+            accomplished.push_back(pos);
+        } else if (rating >= 40) {
+            competent.push_back(pos);
+        } else {
+            unconvincing.push_back(pos);
+        }
+    }
+
+    auto displayCategory = [](const char* label, const std::vector<Position>& positions, ImVec4 color) {
+        if (!positions.empty()) {
+            ImGui::TextColored(color, "%s", label);
+            std::string posStr;
+            for (size_t i = 0; i < positions.size(); ++i) {
+                if (i > 0) posStr += ", ";
+                posStr += PosName(positions[i]);
+            }
+            ImGui::TextWrapped("  %s", posStr.c_str());
+            ImGui::Spacing();
+        }
+    };
+
+    displayCategory("Preferred", preferred, ImVec4(0.3f, 1.0f, 0.3f, 1.0f));  // Green
+    displayCategory("Natural", natural, ImVec4(0.5f, 0.9f, 0.5f, 1.0f));      // Light green
+    displayCategory("Accomplished", accomplished, ImVec4(0.8f, 0.9f, 0.4f, 1.0f));  // Yellow-green
+    displayCategory("Competent", competent, ImVec4(1.0f, 0.8f, 0.3f, 1.0f));  // Orange
+    displayCategory("Unconvincing", unconvincing, ImVec4(1.0f, 0.5f, 0.3f, 1.0f));  // Red-orange
 
     ImGui::Spacing();
     ImGui::Separator();
