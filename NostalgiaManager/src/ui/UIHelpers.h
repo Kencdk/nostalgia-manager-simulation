@@ -19,6 +19,7 @@ double playerOverall(const Player& p);
 std::string shortName(const std::string& full);
 std::string playablePosStr(const Player& p);
 std::string playablePosByProficiency(const Player& p);  // Categorized by proficiency
+std::string cmPositionFormat(const Player& p);  // Championship Manager style format (e.g., "M C/R", "M/AM R/L, F C/R/L")
 void positionTooltip(const Player& p);
 
 // Color and visual utilities

@@ -30,14 +30,14 @@ void TeamOverviewScreen::render(App* app) {
 
     ImGui::SameLine();
     ImGui::SetWindowFontScale(1.4f);
-    ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.45f, 1), "%s", t->name.c_str());
+    ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "%s", t->name.c_str());
     ImGui::SetWindowFontScale(1.0f);
 
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    const ImVec4 gold(0.86f, 0.78f, 0.55f, 1);
+    const ImVec4 gold(0.60f, 0.75f, 0.95f, 1);
     float fullW = ImGui::GetContentRegionAvail().x;
     float fullH = ImGui::GetContentRegionAvail().y - 60;
 
@@ -164,7 +164,7 @@ void TeamOverviewScreen::render(App* app) {
             ImGui::NextColumn();
 
             // Position
-            ImGui::Text("%s", PosName(p->primaryPos).c_str());
+            ImGui::Text("%s", cmPositionFormat(*p).c_str());
             if (ImGui::IsItemHovered()) {
                 positionTooltip(*p);
             }

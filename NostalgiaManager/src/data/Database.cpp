@@ -275,6 +275,14 @@ bool Database::loadPlayers(const std::string& path) {
             p.primaryPos = DefaultPosOf(p.role);
             p.playablePositions = {p.primaryPos};
             p.shirtNumber = h.getInt(r, {"number"});
+
+            // Load bio information if available
+            p.age = h.getInt(r, {"age"});
+            p.dateOfBirth = h.get(r, {"dateofbirth", "dob", "birthday"});
+            p.nationality = h.get(r, {"nationality", "nation", "nat"});
+            p.internationalCaps = h.getInt(r, {"internationalcaps", "intcaps", "caps"});
+            p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
+
             for (const auto& an : AttributeNames()) {
                 std::string v = h.get(r, {normKey(an).c_str()});
                 p.attr.set(an, v.empty() ? 10 : clampStat(toInt(v)));
@@ -296,6 +304,13 @@ bool Database::loadPlayers(const std::string& path) {
         if (name.empty()) continue;
         p.id = autoId++;
         p.name = asciiFold(name);
+
+        // Load bio information if available
+        p.age = h.getInt(r, {"age"});
+        p.dateOfBirth = h.get(r, {"dateofbirth", "dob", "birthday"});
+        p.nationality = h.get(r, {"nationality", "nation", "nat"});
+        p.internationalCaps = h.getInt(r, {"internationalcaps", "intcaps", "caps"});
+        p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
 
         // Overall ability (0-200) drives the GK rating and acts as a baseline
         // for skills the export left blank (these databases are often sparse).

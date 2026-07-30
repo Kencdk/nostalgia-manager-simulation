@@ -131,15 +131,15 @@ bool tintButton(const char* label, ImU32 base, const ImVec2& size) {
 }
 
 // Section header inside a panel: a coloured bar with centred title.
-void panelHeader(const char* title, ImU32 col = IM_COL32(120, 70, 40, 255)) {
+void panelHeader(const char* title, ImU32 col = IM_COL32(70, 85, 110, 255)) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p = ImGui::GetCursorScreenPos();
     float w = ImGui::GetContentRegionAvail().x;
     float h = ImGui::GetTextLineHeight() + 10;
     dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), col, 4.0f);
-    dl->AddRect(p, ImVec2(p.x + w, p.y + h), IM_COL32(210, 170, 90, 255), 4.0f, 0, 1.5f);
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), IM_COL32(100, 120, 150, 255), 4.0f, 0, 1.5f);
     ImVec2 ts = ImGui::CalcTextSize(title);
-    dl->AddText(ImVec2(p.x + (w - ts.x) * 0.5f, p.y + 5), IM_COL32(245, 225, 170, 255), title);
+    dl->AddText(ImVec2(p.x + (w - ts.x) * 0.5f, p.y + 5), IM_COL32(240, 245, 250, 255), title);
     ImGui::Dummy(ImVec2(w, h + 4));
 }
 
@@ -344,32 +344,32 @@ void ApplyNostalgiaTheme() {
     auto col = [](int r, int g, int b, int a = 255) {
         return ImVec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f);
     };
-    c[ImGuiCol_WindowBg]        = col(24, 30, 22);       // dark pitch green
-    c[ImGuiCol_ChildBg]         = col(34, 30, 24, 235);  // leather
-    c[ImGuiCol_PopupBg]         = col(28, 26, 22, 245);
-    c[ImGuiCol_Border]          = col(120, 92, 48);      // muted gold
-    c[ImGuiCol_FrameBg]         = col(48, 42, 32);
-    c[ImGuiCol_FrameBgHovered]  = col(64, 56, 40);
-    c[ImGuiCol_FrameBgActive]   = col(74, 64, 46);
-    c[ImGuiCol_TitleBgActive]   = col(40, 34, 26);
-    c[ImGuiCol_Button]          = col(58, 78, 52);
-    c[ImGuiCol_ButtonHovered]   = col(78, 104, 66);
-    c[ImGuiCol_ButtonActive]    = col(46, 62, 42);
-    c[ImGuiCol_Header]          = col(70, 60, 40);
-    c[ImGuiCol_HeaderHovered]   = col(96, 80, 50);
-    c[ImGuiCol_HeaderActive]    = col(110, 90, 56);
-    c[ImGuiCol_TableHeaderBg]   = col(60, 50, 34);
-    c[ImGuiCol_TableRowBg]      = col(40, 36, 28);
-    c[ImGuiCol_TableRowBgAlt]   = col(46, 42, 32);
-    c[ImGuiCol_TableBorderStrong] = col(120, 92, 48);
-    c[ImGuiCol_TableBorderLight]  = col(80, 64, 40);
-    c[ImGuiCol_Text]            = col(238, 232, 214);
-    c[ImGuiCol_TextDisabled]    = col(150, 140, 120);
-    c[ImGuiCol_CheckMark]       = col(220, 180, 90);
-    c[ImGuiCol_SliderGrab]      = col(200, 160, 80);
-    c[ImGuiCol_SliderGrabActive]= col(230, 190, 100);
-    c[ImGuiCol_ScrollbarGrab]   = col(90, 76, 50);
-    c[ImGuiCol_Separator]       = col(120, 92, 48);
+    c[ImGuiCol_WindowBg]        = col(45, 52, 64);          // dark blue-grey background
+    c[ImGuiCol_ChildBg]         = col(55, 62, 74, 235);     // medium dark blue-grey
+    c[ImGuiCol_PopupBg]         = col(50, 57, 69, 245);
+    c[ImGuiCol_Border]          = col(90, 100, 120);        // light blue-grey border
+    c[ImGuiCol_FrameBg]         = col(60, 68, 82);
+    c[ImGuiCol_FrameBgHovered]  = col(70, 78, 95);
+    c[ImGuiCol_FrameBgActive]   = col(80, 88, 105);
+    c[ImGuiCol_TitleBgActive]   = col(60, 70, 88);
+    c[ImGuiCol_Button]          = col(70, 85, 110);
+    c[ImGuiCol_ButtonHovered]   = col(85, 100, 125);
+    c[ImGuiCol_ButtonActive]    = col(60, 75, 100);
+    c[ImGuiCol_Header]          = col(75, 90, 115);
+    c[ImGuiCol_HeaderHovered]   = col(85, 100, 130);
+    c[ImGuiCol_HeaderActive]    = col(70, 85, 110);
+    c[ImGuiCol_TableHeaderBg]   = col(65, 78, 98);
+    c[ImGuiCol_TableRowBg]      = col(50, 57, 69);
+    c[ImGuiCol_TableRowBgAlt]   = col(55, 62, 74);
+    c[ImGuiCol_TableBorderStrong] = col(90, 100, 120);
+    c[ImGuiCol_TableBorderLight]  = col(70, 80, 95);
+    c[ImGuiCol_Text]            = col(240, 245, 250);       // white text
+    c[ImGuiCol_TextDisabled]    = col(140, 150, 165);
+    c[ImGuiCol_CheckMark]       = col(120, 160, 200);
+    c[ImGuiCol_SliderGrab]      = col(100, 130, 170);
+    c[ImGuiCol_SliderGrabActive]= col(120, 150, 190);
+    c[ImGuiCol_ScrollbarGrab]   = col(90, 105, 130);
+    c[ImGuiCol_Separator]       = col(80, 95, 115);
 }
 
 bool App::init(const std::string& dataDir) {

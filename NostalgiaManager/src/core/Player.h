@@ -150,6 +150,13 @@ struct Player {
     int shirtNumber = 0;
     Attributes attr;
 
+    // Player bio information
+    int age = 0;                    // Age in years
+    std::string dateOfBirth;        // Date of birth (DD/MM/YYYY format)
+    std::string nationality;        // Nationality/Country
+    int internationalCaps = 0;      // Number of international appearances
+    int internationalGoals = 0;     // Number of international goals
+
     bool canPlay(Position pos) const {
         for (Position p : playablePositions)
             if (p == pos) return true;

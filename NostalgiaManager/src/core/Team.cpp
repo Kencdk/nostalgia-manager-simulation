@@ -116,6 +116,13 @@ void parseFormation(const std::string& f, int& nd, int& nm, int& nf) {
 }
 
 void Team::autoSelectXI() {
+    // Auto-select starting XI using power ranking system
+    // Key principles:
+    // 1. Players are NEVER selected for positions they cannot play (canPlay() check)
+    // 2. Natural position specialists (primaryPos match) get priority with 30% bonus
+    // 3. Power ranking considers position-specific attributes and position rating
+    // 4. Multi-pass approach: specialists first, then best available, then fallbacks
+
     startingXI.clear();
     assignedPositions.clear();
 
@@ -137,7 +144,7 @@ void Team::autoSelectXI() {
     });
 
     // Pass 1: For each position in formation, find the BEST player whose primary position matches
-    // This ensures specialists get priority, but only if they're actually good at the position
+    // This ensures specialists get priority for their natural positions
     for (size_t i = 0; i < formationPos.size(); ++i) {
         Position pos = formationPos[i];
         const Player* best = nullptr;
@@ -146,7 +153,8 @@ void Team::autoSelectXI() {
         // Find the best player whose primary position matches this formation position
         for (const Player* p : sortedSquad) {
             if (chosen.count(p->id)) continue;
-            if (p->primaryPos != pos) continue; // Only consider players whose primary is this position
+            if (p->primaryPos != pos) continue; // Only players whose primary position is this
+            if (!p->canPlay(pos)) continue; // Must be able to play the position
 
             double powerRank = PositionPowerRanking(*p, pos);
             if (powerRank > bestPower) {
@@ -163,26 +171,35 @@ void Team::autoSelectXI() {
         }
     }
 
-    // Pass 2: Fill remaining positions using power rankings
-    // For each unfilled position, pick the best available player based on position-specific power ranking
+    // Pass 2: Fill remaining positions with best available players who CAN play that position
+    // Use power ranking which considers both ability and position suitability
     for (size_t i = 0; i < formationPos.size(); ++i) {
         if (positionFilled[i]) continue;
 
         Position pos = formationPos[i];
         const Player* best = nullptr;
-        double bestPower = -1.0;
+        double bestScore = -1.0;
 
         for (const Player* p : sortedSquad) {
             if (chosen.count(p->id)) continue;
+            if (!p->canPlay(pos)) continue; // NEVER select for non-playable positions
 
+            // Calculate a combined score: power ranking + bonus for primary position match
             double powerRank = PositionPowerRanking(*p, pos);
-            if (powerRank > bestPower) {
-                bestPower = powerRank;
+            double score = powerRank;
+
+            // Bonus if this is their primary position (even if already filled, prefer natural specialists)
+            if (p->primaryPos == pos) {
+                score *= 1.3; // 30% bonus for playing in natural position
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
                 best = p;
             }
         }
 
-        if (best) {
+        if (best && bestScore > 0) {
             startingXI.push_back(best->id);
             assignedPositions.push_back(pos);
             chosen.insert(best->id);
@@ -190,7 +207,8 @@ void Team::autoSelectXI() {
         }
     }
 
-    // Fallback: fill any remaining positions with best available from same role
+    // Pass 3: If still positions unfilled, try to find any playable match from same role
+    // This handles cases where squad depth is limited
     for (size_t i = 0; i < formationPos.size(); ++i) {
         if (positionFilled[i]) continue;
 
@@ -201,11 +219,15 @@ void Team::autoSelectXI() {
 
         for (const Player* p : sortedSquad) {
             if (chosen.count(p->id)) continue;
+            if (!p->canPlay(pos)) continue; // MUST be able to play the position
 
-            // Prefer players from the same role
-            double score = PlayerAbility(*p);
+            // Score based on power ranking + role match bonus
+            double powerRank = PositionPowerRanking(*p, pos);
+            double score = powerRank;
+
+            // Small bonus if their primary role matches the target role
             if (RoleOf(p->primaryPos) == targetRole) {
-                score *= 1.5;
+                score *= 1.1; // 10% bonus for role match
             }
 
             if (score > bestScore) {
@@ -214,7 +236,7 @@ void Team::autoSelectXI() {
             }
         }
 
-        if (best) {
+        if (best && bestScore > 0) {
             startingXI.push_back(best->id);
             assignedPositions.push_back(pos);
             chosen.insert(best->id);
@@ -222,29 +244,68 @@ void Team::autoSelectXI() {
         }
     }
 
-    // Final fallback: fill any missing slots with best available
-    while (startingXI.size() < 11 && startingXI.size() < squad.size()) {
+    // Final pass: If we still have unfilled positions, try to place best remaining players
+    // in positions they CAN play, even if not ideal
+    for (size_t i = 0; i < formationPos.size(); ++i) {
+        if (positionFilled[i]) continue;
+
+        Position pos = formationPos[i];
         const Player* best = nullptr;
         double bestScore = -1.0;
+
+        for (const Player* p : sortedSquad) {
+            if (chosen.count(p->id)) continue;
+            if (!p->canPlay(pos)) continue; // MUST be able to play the position
+
+            double score = PositionPowerRanking(*p, pos);
+            if (score > bestScore) {
+                bestScore = score;
+                best = p;
+            }
+        }
+
+        if (best && bestScore > 0) {
+            startingXI.push_back(best->id);
+            assignedPositions.push_back(pos);
+            chosen.insert(best->id);
+            positionFilled[i] = true;
+        }
+    }
+
+    // Absolute fallback: Fill any remaining slots with best available players
+    // Assign them to any position they can play
+    while (startingXI.size() < 11 && startingXI.size() < squad.size()) {
+        const Player* best = nullptr;
+        double bestOverall = -1.0;
+
         for (const auto& p : squad) {
             if (!chosen.count(p.id)) {
-                double score = PlayerAbility(p);
-                if (score > bestScore) {
-                    bestScore = score;
+                double overall = PlayerAbility(p);
+                if (overall > bestOverall) {
+                    bestOverall = overall;
                     best = &p;
                 }
             }
         }
         if (!best) break;
 
-        // Assign to first unfilled position or their primary position
+        // Find an unfilled position this player can actually play
         Position assignPos = best->primaryPos;
+        bool foundPosition = false;
+
         for (size_t i = 0; i < formationPos.size(); ++i) {
-            if (!positionFilled[i]) {
+            if (!positionFilled[i] && best->canPlay(formationPos[i])) {
                 assignPos = formationPos[i];
                 positionFilled[i] = true;
+                foundPosition = true;
                 break;
             }
+        }
+
+        // If no valid formation position found, use their primary position
+        // This shouldn't happen if squad has enough players
+        if (!foundPosition) {
+            assignPos = best->primaryPos;
         }
 
         startingXI.push_back(best->id);

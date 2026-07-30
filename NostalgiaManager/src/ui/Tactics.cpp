@@ -39,11 +39,11 @@ void TacticsScreen::render(App* app) {
 
     ImGui::SameLine();
     ImGui::SetWindowFontScale(1.25f);
-    ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.45f, 1), "%s", t->name.c_str());
+    ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "%s", t->name.c_str());
     ImGui::SetWindowFontScale(1.0f);
     ImGui::Spacing();
 
-    const ImVec4 gold(0.86f, 0.78f, 0.55f, 1);
+    const ImVec4 gold(0.60f, 0.75f, 0.95f, 1);
     const bool inMatch = (app->tacticsReturn_ == App::Screen::Match);
     const bool subsLeft = !inMatch || app->matchSubsUsed_ < kMaxMatchSubs;
     float avail = ImGui::GetContentRegionAvail().y - 56;
@@ -64,8 +64,9 @@ void TacticsScreen::render(App* app) {
         if (!p) continue;
         Position assignedPos = i < t->assignedPositions.size() ? t->assignedPositions[i] : p->primaryPos;
         char lbl[160];
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", p->shirtNumber,
-                      PosName(assignedPos).c_str(), shortName(p->name).c_str());
+        std::string posStr = cmPositionFormat(*p);
+        std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", p->shirtNumber,
+                      posStr.c_str(), shortName(p->name).c_str());
 
         ImGui::PushID(static_cast<int>(i));
         if (ImGui::Selectable(lbl, app->tacticsPlayerSel_ == p->id)) {
@@ -112,8 +113,9 @@ void TacticsScreen::render(App* app) {
         if (shownSubs >= 5) break;
         shownSubs++;
         char lbl[160];
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
-                      PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
+        std::string posStr = cmPositionFormat(pl);
+        std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", pl.shirtNumber,
+                      posStr.c_str(), shortName(pl.name).c_str());
 
         ImGui::PushID(100 + subIdx);
         if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {
@@ -169,8 +171,9 @@ void TacticsScreen::render(App* app) {
             if (squadIdx <= 5) continue;
 
             char lbl[160];
-            std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
-                          PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
+            std::string posStr = cmPositionFormat(pl);
+            std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", pl.shirtNumber,
+                          posStr.c_str(), shortName(pl.name).c_str());
 
             ImGui::PushID(200 + restIdx);
             if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {
@@ -215,7 +218,7 @@ void TacticsScreen::render(App* app) {
 
     if (inMatch) {
         ImGui::Spacing();
-        ImVec4 c = subsLeft ? gold : ImVec4(0.9f, 0.5f, 0.4f, 1);
+        ImVec4 c = subsLeft ? gold : ImVec4(0.9f, 0.4f, 0.2f, 1);
         ImGui::TextColored(c, "Subs: %d / %d", app->matchSubsUsed_, kMaxMatchSubs);
     }
     ImGui::EndChild();

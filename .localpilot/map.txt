@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-30T18:57:11.2797820+02:00
+# Generated: 2026-07-30T20:01:30.8663335+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 80 relevant source files
+  Scale: 87 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -11,6 +11,14 @@ Architecture:
 ---
 - File: NostalgiaManager.sln
   Preview: " Microsoft Visual Studio Solution File, Format Version 12.00 # Visual Studio Version 17 VisualStudioVersion = 17.0.31903.59 MinimumVisualStudioVersion..."
+- File: CM_FORMAT_IMPLEMENTATION_SUMMARY.md
+  Preview: "# Championship Manager Position Format Implementation Summary ## What Was Changed Implemented Championship Manager style position notation throughout ..."
+- File: CM_FORMAT_VISUAL_EXAMPLES.md
+  Preview: "# Championship Manager Position Format - Visual Examples ## Player Detail Screen ### Before ``` ┌─────────────────────────────────────────────────┐ │ ..."
+- File: CM_POSITION_FORMAT.md
+  Preview: "# Championship Manager Position Format ## Overview Players' positions are now displayed in Championship Manager style, showing their versatility in a ..."
+- File: PLAYER_DETAIL_IMPROVEMENTS.md
+  Preview: "# Player Detail Screen Improvements ## Overview The player detail screen has been significantly enhanced to provide more comprehensive player informat..."
 - File: POSITION_MAPPING_FIX.md
   Preview: "# Player Position Mapping Fix ## Issue Players were showing incorrect playable positions. For example, Roy Keane (who should only play DMC and MC acco..."
 - File: POSITION_PROFICIENCY_SYSTEM.md
@@ -21,8 +29,14 @@ Architecture:
   Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
 - File: REFACTORING_GUIDE.md
   Preview: "# App.cpp Refactoring Guide ## Overview This document outlines the refactoring of App.cpp into separate component files for better code organization. ..."
+- File: SAMPLE_PLAYER_DATA.md
+  Preview: "# Sample Player Data with Bio Information ## Example CSV Format Below is an example of how player data with the new bio fields should be structured: `..."
 - File: TEAM_OVERVIEW_IMPLEMENTATION.md
   Preview: "# Team Overview Screen - Implementation Summary ## Overview Created a new Team Overview screen that displays comprehensive team information and squad ..."
+- File: TEAM_SELECTION_IMPROVEMENTS.md
+  Preview: "# Auto Team Selection Power Ranking System ## Overview The auto-selection system for starting XI now uses a sophisticated power ranking system that en..."
+- File: test_cm_format.cpp
+  Preview: "#include <iostream> #include <vector> #include <string> #include 'NostalgiaManager/src/core/Player.h' #include 'NostalgiaManager/src/ui/UIHelpers.h' /..."
 - File: Models\Player.cs
   Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
@@ -142,7 +156,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\TeamOverview.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TeamOverviewScreen { public:   static void render(App* app);   static void openTeamOverview(App* ap..."
 - File: NostalgiaManager\src\ui\UIHelpers.cpp
-  Preview: "#include 'UIHelpers.h' #include <algorithm> #include <cctype> #include '../core/Player.h' namespace nm { const char* const kFormations[] = {'4-4-2',  ..."
+  Preview: "#include 'UIHelpers.h' #include 'UIHelpers.h' #include <algorithm> #include <cctype> #include <map> #include <set> #include '../core/Player.h' namespa..."
 - File: NostalgiaManager\src\ui\UIHelpers.h
   Preview: "#pragma once #include <functional> #include <map> #include <string> #include 'imgui.h' #include '../core/Player.h' #include '../core/Team.h' #include ..."
 - File: third_party\imgui\backends\imgui_impl_dx11.cpp
