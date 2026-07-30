@@ -122,41 +122,63 @@ void Team::autoSelectXI() {
     // Get the specific positions for this formation
     std::vector<Position> formationPos = getFormationPositions(formation);
 
-    // Group players by their best-fit for each position
-    auto byAbility = [](const Player* a, const Player* b) {
-        return PlayerAbility(*a) > PlayerAbility(*b);
-    };
-
     std::unordered_set<int> chosen;
 
-    // For each position in the formation, find the best available player
-    for (Position pos : formationPos) {
+    // Track which positions are still unfilled
+    std::vector<bool> positionFilled(formationPos.size(), false);
+
+    // Sort all squad players by overall ability for reference
+    std::vector<const Player*> sortedSquad;
+    for (const auto& p : squad) {
+        sortedSquad.push_back(&p);
+    }
+    std::sort(sortedSquad.begin(), sortedSquad.end(), [](const Player* a, const Player* b) {
+        return PlayerAbility(*a) > PlayerAbility(*b);
+    });
+
+    // Pass 1: For each position in formation, find the BEST player whose primary position matches
+    // This ensures specialists get priority, but only if they're actually good at the position
+    for (size_t i = 0; i < formationPos.size(); ++i) {
+        Position pos = formationPos[i];
         const Player* best = nullptr;
-        double bestScore = -1.0;
+        double bestPower = -1.0;
 
-        for (const auto& p : squad) {
-            // Skip already chosen players
-            if (chosen.count(p.id)) continue;
+        // Find the best player whose primary position matches this formation position
+        for (const Player* p : sortedSquad) {
+            if (chosen.count(p->id)) continue;
+            if (p->primaryPos != pos) continue; // Only consider players whose primary is this position
 
-            // Calculate suitability score for this position
-            double score = PlayerAbility(p);
-
-            // Bonus if it's their primary position
-            if (p.primaryPos == pos) {
-                score *= 1.3;
+            double powerRank = PositionPowerRanking(*p, pos);
+            if (powerRank > bestPower) {
+                bestPower = powerRank;
+                best = p;
             }
-            // Bonus if they can play this position
-            else if (p.canPlay(pos)) {
-                score *= 1.1;
-            }
-            // Penalty if wrong role (but still allow as fallback)
-            else if (RoleOf(p.primaryPos) != RoleOf(pos)) {
-                score *= 0.5;
-            }
+        }
 
-            if (score > bestScore) {
-                bestScore = score;
-                best = &p;
+        if (best && bestPower > 0) {
+            startingXI.push_back(best->id);
+            assignedPositions.push_back(pos);
+            chosen.insert(best->id);
+            positionFilled[i] = true;
+        }
+    }
+
+    // Pass 2: Fill remaining positions using power rankings
+    // For each unfilled position, pick the best available player based on position-specific power ranking
+    for (size_t i = 0; i < formationPos.size(); ++i) {
+        if (positionFilled[i]) continue;
+
+        Position pos = formationPos[i];
+        const Player* best = nullptr;
+        double bestPower = -1.0;
+
+        for (const Player* p : sortedSquad) {
+            if (chosen.count(p->id)) continue;
+
+            double powerRank = PositionPowerRanking(*p, pos);
+            if (powerRank > bestPower) {
+                bestPower = powerRank;
+                best = p;
             }
         }
 
@@ -164,11 +186,44 @@ void Team::autoSelectXI() {
             startingXI.push_back(best->id);
             assignedPositions.push_back(pos);
             chosen.insert(best->id);
+            positionFilled[i] = true;
         }
     }
 
-    // Fill any missing slots with best available (shouldn't happen with valid formations)
-    while (startingXI.size() < 11) {
+    // Fallback: fill any remaining positions with best available from same role
+    for (size_t i = 0; i < formationPos.size(); ++i) {
+        if (positionFilled[i]) continue;
+
+        Position pos = formationPos[i];
+        Role targetRole = RoleOf(pos);
+        const Player* best = nullptr;
+        double bestScore = -1.0;
+
+        for (const Player* p : sortedSquad) {
+            if (chosen.count(p->id)) continue;
+
+            // Prefer players from the same role
+            double score = PlayerAbility(*p);
+            if (RoleOf(p->primaryPos) == targetRole) {
+                score *= 1.5;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = p;
+            }
+        }
+
+        if (best) {
+            startingXI.push_back(best->id);
+            assignedPositions.push_back(pos);
+            chosen.insert(best->id);
+            positionFilled[i] = true;
+        }
+    }
+
+    // Final fallback: fill any missing slots with best available
+    while (startingXI.size() < 11 && startingXI.size() < squad.size()) {
         const Player* best = nullptr;
         double bestScore = -1.0;
         for (const auto& p : squad) {
@@ -182,8 +237,18 @@ void Team::autoSelectXI() {
         }
         if (!best) break;
 
+        // Assign to first unfilled position or their primary position
+        Position assignPos = best->primaryPos;
+        for (size_t i = 0; i < formationPos.size(); ++i) {
+            if (!positionFilled[i]) {
+                assignPos = formationPos[i];
+                positionFilled[i] = true;
+                break;
+            }
+        }
+
         startingXI.push_back(best->id);
-        assignedPositions.push_back(best->primaryPos);
+        assignedPositions.push_back(assignPos);
         chosen.insert(best->id);
     }
 }
@@ -224,11 +289,6 @@ void Team::autoOrderSubstitutes() {
 
     if (bench.size() < 5) return;  // Not enough for proper substitutes
 
-    // Sort bench by ability
-    std::sort(bench.begin(), bench.end(), [](const Player* a, const Player* b) {
-        return PlayerAbility(*a) > PlayerAbility(*b);
-    });
-
     // Ensure balanced substitutes: 1 GK, min 1 DEF, min 1 MID, min 1 ATT
     std::vector<Player*> orderedSubs;
     orderedSubs.reserve(5);
@@ -239,36 +299,80 @@ void Team::autoOrderSubstitutes() {
     auto isMID = [](const Player* p) { return p->role == Role::DM || p->role == Role::M || p->role == Role::AM; };
     auto isATT = [](const Player* p) { return p->role == Role::F; };
 
-    // Step 1: Pick best GK
-    auto gkIt = std::find_if(bench.begin(), bench.end(), isGK);
-    if (gkIt != bench.end()) {
-        orderedSubs.push_back(*gkIt);
-        bench.erase(gkIt);
+    // Step 1: Pick best GK by GK power ranking
+    Player* bestGK = nullptr;
+    double bestGKPower = -1.0;
+    for (Player* p : bench) {
+        if (isGK(p)) {
+            double power = PositionPowerRanking(*p, Position::GK);
+            if (power > bestGKPower) {
+                bestGKPower = power;
+                bestGK = p;
+            }
+        }
+    }
+    if (bestGK) {
+        orderedSubs.push_back(bestGK);
+        bench.erase(std::remove(bench.begin(), bench.end(), bestGK), bench.end());
     }
 
-    // Step 2: Pick best DEF
-    auto defIt = std::find_if(bench.begin(), bench.end(), isDEF);
-    if (defIt != bench.end()) {
-        orderedSubs.push_back(*defIt);
-        bench.erase(defIt);
+    // Step 2: Pick best DEF by DC power ranking (most versatile defensive position)
+    Player* bestDEF = nullptr;
+    double bestDEFPower = -1.0;
+    for (Player* p : bench) {
+        if (isDEF(p)) {
+            double power = PositionPowerRanking(*p, Position::DC);
+            if (power > bestDEFPower) {
+                bestDEFPower = power;
+                bestDEF = p;
+            }
+        }
+    }
+    if (bestDEF) {
+        orderedSubs.push_back(bestDEF);
+        bench.erase(std::remove(bench.begin(), bench.end(), bestDEF), bench.end());
     }
 
-    // Step 3: Pick best MID
-    auto midIt = std::find_if(bench.begin(), bench.end(), isMID);
-    if (midIt != bench.end()) {
-        orderedSubs.push_back(*midIt);
-        bench.erase(midIt);
+    // Step 3: Pick best MID by MC power ranking (most versatile midfield position)
+    Player* bestMID = nullptr;
+    double bestMIDPower = -1.0;
+    for (Player* p : bench) {
+        if (isMID(p)) {
+            double power = PositionPowerRanking(*p, Position::MC);
+            if (power > bestMIDPower) {
+                bestMIDPower = power;
+                bestMID = p;
+            }
+        }
+    }
+    if (bestMID) {
+        orderedSubs.push_back(bestMID);
+        bench.erase(std::remove(bench.begin(), bench.end(), bestMID), bench.end());
     }
 
-    // Step 4: Pick best ATT
-    auto attIt = std::find_if(bench.begin(), bench.end(), isATT);
-    if (attIt != bench.end()) {
-        orderedSubs.push_back(*attIt);
-        bench.erase(attIt);
+    // Step 4: Pick best ATT by FC power ranking
+    Player* bestATT = nullptr;
+    double bestATTPower = -1.0;
+    for (Player* p : bench) {
+        if (isATT(p)) {
+            double power = PositionPowerRanking(*p, Position::FC);
+            if (power > bestATTPower) {
+                bestATTPower = power;
+                bestATT = p;
+            }
+        }
+    }
+    if (bestATT) {
+        orderedSubs.push_back(bestATT);
+        bench.erase(std::remove(bench.begin(), bench.end(), bestATT), bench.end());
     }
 
-    // Step 5: Fill remaining slot with best available
-    while (orderedSubs.size() < 5 && !bench.empty()) {
+    // Step 5: Fill remaining slot with best available by overall ability
+    if (orderedSubs.size() < 5 && !bench.empty()) {
+        // Sort remaining bench by ability
+        std::sort(bench.begin(), bench.end(), [](const Player* a, const Player* b) {
+            return PlayerAbility(*a) > PlayerAbility(*b);
+        });
         orderedSubs.push_back(bench.front());
         bench.erase(bench.begin());
     }

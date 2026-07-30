@@ -72,4 +72,124 @@ inline double PlayerAbility(const Player& p) {
     return n ? sum / n : 0.0;
 }
 
+// Calculate position-specific power ranking based on key attributes for that position
+inline double PositionPowerRanking(const Player& p, Position pos) {
+    const auto& attr = p.attr;
+
+    // Position rating (0-100) affects base score
+    int posRating = p.getPositionRating(pos);
+    if (posRating == 0) return 0.0; // Cannot play this position
+
+    double posMultiplier = posRating / 100.0; // 0.0 to 1.0
+    double score = 0.0;
+
+    switch (pos) {
+        case Position::GK:
+            // Goalkeepers: Goalkeeping is king
+            score = attr.get("Goalkeeping") * 3.0 +
+                    attr.get("Positioning") * 1.5 +
+                    attr.get("Aggression") * 0.5 +
+                    attr.get("Determination") * 0.5;
+            break;
+
+        case Position::DR:
+        case Position::DL:
+        case Position::WBR:
+        case Position::WBL:
+            // Full-backs: Tackling, Pace, Stamina, Positioning
+            score = attr.get("Tackling") * 2.0 +
+                    attr.get("Positioning") * 2.0 +
+                    attr.get("Marking") * 1.5 +
+                    attr.get("Pace") * 1.5 +
+                    attr.get("Stamina") * 1.5 +
+                    attr.get("Passing") * 1.0 +
+                    attr.get("Determination") * 0.5;
+            break;
+
+        case Position::DC:
+            // Center-backs: Tackling, Marking, Heading, Positioning, Strength
+            score = attr.get("Tackling") * 2.5 +
+                    attr.get("Marking") * 2.5 +
+                    attr.get("Positioning") * 2.0 +
+                    attr.get("Heading") * 2.0 +
+                    attr.get("Strength") * 1.5 +
+                    attr.get("Jumping") * 1.0 +
+                    attr.get("Determination") * 0.5;
+            break;
+
+        case Position::DM:
+            // Defensive midfielders: Tackling, Passing, Positioning, Stamina
+            score = attr.get("Tackling") * 2.5 +
+                    attr.get("Positioning") * 2.0 +
+                    attr.get("Passing") * 2.0 +
+                    attr.get("Stamina") * 1.5 +
+                    attr.get("Marking") * 1.5 +
+                    attr.get("Determination") * 1.0 +
+                    attr.get("Strength") * 0.5;
+            break;
+
+        case Position::MC:
+            // Central midfielders: Passing, Technique, Stamina, Vision (Creativity)
+            score = attr.get("Passing") * 2.5 +
+                    attr.get("Technique") * 2.0 +
+                    attr.get("Stamina") * 2.0 +
+                    attr.get("Creativity") * 1.5 +
+                    attr.get("Tackling") * 1.5 +
+                    attr.get("Positioning") * 1.0 +
+                    attr.get("Determination") * 0.5;
+            break;
+
+        case Position::MR:
+        case Position::ML:
+            // Wide midfielders: Pace, Dribbling, Passing, Stamina, Crossing (Technique)
+            score = attr.get("Pace") * 2.0 +
+                    attr.get("Dribbling") * 2.0 +
+                    attr.get("Technique") * 1.5 +
+                    attr.get("Passing") * 1.5 +
+                    attr.get("Stamina") * 1.5 +
+                    attr.get("Creativity") * 1.0 +
+                    attr.get("Flair") * 1.0;
+            break;
+
+        case Position::AMC:
+            // Attacking midfielders: Creativity, Technique, Passing, Shooting, Dribbling
+            score = attr.get("Creativity") * 2.5 +
+                    attr.get("Technique") * 2.5 +
+                    attr.get("Passing") * 2.0 +
+                    attr.get("Dribbling") * 2.0 +
+                    attr.get("Shooting") * 1.5 +
+                    attr.get("Flair") * 1.0 +
+                    attr.get("OffTheBall") * 1.0;
+            break;
+
+        case Position::AMR:
+        case Position::AML:
+            // Wide attacking midfielders: Dribbling, Pace, Creativity, Technique
+            score = attr.get("Dribbling") * 2.5 +
+                    attr.get("Pace") * 2.0 +
+                    attr.get("Creativity") * 2.0 +
+                    attr.get("Technique") * 1.5 +
+                    attr.get("Shooting") * 1.5 +
+                    attr.get("Flair") * 1.5 +
+                    attr.get("OffTheBall") * 1.0;
+            break;
+
+        case Position::FC:
+        case Position::FR:
+        case Position::FL:
+            // Forwards: Shooting, OffTheBall, Pace, Finishing (Technique)
+            score = attr.get("Shooting") * 3.0 +
+                    attr.get("OffTheBall") * 2.5 +
+                    attr.get("Technique") * 2.0 +
+                    attr.get("Pace") * 1.5 +
+                    attr.get("Heading") * 1.0 +
+                    attr.get("Dribbling") * 1.0 +
+                    attr.get("Determination") * 0.5;
+            break;
+    }
+
+    // Apply position rating multiplier
+    return score * posMultiplier;
+}
+
 }  // namespace nm

@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-30T10:01:04.4951750+02:00
+# Generated: 2026-07-30T10:55:47.7473075+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 70 relevant source files
+  Scale: 72 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -13,6 +13,8 @@ Architecture:
   Preview: " Microsoft Visual Studio Solution File, Format Version 12.00 # Visual Studio Version 17 VisualStudioVersion = 17.0.31903.59 MinimumVisualStudioVersion..."
 - File: POSITION_MAPPING_FIX.md
   Preview: "# Player Position Mapping Fix ## Issue Players were showing incorrect playable positions. For example, Roy Keane (who should only play DMC and MC acco..."
+- File: POSITION_PROFICIENCY_SYSTEM.md
+  Preview: "# Position Proficiency Categorization System ## Overview Enhanced the player position system to categorize positions by proficiency level and display ..."
 - File: POSITION_RATING_VERIFICATION.md
   Preview: "# Position Rating System - Verification ## CSV Structure The PlayersDB.csv has position rating columns (12-27) immediately after the 'Best position' c..."
 - File: README.md
@@ -44,6 +46,8 @@ Architecture:
   Preview: "# Sample Team Colors for TeamsDB.csv This file provides examples of team color configurations for popular football clubs. Copy these values into your ..."
 - File: NostalgiaManager\data\TEAM_SCREENSHOTS.md
   Preview: "# Screen Background Images Feature Guide ## Overview All screens in Nostalgia Manager now display cycling background images that auto-cycle every 3 se..."
+- File: NostalgiaManager\docs\POWER_RANKING_SYSTEM.md
+  Preview: "# Position-Specific Power Ranking System ## Overview The power ranking system evaluates players based on **position-specific key attributes** rather t..."
 - File: NostalgiaManager\src\main.cpp
   Preview: "#include <cstdio> #include <cstdlib> #include <fstream> #include <string> #include <vector> #include 'data/Database.h' #include 'engine/MatchEngine.h'..."
 - File: third_party\imgui\imconfig.h

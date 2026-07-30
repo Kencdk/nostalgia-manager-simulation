@@ -122,6 +122,7 @@
     <None Include="data\TEAM_COLORS.md" />
     <None Include="data\TEAM_COLORS_EXAMPLES.md" />
     <None Include="data\SCREENSHOTS_QUICKSTART.md" />
+    <None Include="docs\POWER_RANKING_SYSTEM.md" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="data\PlayersDB.csv">
