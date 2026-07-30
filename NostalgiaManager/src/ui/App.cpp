@@ -2467,6 +2467,12 @@ void App::renderAbout() {
     ImGui::End();
 }
 
+void App::openPlayerDetail(const Player* player, Screen returnTo) {
+    detailPlayer_ = player;
+    detailReturn_ = returnTo;
+    screen_ = Screen::PlayerDetail;
+}
+
 void App::renderPlayerDetail() {
     drawCyclingBackground();
 
@@ -2486,7 +2492,7 @@ void App::renderPlayerDetail() {
 
     const Player& p = *detailPlayer_;
 
-    // Header with back button
+    // Header with back button and player name
     if (ImGui::Button("< Back", ImVec2(120, 40))) {
         screen_ = detailReturn_;
     }
@@ -2497,6 +2503,60 @@ void App::renderPlayerDetail() {
     ImGui::Text("%s", p.name.c_str());
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Calculate layout dimensions
+    float fullW = ImGui::GetContentRegionAvail().x;
+    float fullH = ImGui::GetContentRegionAvail().y;
+    float leftW = fullW * 0.6f;
+    float rightW = fullW * 0.4f - 10;
+
+    // Left column - Player info and attributes
+    ImGui::BeginChild("player_info", ImVec2(leftW, fullH), true);
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Player Information");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Basic info
+    ImGui::Text("Position: %s", PosName(p.primaryPos).c_str());
+    ImGui::Text("Can Play: %s", playablePosStr(p).c_str());
+    ImGui::Text("Shirt Number: %d", p.shirtNumber);
+    ImGui::Text("Overall: %.0f", playerOverall(p));
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Attributes
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::Text("Attributes");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    ImGui::Columns(2, "attrs", true);
+    ImGui::Text("Pace: %d", p.attr.get("Pace"));
+    ImGui::NextColumn();
+    ImGui::Text("Shooting: %d", p.attr.get("Shooting"));
+    ImGui::NextColumn();
+    ImGui::Text("Passing: %d", p.attr.get("Passing"));
+    ImGui::NextColumn();
+    ImGui::Text("Tackling: %d", p.attr.get("Tackling"));
+    ImGui::NextColumn();
+    ImGui::Text("Heading: %d", p.attr.get("Heading"));
+    ImGui::NextColumn();
+    ImGui::Text("Stamina: %d", p.attr.get("Stamina"));
+    ImGui::NextColumn();
+    ImGui::Text("Technique: %d", p.attr.get("Technique"));
+    ImGui::NextColumn();
+    ImGui::Text("Strength: %d", p.attr.get("Strength"));
+    ImGui::NextColumn();
+    ImGui::Columns(1);
+
     ImGui::EndChild();
     ImGui::SameLine();
 

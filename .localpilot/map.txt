@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-29T21:55:57.3242307+02:00
+# Generated: 2026-07-30T09:07:50.6915376+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 59 relevant source files
+  Scale: 65 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -13,6 +13,8 @@ Architecture:
   Preview: " Microsoft Visual Studio Solution File, Format Version 12.00 # Visual Studio Version 17 VisualStudioVersion = 17.0.31903.59 MinimumVisualStudioVersion..."
 - File: README.md
   Preview: "# Nostalgia Manager Simulation A console-based football (soccer) management game written in C++17, implementing the **GBNFM match engine** specificati..."
+- File: REFACTORING_GUIDE.md
+  Preview: "# App.cpp Refactoring Guide ## Overview This document outlines the refactoring of App.cpp into separate component files for better code organization. ..."
 - File: Models\Player.cs
   Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
@@ -108,6 +110,14 @@ Architecture:
   Preview: "#include 'Game.h' #include <algorithm> #include <chrono> #include <fstream> #include <iomanip> #include <iostream> #include <map> #include <sstream> #..."
 - File: NostalgiaManager\src\ui\Game.h
   Preview: "#pragma once #include <map> #include <string> #include <vector> #include '../data/Database.h' #include '../engine/Config.h' #include '../engine/MatchE..."
+- File: NostalgiaManager\src\ui\Tactics.cpp
+  Preview: "#include 'Tactics.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void TacticsScreen::openTactics(App* app, Team* team, App::Screen retu..."
+- File: NostalgiaManager\src\ui\Tactics.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class TacticsScreen { public:   static void render(App* app);   static void openTactics(App* app, Team* t..."
+- File: NostalgiaManager\src\ui\UIHelpers.cpp
+  Preview: "#include 'UIHelpers.h' #include <algorithm> #include <cctype> #include '../core/Player.h' namespace nm { const char* const kFormations[] = {'4-4-2',  ..."
+- File: NostalgiaManager\src\ui\UIHelpers.h
+  Preview: "#pragma once #include <functional> #include <map> #include <string> #include 'imgui.h' #include '../core/Player.h' #include '../core/Team.h' #include ..."
 - File: third_party\imgui\backends\imgui_impl_dx11.cpp
   Preview: "// dear imgui: Renderer Backend for DirectX11 // This needs to be used along with a Platform Backend (e.g. Win32) // Implemented features: // [X] Rend..."
 - File: third_party\imgui\backends\imgui_impl_dx11.h

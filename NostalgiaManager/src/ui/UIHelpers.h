@@ -34,7 +34,8 @@ void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& 
 // Tactics helpers
 const Player* bestStarterFor(Team* t, const char* attr, bool outfieldOnly);
 void tacticRow(const char* label, const std::string& value);
-extern const char* const kFormations[];
+extern const char* const kFormations[10];
 constexpr int kMaxMatchSubs = 3;
+constexpr int kNumFormations = 10;
 
 }  // namespace nm

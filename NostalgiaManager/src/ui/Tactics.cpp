@@ -511,7 +511,7 @@ void TacticsScreen::render(App* app) {
             baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
         }
 
-        int n = static_cast<int>(sizeof(kFormations) / sizeof(kFormations[0]));
+        int n = kNumFormations;
         int cur = 0;
         for (int i = 0; i < n; ++i)
             if (baseFormation == kFormations[i]) { cur = i; break; }
