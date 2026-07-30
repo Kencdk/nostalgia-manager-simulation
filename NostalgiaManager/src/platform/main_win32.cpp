@@ -147,6 +147,54 @@ bool AppLoadTexture(const std::string& path, AppTexture* out) {
     out->ok = true;
     return true;
 }
+
+// Load texture from memory buffer
+bool AppLoadTextureFromMemory(const unsigned char* image_data, size_t image_size, AppTexture* out) {
+    if (!g_pd3dDevice || !image_data || image_size == 0) return false;
+
+    int w = 0, h = 0, ch = 0;
+    unsigned char* data = stbi_load_from_memory(image_data, static_cast<int>(image_size), &w, &h, &ch, 4);
+    if (!data) return false;
+
+    D3D11_TEXTURE2D_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.Width = w;
+    desc.Height = h;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA sub;
+    ZeroMemory(&sub, sizeof(sub));
+    sub.pSysMem = data;
+    sub.SysMemPitch = w * 4;
+
+    ID3D11Texture2D* tex = nullptr;
+    if (g_pd3dDevice->CreateTexture2D(&desc, &sub, &tex) != S_OK || !tex) {
+        stbi_image_free(data);
+        return false;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv;
+    ZeroMemory(&srv, sizeof(srv));
+    srv.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srv.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srv.Texture2D.MipLevels = 1;
+    ID3D11ShaderResourceView* view = nullptr;
+    g_pd3dDevice->CreateShaderResourceView(tex, &srv, &view);
+    tex->Release();
+    stbi_image_free(data);
+    if (!view) return false;
+
+    out->id = (ImTextureID)view;
+    out->w = w;
+    out->h = h;
+    out->ok = true;
+    return true;
+}
 }  // namespace nm
 
 static std::string findDataDir() {

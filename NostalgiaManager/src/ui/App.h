@@ -25,6 +25,10 @@ struct AppTexture {
 // platform entry point (main_glfw.cpp / main_win32.cpp).
 bool AppLoadTexture(const std::string& path, AppTexture* out);
 
+// Loads a texture from memory buffer. Implemented per backend in the
+// platform entry point (main_glfw.cpp / main_win32.cpp).
+bool AppLoadTextureFromMemory(const unsigned char* image_data, size_t image_size, AppTexture* out);
+
 // Applies the shared "nostalgia" visual style (colors, rounding, spacing).
 void ApplyNostalgiaTheme();
 
@@ -137,6 +141,7 @@ private:
     bool quit_ = false;
 
     AppTexture menuBg_;
+    AppTexture playerDetailBg_;  // Background for player detail screen
     std::vector<std::string> leagues_;
     std::vector<AppTexture> friendlyScreenshots_;  // Decorative images for Friendly screen
 

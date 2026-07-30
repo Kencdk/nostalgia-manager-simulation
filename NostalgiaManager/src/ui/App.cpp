@@ -11,7 +11,9 @@
 #include <set>
 
 #include "imgui.h"
+#include "PlayerDetail.h"
 #include "TeamOverview.h"
+#include "../resources/PlayerDetailBg.h"
 
 namespace nm {
 
@@ -379,6 +381,8 @@ bool App::init(const std::string& dataDir) {
         return false;
     }
     AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
+    // Load embedded Player Details background
+    AppLoadTextureFromMemory(g_playerDetailBg_data, g_playerDetailBg_size, &playerDetailBg_);
 
     // Load decorative screenshots for Friendly Match screen
     // Screenshots should be named 1.png, 2.png, 3.png, etc.
@@ -2494,9 +2498,7 @@ void App::renderAbout() {
 }
 
 void App::openPlayerDetail(const Player* player, Screen returnTo) {
-    detailPlayer_ = player;
-    detailReturn_ = returnTo;
-    screen_ = Screen::PlayerDetail;
+    PlayerDetailScreen::openPlayerDetail(this, player, returnTo);
 }
 
 void App::openTeamOverview(Team* team, Screen returnTo) {
@@ -2508,260 +2510,7 @@ void App::renderTeamOverview() {
 }
 
 void App::renderPlayerDetail() {
-    drawCyclingBackground();
-
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->WorkPos);
-    ImGui::SetNextWindowSize(vp->WorkSize);
-    ImGuiWindowFlags wf = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
-    ImGui::Begin("##playerdetail", nullptr, wf);
-
-    if (!detailPlayer_) {
-        ImGui::Text("No player selected");
-        if (ImGui::Button("< Back")) screen_ = detailReturn_;
-        ImGui::End();
-        return;
-    }
-
-    const Player& p = *detailPlayer_;
-
-    // Header with back button and player name
-    if (ImGui::Button("< Back", ImVec2(120, 40))) {
-        screen_ = detailReturn_;
-    }
-    ImGui::SameLine();
-    ImVec4 gold = ImVec4(0.95f, 0.92f, 0.82f, 1);
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::SetWindowFontScale(2.0f);
-    ImGui::Text("%s", p.name.c_str());
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Calculate layout dimensions
-    float fullW = ImGui::GetContentRegionAvail().x;
-    float fullH = ImGui::GetContentRegionAvail().y;
-    float leftW = fullW * 0.6f;
-    float rightW = fullW * 0.4f - 10;
-
-    // Left column - Player info and attributes
-    ImGui::BeginChild("player_info", ImVec2(leftW, fullH), true);
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Player Information");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Basic info
-    ImGui::Text("Primary Position: %s", PosName(p.primaryPos).c_str());
-    ImGui::Text("Shirt Number: %d", p.shirtNumber);
-    ImGui::Text("Overall: %.0f", playerOverall(p));
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Positions by Proficiency
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Positions by Proficiency");
-    ImGui::PopStyleColor();
-    ImGui::Spacing();
-
-    // Categorize positions
-    std::vector<Position> preferred, natural, accomplished, competent, unconvincing;
-
-    for (Position pos : p.playablePositions) {
-        int rating = p.getPositionRating(pos);
-
-        if (pos == p.primaryPos) {
-            preferred.push_back(pos);
-        } else if (rating == 100) {
-            natural.push_back(pos);
-        } else if (rating >= 70) {
-            accomplished.push_back(pos);
-        } else if (rating >= 40) {
-            competent.push_back(pos);
-        } else {
-            unconvincing.push_back(pos);
-        }
-    }
-
-    auto displayCategory = [](const char* label, const std::vector<Position>& positions, ImVec4 color) {
-        if (!positions.empty()) {
-            ImGui::TextColored(color, "%s", label);
-            std::string posStr;
-            for (size_t i = 0; i < positions.size(); ++i) {
-                if (i > 0) posStr += ", ";
-                posStr += PosName(positions[i]);
-            }
-            ImGui::TextWrapped("  %s", posStr.c_str());
-            ImGui::Spacing();
-        }
-    };
-
-    displayCategory("Preferred", preferred, ImVec4(0.3f, 1.0f, 0.3f, 1.0f));  // Green
-    displayCategory("Natural", natural, ImVec4(0.5f, 0.9f, 0.5f, 1.0f));      // Light green
-    displayCategory("Accomplished", accomplished, ImVec4(0.8f, 0.9f, 0.4f, 1.0f));  // Yellow-green
-    displayCategory("Competent", competent, ImVec4(1.0f, 0.8f, 0.3f, 1.0f));  // Orange
-    displayCategory("Unconvincing", unconvincing, ImVec4(1.0f, 0.5f, 0.3f, 1.0f));  // Red-orange
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Attributes
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Attributes");
-    ImGui::PopStyleColor();
-    ImGui::Spacing();
-
-    ImGui::Columns(2, "attrs", true);
-    ImGui::Text("Pace: %d", p.attr.get("Pace"));
-    ImGui::NextColumn();
-    ImGui::Text("Shooting: %d", p.attr.get("Shooting"));
-    ImGui::NextColumn();
-    ImGui::Text("Passing: %d", p.attr.get("Passing"));
-    ImGui::NextColumn();
-    ImGui::Text("Tackling: %d", p.attr.get("Tackling"));
-    ImGui::NextColumn();
-    ImGui::Text("Heading: %d", p.attr.get("Heading"));
-    ImGui::NextColumn();
-    ImGui::Text("Stamina: %d", p.attr.get("Stamina"));
-    ImGui::NextColumn();
-    ImGui::Text("Technique: %d", p.attr.get("Technique"));
-    ImGui::NextColumn();
-    ImGui::Text("Strength: %d", p.attr.get("Strength"));
-    ImGui::NextColumn();
-    ImGui::Columns(1);
-
-    ImGui::EndChild();
-    ImGui::SameLine();
-
-    // Right column - Smaller pitch visualization
-    ImGui::BeginChild("player_pitch", ImVec2(rightW, fullH), true);
-
-    ImGui::PushStyleColor(ImGuiCol_Text, gold);
-    ImGui::Text("Position Map");
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-    ImVec2 canvasSize = ImGui::GetContentRegionAvail();
-
-    // Make pitch smaller and centered
-    float pitchRatio = 105.0f / 68.0f;
-    float pitchW, pitchH;
-    float maxW = canvasSize.x - 40;
-    float maxH = canvasSize.y * 0.6f;  // Use less vertical space
-
-    if (maxW / maxH > pitchRatio) {
-        pitchH = maxH;
-        pitchW = pitchH * pitchRatio;
-    } else {
-        pitchW = maxW;
-        pitchH = pitchW / pitchRatio;
-    }
-
-    float offsetX = (canvasSize.x - pitchW) * 0.5f;
-    float offsetY = 20;
-
-    ImVec2 pitchMin(canvasPos.x + offsetX, canvasPos.y + offsetY);
-    ImVec2 pitchMax(pitchMin.x + pitchW, pitchMin.y + pitchH);
-
-    // Draw pitch background
-    dl->AddRectFilled(pitchMin, pitchMax, IM_COL32(74, 132, 62, 255), 4.0f);
-
-    // Draw stripes
-    int stripes = 10;
-    for (int s = 0; s < stripes; ++s) {
-        if (s % 2 == 0) continue;
-        float y0 = pitchMin.y + (pitchH * s) / stripes;
-        float y1 = pitchMin.y + (pitchH * (s + 1)) / stripes;
-        dl->AddRectFilled(ImVec2(pitchMin.x, y0), ImVec2(pitchMax.x, y1), IM_COL32(82, 142, 68, 255));
-    }
-
-    // Draw lines
-    ImU32 lineCol = IM_COL32(255, 255, 255, 180);
-    dl->AddRect(pitchMin, pitchMax, lineCol, 0, 0, 2.0f);
-    dl->AddLine(ImVec2(pitchMin.x, pitchMin.y + pitchH * 0.5f),
-                ImVec2(pitchMax.x, pitchMin.y + pitchH * 0.5f), lineCol, 2.0f);
-    dl->AddCircle(ImVec2(pitchMin.x + pitchW * 0.5f, pitchMin.y + pitchH * 0.5f),
-                  pitchW * 0.1f, lineCol, 32, 2.0f);
-
-    // Helper to get position coordinates (normalized 0-1)
-    auto getPosCoords = [](Position pos) -> std::pair<float, float> {
-        float yPos = 0.5f, xPos = 0.5f;
-        switch (pos) {
-            case Position::GK:  yPos = 0.95f; xPos = 0.50f; break;
-            case Position::DR:  yPos = 0.80f; xPos = 0.78f; break;
-            case Position::DC:  yPos = 0.83f; xPos = 0.50f; break;
-            case Position::DL:  yPos = 0.80f; xPos = 0.22f; break;
-            case Position::WBR: yPos = 0.74f; xPos = 0.88f; break;
-            case Position::WBL: yPos = 0.74f; xPos = 0.12f; break;
-            case Position::DM:  yPos = 0.65f; xPos = 0.50f; break;
-            case Position::MR:  yPos = 0.48f; xPos = 0.85f; break;
-            case Position::MC:  yPos = 0.48f; xPos = 0.50f; break;
-            case Position::ML:  yPos = 0.48f; xPos = 0.15f; break;
-            case Position::AMR: yPos = 0.28f; xPos = 0.80f; break;
-            case Position::AMC: yPos = 0.28f; xPos = 0.50f; break;
-            case Position::AML: yPos = 0.28f; xPos = 0.20f; break;
-            case Position::FR:  yPos = 0.08f; xPos = 0.75f; break;
-            case Position::FC:  yPos = 0.08f; xPos = 0.50f; break;
-            case Position::FL:  yPos = 0.08f; xPos = 0.25f; break;
-        }
-        return {xPos, yPos};
-    };
-
-    // Draw playable positions
-    for (Position pos : p.playablePositions) {
-        auto [xNorm, yNorm] = getPosCoords(pos);
-        ImVec2 dotPos(pitchMin.x + pitchW * xNorm, pitchMin.y + pitchH * yNorm);
-
-        // Primary position is larger and brighter
-        bool isPrimary = (pos == p.primaryPos);
-        float radius = isPrimary ? 16.0f : 12.0f;
-        ImU32 dotColor = isPrimary ? IM_COL32(255, 220, 50, 255) : IM_COL32(100, 200, 255, 255);
-
-        dl->AddCircleFilled(dotPos, radius, dotColor);
-        dl->AddCircle(dotPos, radius, IM_COL32(255, 255, 255, 255), 32, 2.0f);
-
-        // Label - smaller font for smaller pitch
-        const char* label = PosName(pos).c_str();
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1.0f);
-        float oldScale = ImGui::GetFont()->Scale;
-        ImGui::GetFont()->Scale = 0.85f;
-        ImGui::PushFont(ImGui::GetFont());
-        ImVec2 textSize = ImGui::CalcTextSize(label);
-        ImVec2 textPos(dotPos.x - textSize.x * 0.5f, dotPos.y - textSize.y * 0.5f);
-        dl->AddText(textPos, IM_COL32(0, 0, 0, 255), label);
-        ImGui::PopFont();
-        ImGui::GetFont()->Scale = oldScale;
-        ImGui::PopStyleVar();
-    }
-
-    ImGui::Dummy(ImVec2(pitchW + offsetX * 2, pitchH + offsetY * 2));
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    // Legend
-    ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.3f, 1.0f), "Yellow");
-    ImGui::SameLine();
-    ImGui::Text("= Primary");
-
-    ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Blue");
-    ImGui::SameLine();
-    ImGui::Text("= Can Play");
-
-    ImGui::EndChild();
-
-    ImGui::End();
+    PlayerDetailScreen::render(this);
 }
 
 }  // namespace nm

@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-30T10:55:47.7473075+02:00
+# Generated: 2026-07-30T18:57:11.2797820+02:00
 # Root: D:\DEV\NMS
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 72 relevant source files
+  Scale: 80 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -26,6 +26,11 @@ Architecture:
 - File: Models\Player.cs
   Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
+- File: NostalgiaManager\resource.h
+  Preview: "//{{NO_DEPENDENCIES}} // Microsoft Visual C++ generated include file. // Used by NostalgiaManager.rc // Next default values for new objects // #ifdef ..."
+- File: tools\embed_image.py
+  Symbols: [embed_image]
+  Preview: "#!/usr/bin/env python3 ''' Convert an image file to a C++ byte array for embedding. Usage: python embed_image.py input.png output.cpp ''' import sys i..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
 - File: tools\team_screenshot_helper.py
@@ -110,6 +115,10 @@ Architecture:
   Preview: "// GLFW + OpenGL3 entry point. Used for the portable (Linux/macOS) build and for // automated visual testing. The Windows build uses main_win32.cpp (D..."
 - File: NostalgiaManager\src\platform\main_win32.cpp
   Preview: "// Win32 + Direct3D 11 entry point for the Windows build (Visual Studio). No // external dependencies: d3d11 ships with Windows. The portable build us..."
+- File: NostalgiaManager\src\resources\PlayerDetailBg.cpp
+  Preview: "// Auto-generated embedded image data // Source: Playerdetails.png // Size: 2466754 bytes #include 'PlayerDetailBg.h' namespace nm { const unsigned ch..."
+- File: NostalgiaManager\src\resources\PlayerDetailBg.h
+  Preview: "#pragma once #include <cstddef> namespace nm { // Embedded player detail background image // To regenerate: use tools/embed_image.py or xxd extern con..."
 - File: NostalgiaManager\src\ui\App.cpp
   Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <functional> ..."
 - File: NostalgiaManager\src\ui\App.h
@@ -120,6 +129,10 @@ Architecture:
   Preview: "#include 'Game.h' #include <algorithm> #include <chrono> #include <fstream> #include <iomanip> #include <iostream> #include <map> #include <sstream> #..."
 - File: NostalgiaManager\src\ui\Game.h
   Preview: "#pragma once #include <map> #include <string> #include <vector> #include '../data/Database.h' #include '../engine/Config.h' #include '../engine/MatchE..."
+- File: NostalgiaManager\src\ui\PlayerDetail.cpp
+  Preview: "#include 'PlayerDetail.h' #include 'PlayerDetail.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void PlayerDetailScreen::openPlayerDeta..."
+- File: NostalgiaManager\src\ui\PlayerDetail.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class PlayerDetailScreen { public:   static void render(App* app);   static void openPlayerDetail(App* ap..."
 - File: NostalgiaManager\src\ui\Tactics.cpp
   Preview: "#include 'Tactics.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void TacticsScreen::openTactics(App* app, Team* team, App::Screen retu..."
 - File: NostalgiaManager\src\ui\Tactics.h
