@@ -24,8 +24,8 @@ void PlayerDetailScreen::openPlayerDetail(App* app, const Player* player, App::S
 }
 
 void PlayerDetailScreen::render(App* app) {
-    app->drawCyclingBackground();
-    app->beginScreen("Player Detail");
+    app->drawStaticBackground(app->playerDetailBg_);
+    app->beginScreen("Player Detail", false);
 
     const Player* p = app->detailPlayer_;
     if (ImGui::Button("< Back")) {

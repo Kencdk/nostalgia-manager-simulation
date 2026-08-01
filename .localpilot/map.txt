@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-07-30T20:01:30.8663335+02:00
-# Root: D:\DEV\NMS
+# Generated: 2026-08-01T19:31:14.7691168+02:00
+# Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 87 relevant source files
+  Scale: 86 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -14,7 +14,7 @@ Architecture:
 - File: CM_FORMAT_IMPLEMENTATION_SUMMARY.md
   Preview: "# Championship Manager Position Format Implementation Summary ## What Was Changed Implemented Championship Manager style position notation throughout ..."
 - File: CM_FORMAT_VISUAL_EXAMPLES.md
-  Preview: "# Championship Manager Position Format - Visual Examples ## Player Detail Screen ### Before ``` ┌─────────────────────────────────────────────────┐ │ ..."
+  Preview: "# Championship Manager Position Format - Visual Examples ## Player Detail Screen ### Before ``` ??????????????????????????????????????????????????? ? ..."
 - File: CM_POSITION_FORMAT.md
   Preview: "# Championship Manager Position Format ## Overview Players' positions are now displayed in Championship Manager style, showing their versatility in a ..."
 - File: PLAYER_DETAIL_IMPROVEMENTS.md

@@ -104,9 +104,10 @@ private:
         int p = 0, w = 0, d = 0, l = 0, gf = 0, ga = 0, pts = 0;
     };
 
-    void beginScreen(const char* title);
+    void beginScreen(const char* title, bool withBackground = true);
     void beginFullscreen(const char* id, bool withBackground);
     void drawCyclingBackground();  // Helper for cycling screenshot backgrounds
+    void drawStaticBackground(const AppTexture& texture);  // Helper for static background
     void renderMain();
     void renderFriendly();
     void renderTactics();

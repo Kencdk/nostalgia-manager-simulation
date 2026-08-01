@@ -13,7 +13,6 @@
 #include "imgui.h"
 #include "PlayerDetail.h"
 #include "TeamOverview.h"
-#include "../resources/PlayerDetailBg.h"
 
 namespace nm {
 
@@ -381,8 +380,8 @@ bool App::init(const std::string& dataDir) {
         return false;
     }
     AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
-    // Load embedded Player Details background
-    AppLoadTextureFromMemory(g_playerDetailBg_data, g_playerDetailBg_size, &playerDetailBg_);
+    // Load Player Details background from file
+    AppLoadTexture(dataDir_ + "/images/Playerdetails.png", &playerDetailBg_);
 
     // Load decorative screenshots for Friendly Match screen
     // Screenshots should be named 1.png, 2.png, 3.png, etc.
@@ -419,13 +418,14 @@ bool App::init(const std::string& dataDir) {
 
 Team* App::teamById(int id) { return db_.findTeam(id); }
 
-void App::beginScreen(const char* title) {
+void App::beginScreen(const char* title, bool withBackground) {
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos);
     ImGui::SetNextWindowSize(vp->WorkSize);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                              ImGuiWindowFlags_NoBringToFrontOnFocus;
+    if (!withBackground) flags |= ImGuiWindowFlags_NoBackground;
     ImGui::Begin("##screen", nullptr, flags);
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(120, 230, 150, 255));
     ImGui::SetWindowFontScale(1.6f);
@@ -481,6 +481,42 @@ void App::drawCyclingBackground() {
         }
     } else {
         // Fallback: gradient background if no screenshots
+        bg->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                                    IM_COL32(20, 40, 70, 255), IM_COL32(20, 40, 70, 255),
+                                    IM_COL32(10, 20, 35, 255), IM_COL32(10, 20, 35, 255));
+    }
+}
+
+void App::drawStaticBackground(const AppTexture& texture) {
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    const ImVec2 pos = vp->WorkPos;
+    const ImVec2 size = vp->WorkSize;
+    ImDrawList* bg = ImGui::GetBackgroundDrawList();
+
+    if (texture.ok && texture.w > 0 && texture.h > 0) {
+        // Scale image to cover the window
+        float ws = size.x / size.y;
+        float is = (float)texture.w / (float)texture.h;
+        ImVec2 uv0(0, 0), uv1(1, 1);
+
+        if (ws > is) {  // window wider than image: crop top/bottom
+            float v = is / ws;
+            uv0.y = (1 - v) * 0.5f;
+            uv1.y = 1 - uv0.y;
+        } else {  // crop left/right
+            float u = ws / is;
+            uv0.x = (1 - u) * 0.5f;
+            uv1.x = 1 - uv0.x;
+        }
+
+        // Draw background image covering full window
+        bg->AddImage(texture.id, pos, ImVec2(pos.x + size.x, pos.y + size.y), uv0, uv1);
+
+        // Add semi-transparent dark overlay so text is readable
+        bg->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), 
+                         IM_COL32(0, 0, 0, 120));
+    } else {
+        // Fallback: gradient background if texture not loaded
         bg->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
                                     IM_COL32(20, 40, 70, 255), IM_COL32(20, 40, 70, 255),
                                     IM_COL32(10, 20, 35, 255), IM_COL32(10, 20, 35, 255));
