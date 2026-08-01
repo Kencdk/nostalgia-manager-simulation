@@ -1,5 +1,5 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-01T19:31:14.7691168+02:00
+# Generated: 2026-08-01T20:14:14.6656062+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
@@ -152,7 +152,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\Tactics.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TacticsScreen { public:   static void render(App* app);   static void openTactics(App* app, Team* t..."
 - File: NostalgiaManager\src\ui\TeamOverview.cpp
-  Preview: "#include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <map> namespace nm { void TeamOverviewScreen::openTeamOverview(App* app..."
+  Preview: "#include 'TeamOverview.h' #include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <map> #include <set> namespace nm { void Team..."
 - File: NostalgiaManager\src\ui\TeamOverview.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TeamOverviewScreen { public:   static void render(App* app);   static void openTeamOverview(App* ap..."
 - File: NostalgiaManager\src\ui\UIHelpers.cpp

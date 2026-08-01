@@ -188,7 +188,11 @@ std::string cmPositionFormat(const Player& p) {
         }
 
         // Add sides part
-        if (sides.size() == 1 && *sides.begin() == Side::Centre) {
+        if (role == Role::GK) {
+            // GK never shows side (always centre)
+            // Don't add anything
+        }
+        else if (sides.size() == 1 && *sides.begin() == Side::Centre) {
             // Only centre position, add " C"
             result += " C";
         }

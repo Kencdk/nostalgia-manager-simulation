@@ -143,6 +143,7 @@ private:
 
     AppTexture menuBg_;
     AppTexture playerDetailBg_;  // Background for player detail screen
+    AppTexture teamOverviewBg_;  // Background for team overview screen
     std::vector<std::string> leagues_;
     std::vector<AppTexture> friendlyScreenshots_;  // Decorative images for Friendly screen
 

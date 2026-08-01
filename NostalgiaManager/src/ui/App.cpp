@@ -382,6 +382,8 @@ bool App::init(const std::string& dataDir) {
     AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
     // Load Player Details background from file
     AppLoadTexture(dataDir_ + "/images/Playerdetails.png", &playerDetailBg_);
+    // Load Team Overview background from file
+    AppLoadTexture(dataDir_ + "/images/Teambackground.png", &teamOverviewBg_);
 
     // Load decorative screenshots for Friendly Match screen
     // Screenshots should be named 1.png, 2.png, 3.png, etc.

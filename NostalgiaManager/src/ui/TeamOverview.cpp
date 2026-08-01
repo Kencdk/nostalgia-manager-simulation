@@ -1,7 +1,9 @@
 #include "TeamOverview.h"
+#include "TeamOverview.h"
 #include "UIHelpers.h"
 #include <algorithm>
 #include <map>
+#include <set>
 
 namespace nm {
 
@@ -12,8 +14,8 @@ void TeamOverviewScreen::openTeamOverview(App* app, Team* team, App::Screen retu
 }
 
 void TeamOverviewScreen::render(App* app) {
-    app->drawCyclingBackground();
-    app->beginScreen("Team Overview");
+    app->drawStaticBackground(app->teamOverviewBg_);
+    app->beginScreen("Team Overview", false);
 
     Team* t = app->teamOverviewTeam_;
     if (ImGui::Button("< Back")) {
@@ -74,46 +76,81 @@ void TeamOverviewScreen::render(App* app) {
     ImGui::BeginChild("squad_list", ImVec2(fullW, fullH - 130), true);
     panelHeader("Squad");
 
-    // Organize players by position group
-    // Combine DM, M, and AM into a single Midfielders group
-    std::map<std::string, std::vector<const Player*>> playersByGroup;
-
+    // Create a copy of squad for sorting
+    std::vector<const Player*> sortedSquad;
     for (const auto& p : t->squad) {
-        std::string group;
-        switch (p.role) {
-            case Role::GK:
-                group = "Goalkeepers";
-                break;
-            case Role::D:
-                group = "Defenders";
-                break;
-            case Role::DM:
-            case Role::M:
-            case Role::AM:
-                group = "Midfielders";
-                break;
-            case Role::F:
-                group = "Forwards";
-                break;
+        sortedSquad.push_back(&p);
+    }
+
+    // Helper to calculate position score for sorting
+    // Lower score = more defensive/specialized
+    auto getPositionScore = [](const Player* p) -> int {
+        // Count roles the player can play
+        std::set<Role> roles;
+        for (Position pos : p->playablePositions) {
+            roles.insert(RoleOf(pos));
         }
-        playersByGroup[group].push_back(&p);
-    }
 
-    // Sort each group by overall rating (descending)
-    for (auto& [group, players] : playersByGroup) {
-        std::sort(players.begin(), players.end(), [](const Player* a, const Player* b) {
-            return playerOverall(*a) > playerOverall(*b);
-        });
-    }
+        // Base score by primary role
+        int baseScore = 0;
+        switch (p->role) {
+            case Role::GK: baseScore = 0; break;
+            case Role::D:  baseScore = 1000; break;
+            case Role::DM: baseScore = 2000; break;
+            case Role::M:  baseScore = 3000; break;
+            case Role::AM: baseScore = 4000; break;
+            case Role::F:  baseScore = 5000; break;
+        }
 
-    // Define display order
-    const std::vector<std::string> groupOrder = {"Goalkeepers", "Defenders", "Midfielders", "Forwards"};
+        // Add penalty for versatility (can play multiple roles)
+        // More versatile = higher score = later in list
+        // BUT: Special case for AM/F - they should come before pure F
+        int versatilityPenalty = 0;
+        if (roles.count(Role::AM) && roles.count(Role::F)) {
+            // Player can play both AM and F
+            if (p->role == Role::AM) {
+                // AM who can play F: slightly increase from base AM score
+                versatilityPenalty = 50;
+            } else if (p->role == Role::F) {
+                // F who can play AM: reduce score to come before pure F
+                baseScore = 4500;  // Between AM and F
+                versatilityPenalty = 0;
+            }
+        } else {
+            versatilityPenalty = (roles.size() - 1) * 100;
+        }
+
+        // Add penalty for wide positions (centre before wide)
+        Side side = SideOf(p->primaryPos);
+        int sidePenalty = 0;
+        if (side == Side::Right) sidePenalty = 10;
+        else if (side == Side::Left) sidePenalty = 20;
+
+        // Count total positions (more positions = more versatile = later)
+        int positionCount = p->playablePositions.size();
+        int positionPenalty = (positionCount > 3) ? (positionCount - 3) * 5 : 0;
+
+        return baseScore + versatilityPenalty + sidePenalty + positionPenalty;
+    };
+
+    // Sort players by position score, then by overall rating
+    std::sort(sortedSquad.begin(), sortedSquad.end(), [&getPositionScore](const Player* a, const Player* b) {
+        int scoreA = getPositionScore(a);
+        int scoreB = getPositionScore(b);
+
+        if (scoreA != scoreB) {
+            return scoreA < scoreB;
+        }
+
+        // Same position score, sort by overall rating (descending)
+        return playerOverall(*a) > playerOverall(*b);
+    });
 
     // Table header
     ImGui::PushStyleColor(ImGuiCol_Text, gold);
     ImGui::Columns(6, "squad_header", true);
     ImGui::SetColumnWidth(0, 60);   // Shirt #
-    ImGui::SetColumnWidth(1, 70);   // Pos
+    ImGui::SetColumnWidth(1, 240);  // Pos
     ImGui::SetColumnWidth(2, fullW * 0.35f);  // Name
     ImGui::SetColumnWidth(3, 70);   // OVR
     ImGui::SetColumnWidth(4, 70);   // Age
@@ -135,68 +172,53 @@ void TeamOverviewScreen::render(App* app) {
     ImGui::Columns(1);
     ImGui::PopStyleColor();
 
-    // Display players grouped by position group
-    for (const auto& groupName : groupOrder) {
-        if (playersByGroup.find(groupName) == playersByGroup.end() || 
-            playersByGroup[groupName].empty()) continue;
+    // Display all players in sorted order
+    for (const Player* p : sortedSquad) {
+        ImGui::Columns(6, "squad_row", true);
+        ImGui::SetColumnWidth(0, 60);
+        ImGui::SetColumnWidth(1, 240);
+        ImGui::SetColumnWidth(2, fullW * 0.35f);
+        ImGui::SetColumnWidth(3, 70);
+        ImGui::SetColumnWidth(4, 70);
+        ImGui::SetColumnWidth(5, fullW * 0.2f);
 
-        const auto& players = playersByGroup[groupName];
+        // Shirt number
+        ImGui::Text("%2d", p->shirtNumber);
+        ImGui::NextColumn();
 
-        // Group header
-        ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.85f, 0.6f, 1));
-        ImGui::Text("%s (%d)", groupName.c_str(), static_cast<int>(players.size()));
-        ImGui::PopStyleColor();
-        ImGui::Spacing();
-
-        // Players in this group
-        for (const Player* p : players) {
-            ImGui::Columns(6, "squad_row", true);
-            ImGui::SetColumnWidth(0, 60);
-            ImGui::SetColumnWidth(1, 70);
-            ImGui::SetColumnWidth(2, fullW * 0.35f);
-            ImGui::SetColumnWidth(3, 70);
-            ImGui::SetColumnWidth(4, 70);
-            ImGui::SetColumnWidth(5, fullW * 0.2f);
-
-            // Shirt number
-            ImGui::Text("%2d", p->shirtNumber);
-            ImGui::NextColumn();
-
-            // Position
-            ImGui::Text("%s", cmPositionFormat(*p).c_str());
-            if (ImGui::IsItemHovered()) {
-                positionTooltip(*p);
-            }
-            ImGui::NextColumn();
-
-            // Name - clickable
-            if (ImGui::Selectable(p->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
-                app->openPlayerDetail(p, App::Screen::TeamOverview);
-            }
-            ImGui::NextColumn();
-
-            // Overall rating
-            double ovr = playerOverall(*p);
-            // Color code by rating
-            ImVec4 ratingColor;
-            if (ovr >= 80) ratingColor = ImVec4(0.2f, 1.0f, 0.3f, 1.0f);      // Green
-            else if (ovr >= 70) ratingColor = ImVec4(0.8f, 0.9f, 0.3f, 1.0f);  // Yellow-green
-            else if (ovr >= 60) ratingColor = ImVec4(1.0f, 0.8f, 0.2f, 1.0f);  // Yellow
-            else ratingColor = ImVec4(1.0f, 0.5f, 0.2f, 1.0f);                  // Orange
-
-            ImGui::TextColored(ratingColor, "%.0f", ovr);
-            ImGui::NextColumn();
-
-            // Age (if available - not in current data model, so we show a placeholder)
-            ImGui::TextDisabled("-");
-            ImGui::NextColumn();
-
-            // Actions - empty for now (could add buttons for transfer, etc.)
-            ImGui::NextColumn();
-
-            ImGui::Columns(1);
+        // Position
+        ImGui::Text("%s", cmPositionFormat(*p).c_str());
+        if (ImGui::IsItemHovered()) {
+            positionTooltip(*p);
         }
+        ImGui::NextColumn();
+
+        // Name - clickable
+        if (ImGui::Selectable(p->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
+            app->openPlayerDetail(p, App::Screen::TeamOverview);
+        }
+        ImGui::NextColumn();
+
+        // Overall rating
+        double ovr = playerOverall(*p);
+        // Color code by rating
+        ImVec4 ratingColor;
+        if (ovr >= 80) ratingColor = ImVec4(0.2f, 1.0f, 0.3f, 1.0f);      // Green
+        else if (ovr >= 70) ratingColor = ImVec4(0.8f, 0.9f, 0.3f, 1.0f);  // Yellow-green
+        else if (ovr >= 60) ratingColor = ImVec4(1.0f, 0.8f, 0.2f, 1.0f);  // Yellow
+        else ratingColor = ImVec4(1.0f, 0.5f, 0.2f, 1.0f);                  // Orange
+
+        ImGui::TextColored(ratingColor, "%.0f", ovr);
+        ImGui::NextColumn();
+
+        // Age (if available - not in current data model, so we show a placeholder)
+        ImGui::TextDisabled("-");
+        ImGui::NextColumn();
+
+        // Actions - empty for now (could add buttons for transfer, etc.)
+        ImGui::NextColumn();
+
+        ImGui::Columns(1);
     }
 
     ImGui::EndChild();
