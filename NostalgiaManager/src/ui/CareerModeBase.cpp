@@ -5,15 +5,22 @@
 namespace nm {
 
 void CareerModeBaseScreen::render(App* app) {
-    // Draw cycling background
-    app->drawCyclingBackground();
+    // Draw static background
+    app->drawStaticBackground(app->careerModeBaseBg_);
 
-    app->beginScreen("Career Mode");
+    app->beginScreen("Career Mode", false);
 
     Team* myteam = app->teamById(app->careerTeam_);
     int totalRounds = static_cast<int>(app->roundStart_.size()) - 1;
 
-    // Header with manager and team info
+    // Get available space for layout
+    float availWidth = ImGui::GetContentRegionAvail().x;
+    float availHeight = ImGui::GetContentRegionAvail().y;
+
+    // === TOP BAR: Manager info on left, Calendar on right ===
+    ImGui::BeginGroup();
+
+    // Left side: Manager and team info
     ImGui::SetWindowFontScale(1.2f);
     ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "Manager: %s", app->managerName_);
     ImGui::SetWindowFontScale(1.0f);
@@ -21,25 +28,82 @@ void CareerModeBaseScreen::render(App* app) {
     ImGui::Text("Managing: %s (%s)", myteam ? myteam->name.c_str() : "?", app->careerLeagueName_.c_str());
     ImGui::Text("Round %d / %d", app->careerRound_, totalRounds);
 
+    ImGui::EndGroup();
+
+    // Right side: Calendar
+    ImGui::SameLine(availWidth - 250);
+    ImGui::BeginChild("calendar_widget", ImVec2(250, 240), true);
+
+    // Build events list for current month
+    std::vector<std::pair<int, std::string>> monthEvents;
+
+    // Calculate match days (assume 1 match per round, weekly on Saturdays)
+    // Starting from day 1, each round is 7 days apart
+    for (int r = 0; r <= totalRounds; ++r) {
+        int matchDay = 1 + (r * 7);
+        int matchMonth = app->currentMonth_;
+        int matchYear = app->currentYear_;
+
+        // Adjust for month overflow
+        while (matchDay > 28) {  // Simplified: assume ~28 days per month for now
+            matchDay -= 28;
+            matchMonth++;
+            if (matchMonth > 12) {
+                matchMonth = 1;
+                matchYear++;
+            }
+        }
+
+        if (matchYear == app->calendarViewYear_ && matchMonth == app->calendarViewMonth_) {
+            if (r == app->careerRound_) {
+                monthEvents.push_back({matchDay, "Next Match"});
+            } else if (r < app->careerRound_) {
+                monthEvents.push_back({matchDay, "Match (completed)"});
+            } else {
+                monthEvents.push_back({matchDay, "Upcoming Match"});
+            }
+        }
+    }
+
+    // Add transfer windows (simplified: January and July)
+    if (app->calendarViewMonth_ == 1) {
+        monthEvents.push_back({1, "Transfer Window Open"});
+        monthEvents.push_back({31, "Transfer Window Closes"});
+    } else if (app->calendarViewMonth_ == 7) {
+        monthEvents.push_back({1, "Summer Transfer Window"});
+    }
+
+    // Add winter break (simplified: December 24-31)
+    if (app->calendarViewMonth_ == 12) {
+        monthEvents.push_back({24, "Winter Break"});
+    }
+
+    drawCalendar(app->calendarViewYear_, app->calendarViewMonth_, 
+                 app->currentYear_, app->currentMonth_, app->currentDay_, monthEvents);
+
+    ImGui::EndChild();
+
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    // Get available space for layout
-    float availWidth = ImGui::GetContentRegionAvail().x;
-    float availHeight = ImGui::GetContentRegionAvail().y;
+    // Use child windows for side-by-side layout instead of nested columns
+    float sidebarWidth = 200;
+    float contentWidth = availWidth - sidebarWidth - 20;
+    float contentHeight = availHeight - 260; // Account for top bar
 
-    // Create columns: Left sidebar for buttons, right for content
-    ImGui::Columns(2, "career_layout", false);
-    ImGui::SetColumnWidth(0, 200);  // Fixed width for button column
+    // === LEFT SIDEBAR: Navigation Buttons ===
+    ImGui::BeginChild("left_sidebar", ImVec2(sidebarWidth, contentHeight), true);
 
-    // === LEFT COLUMN: Navigation Buttons ===
     const ImVec2 buttonSize(180, 50);
 
     if (ImGui::Button("Team", buttonSize) && myteam) {
         app->teamOverviewTeam_ = myteam;
         app->teamOverviewReturn_ = App::Screen::CareerModeBase;
         app->screen_ = App::Screen::TeamOverview;
+        ImGui::EndChild();
+        ImGui::End();
+        return;
     }
 
     if (ImGui::Button("Reserve Team", buttonSize)) {
@@ -74,7 +138,10 @@ void CareerModeBaseScreen::render(App* app) {
     bool done = app->careerRound_ >= totalRounds;
     if (done) ImGui::BeginDisabled();
     if (ImGui::Button("Advance Round", buttonSize)) {
-        app->careerAdvance();
+        app->screen_ = App::Screen::MatchDay;
+        ImGui::EndChild();
+        ImGui::End();
+        return;
     }
     if (done) ImGui::EndDisabled();
 
@@ -85,7 +152,7 @@ void CareerModeBaseScreen::render(App* app) {
     // Exit button at the bottom
     if (ImGui::Button("Exit to Main Menu", buttonSize)) {
         app->screen_ = App::Screen::Main;
-        ImGui::Columns(1);
+        ImGui::EndChild();
         ImGui::End();
         return;
     }
@@ -95,11 +162,61 @@ void CareerModeBaseScreen::render(App* app) {
         ImGui::TextColored(ImVec4(1, 0.9f, 0.3f, 1), "Season\ncomplete!");
     }
 
-    // === RIGHT COLUMN: Content Area ===
-    ImGui::NextColumn();
+    ImGui::EndChild();
 
-    // League Standings
-    ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.6f, 1), "League Standings");
+    // === RIGHT CONTENT AREA: News and League Table side by side ===
+    ImGui::SameLine();
+
+    float newsWidth = contentWidth * 0.50f;
+    float tableWidth = contentWidth * 0.50f;
+
+    // === NEWS SECTION (LEFT) ===
+    ImGui::BeginChild("news_section", ImVec2(newsWidth, contentHeight), true);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.85f, 0.6f, 1));
+    ImGui::SetWindowFontScale(1.1f);
+    ImGui::Text("News");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Display recent results as news
+    if (app->careerLog_.empty()) {
+        ImGui::TextWrapped("No news yet. Start the season to see match results and updates!");
+    } else {
+        // Show last 10 results
+        int count = 0;
+        for (auto it = app->careerLog_.rbegin(); it != app->careerLog_.rend() && count < 10; ++it, ++count) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1));
+            ImGui::BulletText("%s", it->c_str());
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+        }
+    }
+
+    ImGui::Spacing();
+
+    // Additional news items (placeholder for future features)
+    if (app->careerRound_ == 0) {
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.5f, 1), "Season Start!");
+        ImGui::TextWrapped("Welcome to the new season! Good luck managing %s.", 
+                          myteam ? myteam->name.c_str() : "your team");
+    }
+
+    ImGui::EndChild();
+
+    // === LEAGUE TABLE SECTION (RIGHT) ===
+    ImGui::SameLine();
+
+    ImGui::BeginChild("league_table_section", ImVec2(tableWidth, contentHeight), true);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.85f, 0.6f, 1));
+    ImGui::SetWindowFontScale(1.1f);
+    ImGui::Text("League Table");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::Separator();
     ImGui::Spacing();
 
     // Standings sorted by points then goal difference
@@ -113,16 +230,15 @@ void CareerModeBaseScreen::render(App* app) {
         return a.gf > b.gf;
     });
 
-    float contentWidth = ImGui::GetContentRegionAvail().x;
     ImGuiTableFlags tf = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY;
 
-    if (ImGui::BeginTable("standings", 9, tf, ImVec2(contentWidth * 0.6f, 350))) {
+    if (ImGui::BeginTable("standings", 9, tf, ImVec2(0, contentHeight - 70))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 30);
         ImGui::TableSetupColumn("Club", ImGuiTableColumnFlags_WidthFixed, 180);
         const char* nums[] = {"P", "W", "D", "L", "GF", "GA", "Pts"};
         for (const char* c : nums)
-            ImGui::TableSetupColumn(c, ImGuiTableColumnFlags_WidthFixed, 34);
+            ImGui::TableSetupColumn(c, ImGuiTableColumnFlags_WidthFixed, 40);
         ImGui::TableHeadersRow();
 
         int pos = 1;
@@ -144,17 +260,7 @@ void CareerModeBaseScreen::render(App* app) {
         ImGui::EndTable();
     }
 
-    ImGui::Spacing();
-
-    // Recent Results
-    ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.6f, 1), "Recent Results");
-    ImGui::Spacing();
-    ImGui::BeginChild("results_log", ImVec2(contentWidth * 0.6f, 200), true);
-    for (auto it = app->careerLog_.rbegin(); it != app->careerLog_.rend(); ++it)
-        ImGui::TextWrapped("%s", it->c_str());
     ImGui::EndChild();
-
-    ImGui::Columns(1);
     ImGui::End();
 }
 

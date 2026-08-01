@@ -460,4 +460,133 @@ void tacticRow(const char* label, const std::string& value) {
     ImGui::TextColored(ImVec4(0.95f, 0.92f, 0.82f, 1), "%s", value.c_str());
 }
 
+void drawCalendar(int& viewYear, int& viewMonth, int currentYear, int currentMonth, int currentDay,
+                  const std::vector<std::pair<int, std::string>>& events) {
+    // Helper to get days in month
+    auto getDaysInMonth = [](int year, int month) -> int {
+        if (month == 2) {
+            // Leap year check
+            if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+                return 29;
+            return 28;
+        }
+        if (month == 4 || month == 6 || month == 9 || month == 11)
+            return 30;
+        return 31;
+    };
+
+    // Helper to get first day of month (0 = Sunday, 1 = Monday, etc.)
+    auto getFirstDayOfMonth = [](int year, int month) -> int {
+        // Zeller's congruence for Gregorian calendar
+        if (month < 3) {
+            month += 12;
+            year--;
+        }
+        int q = 1;  // day of month
+        int m = month;
+        int k = year % 100;
+        int j = year / 100;
+        int h = (q + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j) % 7;
+        // Convert Saturday = 0 to Sunday = 0, Monday = 1, etc.
+        return (h + 6) % 7;
+    };
+
+    const char* monthNames[] = {"January", "February", "March", "April", "May", "June",
+                                "July", "August", "September", "October", "November", "December"};
+
+    // Navigation buttons
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.4f, 0.5f, 0.8f));
+    if (ImGui::ArrowButton("##prev_month", ImGuiDir_Left)) {
+        viewMonth--;
+        if (viewMonth < 1) {
+            viewMonth = 12;
+            viewYear--;
+        }
+    }
+    ImGui::SameLine();
+
+    ImGui::Text("%s %d", monthNames[viewMonth - 1], viewYear);
+
+    ImGui::SameLine();
+    if (ImGui::ArrowButton("##next_month", ImGuiDir_Right)) {
+        viewMonth++;
+        if (viewMonth > 12) {
+            viewMonth = 1;
+            viewYear++;
+        }
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+
+    // Calendar grid
+    const char* dayNames[] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+    float cellSize = 30.0f;
+
+    // Day headers
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.85f, 0.6f, 1));
+    for (int i = 0; i < 7; ++i) {
+        ImGui::Text("%s", dayNames[i]);
+        if (i < 6) ImGui::SameLine();
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::Separator();
+
+    int daysInMonth = getDaysInMonth(viewYear, viewMonth);
+    int firstDay = getFirstDayOfMonth(viewYear, viewMonth);
+
+    // Draw calendar cells
+    int day = 1;
+    for (int week = 0; week < 6 && day <= daysInMonth; ++week) {
+        for (int dow = 0; dow < 7; ++dow) {
+            if (week == 0 && dow < firstDay) {
+                // Empty cell before month starts
+                ImGui::Text("  ");
+            } else if (day <= daysInMonth) {
+                bool isToday = (viewYear == currentYear && viewMonth == currentMonth && day == currentDay);
+                bool hasEvent = false;
+
+                // Check if this day has events
+                for (const auto& event : events) {
+                    if (event.first == day) {
+                        hasEvent = true;
+                        break;
+                    }
+                }
+
+                if (isToday) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.3f, 1));
+                    ImGui::Text("%2d", day);
+                    ImGui::PopStyleColor();
+                } else if (hasEvent) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 1.0f, 0.5f, 1));
+                    ImGui::Text("%2d", day);
+                    ImGui::PopStyleColor();
+                } else {
+                    ImGui::Text("%2d", day);
+                }
+
+                // Tooltip for events
+                if (hasEvent && ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    for (const auto& event : events) {
+                        if (event.first == day) {
+                            ImGui::TextUnformatted(event.second.c_str());
+                        }
+                    }
+                    ImGui::EndTooltip();
+                }
+
+                day++;
+            } else {
+                // Empty cell after month ends
+                ImGui::Text("  ");
+            }
+
+            if (dow < 6) ImGui::SameLine();
+        }
+    }
+}
+
 }  // namespace nm

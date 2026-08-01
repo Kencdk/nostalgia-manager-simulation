@@ -37,13 +37,14 @@ class TacticsScreen;
 class MatchScreen;
 class PlayerDetailScreen;
 class TeamOverviewScreen;
+class MatchDayScreen;
 
 // Dear ImGui application: the windowed front-end for Nostalgia Manager
 // Simulation. It drives the same Config / Database / MatchEngine core used by
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, Data, About, PlayerDetail, TeamOverview };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, MatchDay, Data, About, PlayerDetail, TeamOverview };
 
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
@@ -70,6 +71,7 @@ public:
     friend class PlayerDetailScreen;
     friend class TeamOverviewScreen;
     friend class CareerModeBaseScreen;
+    friend class MatchDayScreen;
 
 private:
 
@@ -118,6 +120,7 @@ private:
     void renderCareer();
     void renderCareerSetup();
     void renderCareerModeBase();
+    void renderMatchDay();
     void renderData();
     void renderAbout();
     void renderPlayerDetail();
@@ -134,6 +137,8 @@ private:
     // Career helpers
     void careerStart(int teamId);
     void careerAdvance();
+    void careerAdvanceToPlayerMatch();  // Start player's match in career mode
+    void careerFinishRound();           // Simulate remaining matches after player's match
     void careerSave();
     void careerLoad();
 
@@ -147,6 +152,7 @@ private:
     AppTexture menuBg_;
     AppTexture playerDetailBg_;  // Background for player detail screen
     AppTexture teamOverviewBg_;  // Background for team overview screen
+    AppTexture careerModeBaseBg_;  // Background for career mode base screen
     std::vector<std::string> leagues_;
     std::vector<AppTexture> friendlyScreenshots_;  // Decorative images for Friendly screen
 
@@ -205,6 +211,17 @@ private:
     int careerRound_ = 0;
     std::unordered_map<int, Standing> table_;
     std::vector<std::string> careerLog_;
+
+    // Career match flow
+    bool careerMatchPending_ = false;  // True when player match needs to be played
+    size_t careerPlayerMatchIdx_ = 0;  // Index of player's match in current round
+
+    // Calendar and date tracking
+    int currentYear_ = 1997;      // Starting year
+    int currentMonth_ = 8;        // Starting month (August - start of season)
+    int currentDay_ = 1;          // Current day
+    int calendarViewYear_ = 1997; // Year being viewed in calendar
+    int calendarViewMonth_ = 8;   // Month being viewed in calendar
 
     // Edit Tactics screen
     int editTacticsLeague_ = 0;

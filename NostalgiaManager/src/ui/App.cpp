@@ -14,6 +14,8 @@
 #include "PlayerDetail.h"
 #include "TeamOverview.h"
 #include "CareerModeBase.h"
+#include "MatchDay.h"
+#include "Tactics.h"
 
 namespace nm {
 
@@ -385,6 +387,8 @@ bool App::init(const std::string& dataDir) {
     AppLoadTexture(dataDir_ + "/images/Playerdetails.png", &playerDetailBg_);
     // Load Team Overview background from file
     AppLoadTexture(dataDir_ + "/images/Teambackground.png", &teamOverviewBg_);
+    // Load Career Mode Base background from file
+    AppLoadTexture(dataDir_ + "/images/Careermodebase.png", &careerModeBaseBg_);
 
     // Load decorative screenshots for Friendly Match screen
     // Screenshots should be named 1.png, 2.png, 3.png, etc.
@@ -550,6 +554,7 @@ void App::render() {
         case Screen::Career: renderCareer(); break;
         case Screen::CareerSetup: renderCareerSetup(); break;
         case Screen::CareerModeBase: renderCareerModeBase(); break;
+        case Screen::MatchDay: renderMatchDay(); break;
         case Screen::Data: renderData(); break;
         case Screen::About: renderAbout(); break;
         case Screen::PlayerDetail: renderPlayerDetail(); break;
@@ -742,665 +747,7 @@ void App::openTactics(Team* team, Screen returnTo) {
 }
 
 void App::renderTactics() {
-    // Draw cycling background
-    drawCyclingBackground();
-
-    beginScreen("Tactics");
-    Team* t = tacticsTeam_;
-    if (ImGui::Button("< Back")) { screen_ = tacticsReturn_; ImGui::End(); return; }
-    if (!t) {
-        ImGui::TextDisabled("No team selected.");
-        ImGui::End();
-        return;
-    }
-    ImGui::SameLine();
-    ImGui::SetWindowFontScale(1.25f);
-    ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.45f, 1), "%s", t->name.c_str());
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::Spacing();
-
-    const ImVec4 gold(0.86f, 0.78f, 0.55f, 1);
-    const bool inMatch = (tacticsReturn_ == Screen::Match);
-    const bool subsLeft = !inMatch || matchSubsUsed_ < kMaxMatchSubs;
-    float avail = ImGui::GetContentRegionAvail().y - 56;
-    if (avail < 200) avail = 200;
-    float leftW = 320.0f, rightW = 340.0f;
-    float midW = ImGui::GetContentRegionAvail().x - leftW - rightW - 24;
-    if (midW < 260) midW = 260;
-
-    // ---- Left Panel: Squad List ----
-    int dragSourceIdx = -1, dragTargetIdx = -1;
-    int subPlayerDragId = -1;  // Player ID being dragged from subs/rest
-    ImGui::BeginChild("tac_squad", ImVec2(leftW, avail), true);
-    panelHeader("Squad");
-    ImGui::TextColored(gold, "Starting XI");
-    for (size_t i = 0; i < t->startingXI.size(); ++i) {
-        Player* p = t->findPlayer(t->startingXI[i]);
-        if (!p) continue;
-        Position assignedPos = i < t->assignedPositions.size() ? t->assignedPositions[i] : p->primaryPos;
-        char lbl[160];
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", p->shirtNumber,
-                      PosName(assignedPos).c_str(), shortName(p->name).c_str());
-
-        ImGui::PushID(static_cast<int>(i));
-        if (ImGui::Selectable(lbl, tacticsPlayerSel_ == p->id)) {
-            tacticsPlayerSel_ = (tacticsPlayerSel_ == p->id) ? -1 : p->id;
-        }
-        // Double-click to view player details
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-            openPlayerDetail(p, Screen::Tactics);
-        }
-
-        // Drag source - can drag from starting XI
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-            int idx = static_cast<int>(i);
-            ImGui::SetDragDropPayload("PLAYER_SLOT", &idx, sizeof(int));
-            ImGui::Text("%s", p->name.c_str());
-            ImGui::EndDragDropSource();
-        }
-
-        // Drop target - can drop starting XI players or substitutes
-        if (ImGui::BeginDragDropTarget()) {
-            // Accept drags from other starting XI positions
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
-                dragSourceIdx = *static_cast<const int*>(payload->Data);
-                dragTargetIdx = static_cast<int>(i);
-            }
-            // Accept drags from substitutes/rest of squad
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
-                subPlayerDragId = *static_cast<const int*>(payload->Data);
-                dragTargetIdx = static_cast<int>(i);
-            }
-            ImGui::EndDragDropTarget();
-        }
-
-        ImGui::PopID();
-        positionTooltip(*p);
-    }
-    ImGui::Spacing();
-    ImGui::TextColored(gold, "Substitutes");
-    int swapStarter = -1, swapSub = -1;
-    int shownSubs = 0;
-    int subIdx = 0;
-    int swapSubSource = -1, swapSubTarget = -1;  // For swapping subs with each other
-
-    for (const Player& pl : t->squad) {
-        bool starting = std::find(t->startingXI.begin(), t->startingXI.end(), pl.id) !=
-                        t->startingXI.end();
-        if (starting) continue;
-        if (shownSubs >= 5) break;
-        shownSubs++;
-        char lbl[160];
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
-                      PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
-
-        ImGui::PushID(100 + subIdx);  // Unique ID for subs
-        if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
-            if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
-            else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
-        }
-        // Double-click to view player details
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-            openPlayerDetail(&pl, Screen::Tactics);
-        }
-
-        // Make substitutes draggable
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-            int subId = pl.id;
-            ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
-            ImGui::Text("%s", pl.name.c_str());
-            ImGui::EndDragDropSource();
-        }
-
-        // Make substitutes accept drops from starting XI and other subs
-        if (ImGui::BeginDragDropTarget()) {
-            // Accept drags from starting XI
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
-                int starterIdx = *static_cast<const int*>(payload->Data);
-                if (starterIdx >= 0 && starterIdx < static_cast<int>(t->startingXI.size())) {
-                    swapStarter = t->startingXI[starterIdx];
-                    swapSub = pl.id;
-                }
-            }
-            // Accept drags from other substitutes (for reordering bench)
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
-                int sourceSubId = *static_cast<const int*>(payload->Data);
-                if (sourceSubId != pl.id) {
-                    swapSubSource = sourceSubId;
-                    swapSubTarget = pl.id;
-                }
-            }
-            ImGui::EndDragDropTarget();
-        }
-
-        ImGui::PopID();
-        positionTooltip(pl);
-        subIdx++;
-    }
-
-    // Rest of Squad (players beyond the first 5 subs) - only show when NOT in match
-    if (!inMatch) {
-        ImGui::Spacing();
-        ImGui::TextColored(gold, "Rest of Squad");
-        int squadIdx = 0;
-        int restIdx = 0;
-        for (const Player& pl : t->squad) {
-            bool starting = std::find(t->startingXI.begin(), t->startingXI.end(), pl.id) !=
-                            t->startingXI.end();
-            if (starting) continue;
-
-            squadIdx++;
-            if (squadIdx <= 5) continue;  // Skip the first 5 subs (already shown)
-
-            char lbl[160];
-            std::snprintf(lbl, sizeof(lbl), "%2d  %-3s %s", pl.shirtNumber,
-                          PosName(pl.primaryPos).c_str(), shortName(pl.name).c_str());
-
-            ImGui::PushID(200 + restIdx);  // Unique ID for rest of squad
-            if (ImGui::Selectable(lbl, tacticsXiSel_ == pl.id)) {
-                if (tacticsXiSel_ != -1) { swapStarter = tacticsXiSel_; swapSub = pl.id; }
-                else tacticsXiSel_ = (tacticsXiSel_ == pl.id) ? -1 : pl.id;
-            }
-            // Double-click to view player details
-            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                openPlayerDetail(&pl, Screen::Tactics);
-            }
-
-            // Make rest of squad draggable
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-                int subId = pl.id;
-                ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
-                ImGui::Text("%s", pl.name.c_str());
-                ImGui::EndDragDropSource();
-            }
-
-            ImGui::PopID();
-            positionTooltip(pl);
-            restIdx++;
-        }
-    }
-
-    if (swapStarter != -1 && swapSub != -1 && subsLeft) {
-        auto it = std::find(t->startingXI.begin(), t->startingXI.end(), swapStarter);
-        if (it != t->startingXI.end()) {
-            *it = swapSub;
-            if (inMatch) ++matchSubsUsed_;
-        }
-        tacticsXiSel_ = tacticsSubSel_ = -1;
-    }
-
-    // Handle swapping substitutes with each other (bench reordering)
-    if (swapSubSource != -1 && swapSubTarget != -1) {
-        // Find both players in the squad
-        auto itSource = std::find_if(t->squad.begin(), t->squad.end(),
-                                      [swapSubSource](const Player& p) { return p.id == swapSubSource; });
-        auto itTarget = std::find_if(t->squad.begin(), t->squad.end(),
-                                      [swapSubTarget](const Player& p) { return p.id == swapSubTarget; });
-
-        // Swap their positions in the squad vector
-        if (itSource != t->squad.end() && itTarget != t->squad.end()) {
-            std::iter_swap(itSource, itTarget);
-        }
-    }
-
-    if (inMatch) {
-        ImGui::Spacing();
-        ImVec4 c = subsLeft ? gold : ImVec4(0.9f, 0.5f, 0.4f, 1);
-        ImGui::TextColored(c, "Subs: %d / %d", matchSubsUsed_, kMaxMatchSubs);
-    }
-    ImGui::EndChild();
-
-    // ---- Centre Panel: Tactical Pitch with Formation Positions ----
-    ImGui::SameLine();
-    ImGui::BeginChild("tac_pitch", ImVec2(midW, avail), true);
-    {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        ImVec2 o = ImGui::GetCursorScreenPos();
-        ImVec2 sz = ImGui::GetContentRegionAvail();
-
-        // Draw pitch
-        dl->AddRectFilled(o, ImVec2(o.x + sz.x, o.y + sz.y), IM_COL32(74, 132, 62, 255), 4);
-        int stripes = 10;
-        for (int s = 0; s < stripes; ++s) {
-            if (s % 2) continue;
-            float y0 = o.y + sz.y * s / stripes;
-            float y1 = o.y + sz.y * (s + 1) / stripes;
-            dl->AddRectFilled(ImVec2(o.x, y0), ImVec2(o.x + sz.x, y1),
-                              IM_COL32(82, 142, 68, 255));
-        }
-        ImU32 line = IM_COL32(225, 235, 220, 150);
-        dl->AddRect(ImVec2(o.x + 8, o.y + 8), ImVec2(o.x + sz.x - 8, o.y + sz.y - 8),
-                    line, 0, 0, 2.0f);
-        dl->AddLine(ImVec2(o.x + 8, o.y + sz.y * 0.5f),
-                    ImVec2(o.x + sz.x - 8, o.y + sz.y * 0.5f), line, 2.0f);
-        dl->AddCircle(ImVec2(o.x + sz.x * 0.5f, o.y + sz.y * 0.5f),
-                      sz.x * 0.12f, line, 32, 2.0f);
-
-        float padX = 40.0f, padY = 34.0f;
-        float drawWidth = sz.x - 2 * padX;
-        float drawHeight = sz.y - 2 * padY;
-
-        // Fixed position mapping for formation positions
-        // xPos: lateral position (0 = left touchline, 0.5 = center, 1 = right touchline)
-        // yPos: depth (0 = attack, 1 = defense)
-        auto getPositionCoords = [](Position pos) -> std::pair<float, float> {
-            float yPos = 0.5f, xPos = 0.5f;
-            switch (pos) {
-                // Forwards - wide players at quarter positions, center at 0.5
-                case Position::FL:  yPos = 0.08f; xPos = 0.25f; break;
-                case Position::FC:  yPos = 0.08f; xPos = 0.50f; break;
-                case Position::FR:  yPos = 0.08f; xPos = 0.75f; break;
-
-                // Attacking Midfielders
-                case Position::AML: yPos = 0.28f; xPos = 0.20f; break;
-                case Position::AMC: yPos = 0.28f; xPos = 0.50f; break;
-                case Position::AMR: yPos = 0.28f; xPos = 0.80f; break;
-
-                // Midfielders - wide at 0.15/0.85, center at 0.5
-                case Position::ML:  yPos = 0.48f; xPos = 0.15f; break;
-                case Position::MC:  yPos = 0.48f; xPos = 0.50f; break;
-                case Position::MR:  yPos = 0.48f; xPos = 0.85f; break;
-
-                // Defensive Midfielders
-                case Position::DM:  yPos = 0.65f; xPos = 0.50f; break;
-
-                // Defenders
-                case Position::WBL: yPos = 0.74f; xPos = 0.12f; break;
-                case Position::DL:  yPos = 0.80f; xPos = 0.22f; break;
-                case Position::DC:  yPos = 0.83f; xPos = 0.50f; break;
-                case Position::DR:  yPos = 0.80f; xPos = 0.78f; break;
-                case Position::WBR: yPos = 0.74f; xPos = 0.88f; break;
-
-                // Goalkeeper
-                case Position::GK:  yPos = 0.95f; xPos = 0.50f; break;
-            }
-            return {xPos, yPos};
-        };
-
-        // Group positions with same coordinates
-        std::map<Position, int> positionCount;
-        for (size_t i = 0; i < t->assignedPositions.size(); ++i) {
-            positionCount[t->assignedPositions[i]]++;
-        }
-
-        std::map<Position, int> positionIndex;
-        const ImGuiPayload* dragPayload = ImGui::GetDragDropPayload();
-        bool isDragging = dragPayload && (dragPayload->IsDataType("PLAYER_SLOT") || dragPayload->IsDataType("SUB_PLAYER"));
-
-        // Draw each formation slot
-        for (size_t slotIdx = 0; slotIdx < t->startingXI.size() && slotIdx < t->assignedPositions.size(); ++slotIdx) {
-            Player* p = t->findPlayer(t->startingXI[slotIdx]);
-            Position assignedPos = t->assignedPositions[slotIdx];
-
-            auto [baseX, baseY] = getPositionCoords(assignedPos);
-
-            // Handle multiple players at same position (spread horizontally)
-            int totalAtPos = positionCount[assignedPos];
-            int thisIndex = positionIndex[assignedPos]++;
-            float xOffset = 0.0f;
-
-            if (totalAtPos > 1) {
-                // Determine if this is a central position (xPos near 0.5)
-                bool isCentral = (baseX >= 0.35f && baseX <= 0.65f);
-
-                if (isCentral) {
-                    // CENTRAL PLAYERS: Spread symmetrically around center
-                    if (totalAtPos == 2) {
-                        // Two central players: left and right of center
-                        xOffset = (thisIndex == 0) ? -0.15f : 0.15f;
-                    } else if (totalAtPos == 3) {
-                        // Three: left, center, right
-                        float offsets[] = {-0.15f, 0.0f, 0.15f};
-                        xOffset = offsets[thisIndex];
-                    } else if (totalAtPos == 4) {
-                        // Four: wider spread, skip exact center
-                        float offsets[] = {-0.22f, -0.08f, 0.08f, 0.22f};
-                        xOffset = offsets[thisIndex];
-                    } else if (totalAtPos == 5) {
-                        // Five: full central spread
-                        float offsets[] = {-0.22f, -0.11f, 0.0f, 0.11f, 0.22f};
-                        xOffset = offsets[thisIndex];
-                    } else {
-                        // More than 5: distribute evenly
-                        float spacing = 0.44f / (totalAtPos - 1);
-                        xOffset = (thisIndex * spacing) - 0.22f;
-                    }
-                } else {
-                    // WIDE PLAYERS: Smaller spread, stay on their flank
-                    if (totalAtPos == 2) {
-                        xOffset = (thisIndex == 0) ? -0.08f : 0.08f;
-                    } else if (totalAtPos == 3) {
-                        float offsets[] = {-0.10f, 0.0f, 0.10f};
-                        xOffset = offsets[thisIndex];
-                    } else {
-                        float spacing = 0.20f / (totalAtPos - 1);
-                        xOffset = (thisIndex * spacing) - 0.10f;
-                    }
-                }
-            }
-
-            float xPos = std::max(0.05f, std::min(0.95f, baseX + xOffset));
-            float x = o.x + padX + drawWidth * xPos;
-            float y = o.y + padY + drawHeight * baseY;
-
-            bool gk = RoleOf(assignedPos) == Role::GK;
-            ImU32 jersey = gk ? IM_COL32(60, 150, 70, 255) : IM_COL32(46, 96, 176, 255);
-            if (p && tacticsPlayerSel_ == p->id) jersey = IM_COL32(200, 140, 60, 255);
-            float r = 21.0f;
-
-            // Make position draggable
-            ImGui::SetCursorScreenPos(ImVec2(x - r, y - r));
-            ImGui::PushID(static_cast<int>(slotIdx) + 1000);  // Offset to avoid ID collision with list
-            ImGui::InvisibleButton("pos", ImVec2(r * 2, r * 2));
-            bool hovered = ImGui::IsItemHovered();
-            bool clicked = ImGui::IsItemClicked();
-
-            if (p && clicked) {
-                tacticsPlayerSel_ = (tacticsPlayerSel_ == p->id) ? -1 : p->id;
-            }
-
-            // Drag source
-            if (p && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-                int srcIdx = static_cast<int>(slotIdx);
-                ImGui::SetDragDropPayload("PLAYER_SLOT", &srcIdx, sizeof(int));
-                ImGui::Text("%s", p->name.c_str());
-                ImGui::EndDragDropSource();
-            }
-
-            // Drop target
-            if (ImGui::BeginDragDropTarget()) {
-                // Accept drags from other starting XI positions
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
-                    int srcIdx = *static_cast<const int*>(payload->Data);
-                    int tgtIdx = static_cast<int>(slotIdx);
-                    if (srcIdx != tgtIdx && dragSourceIdx == -1) {
-                        dragSourceIdx = srcIdx;
-                        dragTargetIdx = tgtIdx;
-                    }
-                }
-                // Accept drags from substitutes/rest of squad
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SUB_PLAYER")) {
-                    subPlayerDragId = *static_cast<const int*>(payload->Data);
-                    dragTargetIdx = static_cast<int>(slotIdx);
-                }
-                ImGui::EndDragDropTarget();
-            }
-
-            ImGui::PopID();
-
-            // Visual feedback for drag
-            if (isDragging && hovered) {
-                dl->AddCircle(ImVec2(x, y), r + 4, IM_COL32(255, 220, 100, 255), 24, 3.0f);
-            }
-
-            if (p) {
-                dl->AddCircleFilled(ImVec2(x, y), r, jersey, 24);
-                dl->AddCircle(ImVec2(x, y), r, IM_COL32(225, 200, 120, 255), 24, 2.0f);
-
-                // Get player tactics for forward run indicator
-                PlayerTactics& pt = t->tactics.getPlayerTactics(p->id);
-                if (pt.forwardRun != ForwardRun::None) {
-                    float arrowLen = (pt.forwardRun == ForwardRun::Short) ? 15.0f : 25.0f;
-                    ImVec2 arrowStart = ImVec2(x, y - r - 2);
-                    ImVec2 arrowEnd = ImVec2(x, y - r - 2 - arrowLen);
-                    dl->AddLine(arrowStart, arrowEnd, IM_COL32(255, 200, 80, 255), 2.5f);
-                    dl->AddTriangleFilled(
-                        ImVec2(arrowEnd.x, arrowEnd.y),
-                        ImVec2(arrowEnd.x - 5, arrowEnd.y + 7),
-                        ImVec2(arrowEnd.x + 5, arrowEnd.y + 7),
-                        IM_COL32(255, 200, 80, 255));
-                }
-
-                char num[8];
-                std::snprintf(num, sizeof(num), "%d", p->shirtNumber);
-                ImVec2 ns = ImGui::CalcTextSize(num);
-                dl->AddText(ImVec2(x - ns.x * 0.5f, y - ns.y * 0.5f),
-                            IM_COL32(255, 255, 255, 255), num);
-
-                // Position label
-                std::string posLabel = PosName(assignedPos);
-                ImVec2 ps = ImGui::CalcTextSize(posLabel.c_str());
-                dl->AddText(ImVec2(x - ps.x * 0.5f, y - r - ps.y - 1),
-                            IM_COL32(248, 214, 130, 255), posLabel.c_str());
-
-                char nm[64];
-                std::snprintf(nm, sizeof(nm), "%s", shortName(p->name).c_str());
-                ImVec2 ms = ImGui::CalcTextSize(nm);
-                float lx = x - ms.x * 0.5f - 4, ly = y + r + 3;
-                dl->AddRectFilled(ImVec2(lx, ly), ImVec2(lx + ms.x + 8, ly + ms.y + 4),
-                                  IM_COL32(20, 24, 18, 210), 3);
-                dl->AddText(ImVec2(lx + 4, ly + 2), IM_COL32(238, 232, 214, 255), nm);
-            } else {
-                // Empty slot
-                dl->AddCircle(ImVec2(x, y), r, IM_COL32(180, 180, 180, 150), 24, 2.0f);
-                std::string posLabel = PosName(assignedPos);
-                ImVec2 ps = ImGui::CalcTextSize(posLabel.c_str());
-                dl->AddText(ImVec2(x - ps.x * 0.5f, y - ps.y * 0.5f),
-                            IM_COL32(180, 180, 180, 200), posLabel.c_str());
-            }
-        }
-
-        if (!inMatch) {
-            ImVec2 tp = ImVec2(o.x + 10, o.y + sz.y - 25);
-            dl->AddText(tp, IM_COL32(230, 230, 230, 200), "Drag players to swap or create custom positions");
-        }
-
-        // Make the entire pitch a drop target for creating custom positions
-        ImGui::SetCursorScreenPos(o);
-        ImGui::InvisibleButton("pitch_drop", sz);
-        if (ImGui::BeginDragDropTarget()) {
-            // Only accept drops from starting XI when creating custom positions
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                // Calculate normalized position (0-1) within the drawable area
-                float relX = (mousePos.x - o.x - padX) / drawWidth;
-                float relY = (mousePos.y - o.y - padY) / drawHeight;
-                relX = std::max(0.05f, std::min(0.95f, relX));
-                relY = std::max(0.05f, std::min(0.95f, relY));
-
-                int srcIdx = *static_cast<const int*>(payload->Data);
-
-                // Determine the closest position based on Y coordinate
-                Position newPos = Position::MC;  // Default
-                if (relY < 0.15f) {
-                    // Forward line
-                    if (relX < 0.35f) newPos = Position::FL;
-                    else if (relX > 0.65f) newPos = Position::FR;
-                    else newPos = Position::FC;
-                } else if (relY < 0.35f) {
-                    // Attacking midfield line
-                    if (relX < 0.3f) newPos = Position::AML;
-                    else if (relX > 0.7f) newPos = Position::AMR;
-                    else newPos = Position::AMC;
-                } else if (relY < 0.58f) {
-                    // Midfield line
-                    if (relX < 0.25f) newPos = Position::ML;
-                    else if (relX > 0.75f) newPos = Position::MR;
-                    else newPos = Position::MC;
-                } else if (relY < 0.72f) {
-                    // Defensive midfield
-                    newPos = Position::DM;
-                } else if (relY < 0.88f) {
-                    // Defense line
-                    if (relX < 0.2f) newPos = Position::WBL;
-                    else if (relX > 0.8f) newPos = Position::WBR;
-                    else if (relX < 0.35f) newPos = Position::DL;
-                    else if (relX > 0.65f) newPos = Position::DR;
-                    else newPos = Position::DC;
-                } else {
-                    // Goalkeeper
-                    newPos = Position::GK;
-                }
-
-                // Check if this creates a new position not in current formation
-                bool positionExists = false;
-                for (size_t i = 0; i < t->assignedPositions.size(); ++i) {
-                    if (i != srcIdx && t->assignedPositions[i] == newPos) {
-                        positionExists = true;
-                        break;
-                    }
-                }
-
-                if (!positionExists || t->assignedPositions[srcIdx] != newPos) {
-                    // This is a custom position change
-                    t->assignedPositions[srcIdx] = newPos;
-                    // Update player role to match the new position
-                    t->updatePlayerRoles();
-                    // Mark formation as custom
-                    if (t->tactics.formation.find(" Custom") == std::string::npos) {
-                        t->tactics.formation = t->tactics.formation + " Custom";
-                        t->formation = t->tactics.formation;
-                    }
-                }
-            }
-            ImGui::EndDragDropTarget();
-        }
-    }
-    ImGui::EndChild();
-
-    // Apply position swap - swap players but keep positions fixed to formation
-    if (dragSourceIdx != -1 && dragTargetIdx != -1 && dragSourceIdx != dragTargetIdx) {
-        // Only swap the player IDs - the assigned positions stay with their formation slots
-        std::swap(t->startingXI[dragSourceIdx], t->startingXI[dragTargetIdx]);
-        // Note: We do NOT swap assignedPositions - each slot keeps its position
-        // This means when you drag a CB to an MC slot, the CB now plays as MC
-        t->updatePlayerRoles();  // Update roles to match new positions
-    }
-
-    // Apply substitute drop - replace starting XI player with substitute
-    if (subPlayerDragId != -1 && dragTargetIdx != -1) {
-        // Replace the player at dragTargetIdx with the substitute
-        t->startingXI[dragTargetIdx] = subPlayerDragId;
-        // The substitute takes on the position of the slot they're dropped into
-        // No need to modify assignedPositions - the slot keeps its position
-        if (inMatch) ++matchSubsUsed_;
-        t->updatePlayerRoles();  // Update roles to match new positions
-    }
-
-    // ---- Right Panel: Formation & Team Tactics ----
-    ImGui::SameLine();
-    ImGui::BeginChild("tac_right", ImVec2(rightW, avail), false);
-
-    ImGui::BeginChild("tac_formation", ImVec2(0, avail * 0.35f), true);
-    panelHeader("Formation");
-    tacticRow("Current:", t->tactics.formation);
-    ImGui::Spacing();
-    if (tintButton("Change Formation", IM_COL32(60, 130, 60, 255), ImVec2(-1, 34))) {
-        // Strip " Custom" suffix to find base formation
-        std::string baseFormation = t->tactics.formation;
-        const std::string customSuffix = " Custom";
-        if (baseFormation.size() >= customSuffix.size() && 
-            baseFormation.substr(baseFormation.size() - customSuffix.size()) == customSuffix) {
-            baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
-        }
-
-        int n = static_cast<int>(sizeof(kFormations) / sizeof(kFormations[0]));
-        int cur = 0;
-        for (int i = 0; i < n; ++i)
-            if (baseFormation == kFormations[i]) { cur = i; break; }
-        t->tactics.formation = kFormations[(cur + 1) % n];
-        t->formation = t->tactics.formation;
-        if (!inMatch) {
-            t->autoSelectXI();
-            tacticsXiSel_ = tacticsSubSel_ = tacticsPlayerSel_ = -1;
-        } else {
-            t->updateFormationPositions();
-        }
-    }
-    ImGui::EndChild();
-
-    ImGui::BeginChild("tac_team_instructions", ImVec2(0, avail * 0.35f), true);
-    panelHeader("Team Instructions");
-
-    // Passing Style
-    if (ImGui::Button(PassingStyleName(t->tactics.passingStyle).c_str(), ImVec2(-1, 28))) {
-        int val = static_cast<int>(t->tactics.passingStyle);
-        t->tactics.passingStyle = static_cast<PassingStyle>((val + 1) % 3);
-    }
-    ImGui::TextDisabled("Passing Style");
-    ImGui::Spacing();
-
-    // Tackling Style
-    if (ImGui::Button(TacklingStyleName(t->tactics.tacklingStyle).c_str(), ImVec2(-1, 28))) {
-        int val = static_cast<int>(t->tactics.tacklingStyle);
-        t->tactics.tacklingStyle = static_cast<TacklingStyle>((val + 1) % 3);
-    }
-    ImGui::TextDisabled("Tackling");
-    ImGui::Spacing();
-
-    // Pressing
-    if (ImGui::Button(PressingLevelName(t->tactics.pressing).c_str(), ImVec2(-1, 28))) {
-        int val = static_cast<int>(t->tactics.pressing);
-        t->tactics.pressing = static_cast<PressingLevel>((val + 1) % 3);
-    }
-    ImGui::TextDisabled("Pressing");
-    ImGui::Spacing();
-
-    // Counter Attack
-    if (ImGui::Checkbox("Counter Attack", &t->tactics.counterAttack)) {}
-    ImGui::Spacing();
-
-    // Offside Trap
-    if (ImGui::Checkbox("Offside Trap", &t->tactics.offsideTrap)) {}
-
-    ImGui::EndChild();
-
-    ImGui::BeginChild("tac_player_instr", ImVec2(0, 0), true);
-    panelHeader("Player Instructions");
-    if (tacticsPlayerSel_ != -1) {
-        Player* selPlayer = t->findPlayer(tacticsPlayerSel_);
-        if (selPlayer) {
-            ImGui::TextColored(gold, "%s", selPlayer->name.c_str());
-            ImGui::Spacing();
-
-            PlayerTactics& pt = t->tactics.getPlayerTactics(selPlayer->id);
-
-            ImGui::Text("Forward Runs:");
-            if (ImGui::Button(ForwardRunName(pt.forwardRun).c_str(), ImVec2(-1, 28))) {
-                int val = static_cast<int>(pt.forwardRun);
-                pt.forwardRun = static_cast<ForwardRun>((val + 1) % 3);
-            }
-        }
-    } else {
-        ImGui::TextDisabled("Select a player");
-    }
-    ImGui::EndChild();
-    ImGui::EndChild();
-
-    // ---- Action bar ----
-    ImGui::Spacing();
-    if (inMatch) ImGui::BeginDisabled();
-    if (ImGui::Button("Auto-pick XI", ImVec2(160, 40))) {
-        t->autoSelectXI();
-        tacticsXiSel_ = tacticsSubSel_ = tacticsPlayerSel_ = -1;
-    }
-    if (inMatch) ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (inMatch) ImGui::BeginDisabled();
-    if (ImGui::Button("Reset Instructions", ImVec2(160, 40))) {
-        // Clear all player-specific instructions
-        for (auto& pt : t->tactics.playerSettings) {
-            pt.forwardRun = ForwardRun::None;
-        }
-    }
-    if (inMatch) ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (tacticsReturn_ == Screen::Friendly) {
-        Team* away = teamById(awayTeam_);
-        bool ok = away && t->id != away->id;
-        if (!ok) ImGui::BeginDisabled();
-        if (tintButton("Kick Off", IM_COL32(86, 150, 38, 255), ImVec2(220, 40)))
-            startMatch(t, away);
-        if (!ok) ImGui::EndDisabled();
-    } else if (tacticsReturn_ == Screen::Match) {
-        if (tintButton("Resume Match", IM_COL32(70, 120, 150, 255), ImVec2(220, 40)))
-            screen_ = Screen::Match;
-    } else {
-        if (tintButton("Back to Career", IM_COL32(196, 150, 40, 255), ImVec2(220, 40)))
-            screen_ = Screen::Career;
-    }
-
-    ImGui::End();
+    TacticsScreen::render(this);
 }
 
 void App::startMatch(Team* home, Team* away) {
@@ -2007,8 +1354,37 @@ void App::renderMatch() {
 
     // ---- Bottom control bar ----
     if (matchOver_) {
-        if (tintButton("Back to Menu", IM_COL32(40, 92, 178, 255), ImVec2(220, bottomH - 10)))
-            screen_ = Screen::Main;
+        // Check if this is a career mode match
+        if (careerMatchPending_) {
+            if (tintButton("Continue Career", IM_COL32(40, 92, 178, 255), ImVec2(220, bottomH - 10))) {
+                // Process player match result and simulate remaining fixtures
+                // First, update standings for player's match (already in frames_/finalHG_/finalAG_)
+                Team* home = matchHomeTeam_;
+                Team* away = matchAwayTeam_;
+                if (home && away) {
+                    Standing& sh = table_[home->id];
+                    Standing& sa = table_[away->id];
+                    sh.p++; sa.p++;
+                    sh.gf += finalHG_; sh.ga += finalAG_;
+                    sa.gf += finalAG_; sa.ga += finalHG_;
+                    if (finalHG_ > finalAG_) { sh.w++; sh.pts += 3; sa.l++; }
+                    else if (finalHG_ < finalAG_) { sa.w++; sa.pts += 3; sh.l++; }
+                    else { sh.d++; sa.d++; sh.pts++; sa.pts++; }
+
+                    // Log the result
+                    char line[160];
+                    std::snprintf(line, sizeof(line), "R%d: %s %d-%d %s", careerRound_ + 1,
+                                  home->name.c_str(), finalHG_, finalAG_, away->name.c_str());
+                    careerLog_.push_back(line);
+                }
+
+                // Now simulate remaining matches and advance round
+                careerFinishRound();
+            }
+        } else {
+            if (tintButton("Back to Menu", IM_COL32(40, 92, 178, 255), ImVec2(220, bottomH - 10)))
+                screen_ = Screen::Main;
+        }
         ImGui::SameLine();
         if (tintButton("Watch Again", IM_COL32(86, 150, 38, 255), ImVec2(180, bottomH - 10))) {
             playIdx_ = 0;
@@ -2281,6 +1657,13 @@ void App::careerStart(int teamId) {
     fixtures_.clear();
     roundStart_.clear();
 
+    // Initialize calendar (start of season: August 1997)
+    currentYear_ = 1997;
+    currentMonth_ = 8;
+    currentDay_ = 1;
+    calendarViewYear_ = currentYear_;
+    calendarViewMonth_ = currentMonth_;
+
     std::vector<Team*> teams = db_.teamsInLeague(careerLeagueName_);
     std::vector<int> ids;
     for (Team* tm : teams)
@@ -2350,6 +1733,86 @@ void App::careerAdvance() {
         }
     }
     careerRound_++;
+}
+
+void App::careerAdvanceToPlayerMatch() {
+    if (!careerActive_) return;
+    if (careerRound_ + 1 >= static_cast<int>(roundStart_.size())) return;
+
+    size_t from = roundStart_[careerRound_];
+    size_t to = roundStart_[careerRound_ + 1];
+
+    // Find player's match in this round
+    bool foundPlayerMatch = false;
+    for (size_t i = from; i < to; ++i) {
+        Team* h = teamById(fixtures_[i].first);
+        Team* a = teamById(fixtures_[i].second);
+        if (!h || !a) continue;
+
+        if (h->id == careerTeam_ || a->id == careerTeam_) {
+            // Found player's match - store it and go to tactics
+            careerPlayerMatchIdx_ = i;
+            careerMatchPending_ = true;
+            foundPlayerMatch = true;
+
+            // Determine which team is the player's team
+            Team* playerTeam = (h->id == careerTeam_) ? h : a;
+
+            // Open tactics for player's team
+            TacticsScreen::openTactics(this, playerTeam, Screen::CareerModeBase);
+            return;
+        }
+    }
+
+    // If no player match found (shouldn't happen), just simulate all matches
+    if (!foundPlayerMatch) {
+        careerAdvance();
+        screen_ = Screen::CareerModeBase;
+    }
+}
+
+void App::careerFinishRound() {
+    if (!careerActive_) return;
+    if (careerRound_ + 1 >= static_cast<int>(roundStart_.size())) return;
+
+    size_t from = roundStart_[careerRound_];
+    size_t to = roundStart_[careerRound_ + 1];
+
+    // Simulate all matches EXCEPT the player's match (which was already played)
+    for (size_t i = from; i < to; ++i) {
+        Team* h = teamById(fixtures_[i].first);
+        Team* a = teamById(fixtures_[i].second);
+        if (!h || !a) continue;
+
+        // Skip the player's match (already played)
+        if (i == careerPlayerMatchIdx_ && careerMatchPending_) {
+            continue;
+        }
+
+        // Simulate this match
+        MatchEngine engine(cfg_, 5000u + static_cast<unsigned>(i) + careerRound_ * 131u);
+        MatchResult r = engine.simulate(*h, *a);
+        Standing& sh = table_[h->id];
+        Standing& sa = table_[a->id];
+        sh.p++; sa.p++;
+        sh.gf += r.homeGoals; sh.ga += r.awayGoals;
+        sa.gf += r.awayGoals; sa.ga += r.homeGoals;
+        if (r.homeGoals > r.awayGoals) { sh.w++; sh.pts += 3; sa.l++; }
+        else if (r.homeGoals < r.awayGoals) { sa.w++; sa.pts += 3; sh.l++; }
+        else { sh.d++; sa.d++; sh.pts++; sa.pts++; }
+
+        // Log result if it involves player's team (shouldn't happen here)
+        if (h->id == careerTeam_ || a->id == careerTeam_) {
+            char line[160];
+            std::snprintf(line, sizeof(line), "R%d: %s %d-%d %s", careerRound_ + 1,
+                          h->name.c_str(), r.homeGoals, r.awayGoals, a->name.c_str());
+            careerLog_.push_back(line);
+        }
+    }
+
+    careerRound_++;
+    careerMatchPending_ = false;
+    screen_ = Screen::CareerModeBase;
 }
 
 void App::careerSave() {
@@ -2478,6 +1941,10 @@ void App::renderCareerSetup() {
 
 void App::renderCareerModeBase() {
     CareerModeBaseScreen::render(this);
+}
+
+void App::renderMatchDay() {
+    MatchDayScreen::render(this);
 }
 
 void App::renderData() {

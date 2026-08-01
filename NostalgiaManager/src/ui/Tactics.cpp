@@ -41,6 +41,18 @@ void TacticsScreen::render(App* app) {
     ImGui::SetWindowFontScale(1.25f);
     ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "%s", t->name.c_str());
     ImGui::SetWindowFontScale(1.0f);
+
+    // Check if this is a human-controlled team in career mode
+    const bool inCareer = (app->tacticsReturn_ == App::Screen::CareerModeBase);
+    const bool isHumanTeam = !inCareer || (t->id == app->careerTeam_);
+    const bool canEdit = isHumanTeam;
+
+    // Show a warning if viewing AI team in career mode
+    if (inCareer && !isHumanTeam) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1), "(View Only - AI Controlled)");
+    }
+
     ImGui::Spacing();
 
     const ImVec4 gold(0.60f, 0.75f, 0.95f, 1);
@@ -76,14 +88,15 @@ void TacticsScreen::render(App* app) {
             app->openPlayerDetail(p, App::Screen::Tactics);
         }
 
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+        // Only allow drag-drop if can edit
+        if (canEdit && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
             int idx = static_cast<int>(i);
             ImGui::SetDragDropPayload("PLAYER_SLOT", &idx, sizeof(int));
             ImGui::Text("%s", p->name.c_str());
             ImGui::EndDragDropSource();
         }
 
-        if (ImGui::BeginDragDropTarget()) {
+        if (canEdit && ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
                 dragSourceIdx = *static_cast<const int*>(payload->Data);
                 dragTargetIdx = static_cast<int>(i);
@@ -119,21 +132,21 @@ void TacticsScreen::render(App* app) {
 
         ImGui::PushID(100 + subIdx);
         if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {
-            if (app->tacticsXiSel_ != -1) { swapStarter = app->tacticsXiSel_; swapSub = pl.id; }
-            else app->tacticsXiSel_ = (app->tacticsXiSel_ == pl.id) ? -1 : pl.id;
+            if (canEdit && app->tacticsXiSel_ != -1) { swapStarter = app->tacticsXiSel_; swapSub = pl.id; }
+            else if (canEdit) app->tacticsXiSel_ = (app->tacticsXiSel_ == pl.id) ? -1 : pl.id;
         }
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
             app->openPlayerDetail(&pl, App::Screen::Tactics);
         }
 
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+        if (canEdit && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
             int subId = pl.id;
             ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
             ImGui::Text("%s", pl.name.c_str());
             ImGui::EndDragDropSource();
         }
 
-        if (ImGui::BeginDragDropTarget()) {
+        if (canEdit && ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PLAYER_SLOT")) {
                 int starterIdx = *static_cast<const int*>(payload->Data);
                 if (starterIdx >= 0 && starterIdx < static_cast<int>(t->startingXI.size())) {
@@ -177,14 +190,14 @@ void TacticsScreen::render(App* app) {
 
             ImGui::PushID(200 + restIdx);
             if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {
-                if (app->tacticsXiSel_ != -1) { swapStarter = app->tacticsXiSel_; swapSub = pl.id; }
-                else app->tacticsXiSel_ = (app->tacticsXiSel_ == pl.id) ? -1 : pl.id;
+                if (canEdit && app->tacticsXiSel_ != -1) { swapStarter = app->tacticsXiSel_; swapSub = pl.id; }
+                else if (canEdit) app->tacticsXiSel_ = (app->tacticsXiSel_ == pl.id) ? -1 : pl.id;
             }
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
                 app->openPlayerDetail(&pl, App::Screen::Tactics);
             }
 
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+            if (canEdit && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
                 int subId = pl.id;
                 ImGui::SetDragDropPayload("SUB_PLAYER", &subId, sizeof(int));
                 ImGui::Text("%s", pl.name.c_str());
@@ -506,6 +519,7 @@ void TacticsScreen::render(App* app) {
     panelHeader("Formation");
     tacticRow("Current:", t->tactics.formation);
     ImGui::Spacing();
+    if (!canEdit) ImGui::BeginDisabled();
     if (tintButton("Change Formation", IM_COL32(60, 130, 60, 255), ImVec2(-1, 34))) {
         std::string baseFormation = t->tactics.formation;
         const std::string customSuffix = " Custom";
@@ -527,11 +541,13 @@ void TacticsScreen::render(App* app) {
             t->updateFormationPositions();
         }
     }
+    if (!canEdit) ImGui::EndDisabled();
     ImGui::EndChild();
 
     ImGui::BeginChild("tac_team_instructions", ImVec2(0, avail * 0.35f), true);
     panelHeader("Team Instructions");
 
+    if (!canEdit) ImGui::BeginDisabled();
     if (ImGui::Button(PassingStyleName(t->tactics.passingStyle).c_str(), ImVec2(-1, 28))) {
         int val = static_cast<int>(t->tactics.passingStyle);
         t->tactics.passingStyle = static_cast<PassingStyle>((val + 1) % 3);
@@ -558,6 +574,8 @@ void TacticsScreen::render(App* app) {
 
     if (ImGui::Checkbox("Offside Trap", &t->tactics.offsideTrap)) {}
 
+    if (!canEdit) ImGui::EndDisabled();
+
     ImGui::EndChild();
 
     ImGui::BeginChild("tac_player_instr", ImVec2(0, 0), true);
@@ -571,10 +589,12 @@ void TacticsScreen::render(App* app) {
             PlayerTactics& pt = t->tactics.getPlayerTactics(selPlayer->id);
 
             ImGui::Text("Forward Runs:");
+            if (!canEdit) ImGui::BeginDisabled();
             if (ImGui::Button(ForwardRunName(pt.forwardRun).c_str(), ImVec2(-1, 28))) {
                 int val = static_cast<int>(pt.forwardRun);
                 pt.forwardRun = static_cast<ForwardRun>((val + 1) % 3);
             }
+            if (!canEdit) ImGui::EndDisabled();
         }
     } else {
         ImGui::TextDisabled("Select a player");
@@ -584,22 +604,55 @@ void TacticsScreen::render(App* app) {
 
     // ---- Action bar ----
     ImGui::Spacing();
-    if (inMatch) ImGui::BeginDisabled();
+    if (inMatch || !canEdit) ImGui::BeginDisabled();
     if (ImGui::Button("Auto-pick XI", ImVec2(160, 40))) {
         t->autoSelectXI();
         app->tacticsXiSel_ = app->tacticsSubSel_ = app->tacticsPlayerSel_ = -1;
     }
-    if (inMatch) ImGui::EndDisabled();
+    if (inMatch || !canEdit) ImGui::EndDisabled();
     ImGui::SameLine();
-    if (inMatch) ImGui::BeginDisabled();
+    if (inMatch || !canEdit) ImGui::BeginDisabled();
     if (ImGui::Button("Reset Instructions", ImVec2(160, 40))) {
         for (auto& pt : t->tactics.playerSettings) {
             pt.forwardRun = ForwardRun::None;
         }
     }
-    if (inMatch) ImGui::EndDisabled();
+    if (inMatch || !canEdit) ImGui::EndDisabled();
     ImGui::SameLine();
-    if (app->tacticsReturn_ == App::Screen::Friendly) {
+
+    // Handle different screen return contexts
+    if (app->tacticsReturn_ == App::Screen::CareerModeBase) {
+        // Career mode - find opponent and start match
+        Team* home = nullptr;
+        Team* away = nullptr;
+
+        // Get the fixture details
+        if (app->careerPlayerMatchIdx_ < app->fixtures_.size()) {
+            int homeId = app->fixtures_[app->careerPlayerMatchIdx_].first;
+            int awayId = app->fixtures_[app->careerPlayerMatchIdx_].second;
+            home = app->teamById(homeId);
+            away = app->teamById(awayId);
+        }
+
+        bool ok = home && away;
+        if (!ok) {
+            ImGui::BeginDisabled();
+            // Debug: show why button is disabled
+            if (!app->careerMatchPending_) {
+                ImGui::TextDisabled("No match pending");
+            } else if (app->careerPlayerMatchIdx_ >= app->fixtures_.size()) {
+                ImGui::TextDisabled("Invalid fixture index");
+            } else if (!home || !away) {
+                ImGui::TextDisabled("Cannot find teams");
+            }
+        }
+        if (tintButton("Play Match", IM_COL32(86, 150, 38, 255), ImVec2(220, 40))) {
+            if (home && away) {
+                app->startMatch(home, away);
+            }
+        }
+        if (!ok) ImGui::EndDisabled();
+    } else if (app->tacticsReturn_ == App::Screen::Friendly) {
         Team* away = app->teamById(app->awayTeam_);
         bool ok = away && t->id != away->id;
         if (!ok) ImGui::BeginDisabled();
@@ -610,6 +663,11 @@ void TacticsScreen::render(App* app) {
         if (tintButton("Resume Match", IM_COL32(70, 120, 150, 255), ImVec2(220, 40)))
             app->screen_ = App::Screen::Match;
     } else {
+        // Debug: show which return screen this is
+        char debugText[64];
+        std::snprintf(debugText, sizeof(debugText), "Return screen: %d", static_cast<int>(app->tacticsReturn_));
+        ImGui::TextDisabled("%s", debugText);
+        ImGui::SameLine();
         if (tintButton("Back to Career", IM_COL32(196, 150, 40, 255), ImVec2(220, 40)))
             app->screen_ = App::Screen::Career;
     }

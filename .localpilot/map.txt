@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-01T20:30:15.5546334+02:00
+# Generated: 2026-08-01T21:13:14.8493382+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 88 relevant source files
+  Scale: 90 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -138,7 +138,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\App.h
   Preview: "#pragma once #include <map> #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '....."
 - File: NostalgiaManager\src\ui\CareerModeBase.cpp
-  Preview: "#include 'CareerModeBase.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void CareerModeBaseScreen::render(App* app) {   // Draw cycling..."
+  Preview: "#include 'CareerModeBase.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void CareerModeBaseScreen::render(App* app) {   // Draw static ..."
 - File: NostalgiaManager\src\ui\CareerModeBase.h
   Preview: "#pragma once #include 'App.h' namespace nm { class CareerModeBaseScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\Console.h
@@ -147,6 +147,10 @@ Architecture:
   Preview: "#include 'Game.h' #include <algorithm> #include <chrono> #include <fstream> #include <iomanip> #include <iostream> #include <map> #include <sstream> #..."
 - File: NostalgiaManager\src\ui\Game.h
   Preview: "#pragma once #include <map> #include <string> #include <vector> #include '../data/Database.h' #include '../engine/Config.h' #include '../engine/MatchE..."
+- File: NostalgiaManager\src\ui\MatchDay.cpp
+  Preview: "#include 'MatchDay.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void MatchDayScreen::render(App* app) {   // Draw static background (..."
+- File: NostalgiaManager\src\ui\MatchDay.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class MatchDayScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\PlayerDetail.cpp
   Preview: "#include 'PlayerDetail.h' #include 'PlayerDetail.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void PlayerDetailScreen::openPlayerDeta..."
 - File: NostalgiaManager\src\ui\PlayerDetail.h

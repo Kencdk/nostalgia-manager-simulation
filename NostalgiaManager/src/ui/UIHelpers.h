@@ -33,6 +33,10 @@ void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& 
                 const std::map<int, App::PlayerMatchStats>* stats = nullptr,
                 std::function<void(const Player*)> onPlayerClick = nullptr);
 
+// Calendar widget
+void drawCalendar(int& viewYear, int& viewMonth, int currentYear, int currentMonth, int currentDay,
+                  const std::vector<std::pair<int, std::string>>& events);
+
 // Tactics helpers
 const Player* bestStarterFor(Team* t, const char* attr, bool outfieldOnly);
 void tacticRow(const char* label, const std::string& value);
