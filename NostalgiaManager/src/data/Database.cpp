@@ -512,10 +512,12 @@ bool Database::loadPlayers(const std::string& path) {
 // ---------------------------------------------------------------------------
 bool Database::load(const std::string& dataDir) {
     teams.clear();
+    competitions.clear();
     nextTeamId_ = 1;
 
     std::string teamsPath = dataDir + "/TeamsDB.csv";
     std::string playersPath = dataDir + "/PlayersDB.csv";
+    std::string competitionsPath = dataDir + "/Competetions.csv";
 
     // Optional override file lets the user point at their own databases
     // (e.g. players = D:\DEV\Docs\Players db1 csv.csv).
@@ -539,6 +541,8 @@ bool Database::load(const std::string& dataDir) {
             if (key == "players" || key == "playersdb") playersPath = resolve(val);
             else if (key == "clubs" || key == "teams" || key == "teamsdb")
                 teamsPath = resolve(val);
+            else if (key == "competitions" || key == "competitionsdb")
+                competitionsPath = resolve(val);
         }
     }
 
@@ -546,6 +550,10 @@ bool Database::load(const std::string& dataDir) {
     // from the players' Club column.
     loadTeams(teamsPath);
     if (!loadPlayers(playersPath)) return false;
+
+    // Load competitions (optional)
+    loadCompetitions(competitionsPath);
+
     return !teams.empty();
 }
 
@@ -561,6 +569,12 @@ Team* Database::findTeam(int id) {
 Team* Database::findTeamByName(const std::string& name) {
     for (auto& t : teams)
         if (lower(t.name) == lower(name)) return &t;
+    return nullptr;
+}
+
+Competition* Database::findCompetition(const std::string& league) {
+    auto it = competitions.find(league);
+    if (it != competitions.end()) return &it->second;
     return nullptr;
 }
 
@@ -592,6 +606,65 @@ void Database::searchTeams(const std::string& query, std::vector<const Team*>& o
     std::string q = lower(query);
     for (const auto& t : teams)
         if (q.empty() || lower(t.name).find(q) != std::string::npos) out.push_back(&t);
+}
+
+// ---------------------------------------------------------------------------
+// Load Competitions
+// ---------------------------------------------------------------------------
+bool Database::loadCompetitions(const std::string& path) {
+    std::vector<std::vector<std::string>> rows;
+    if (!Csv::read(path, rows)) {
+        // Competitions file is optional
+        return false;
+    }
+
+    if (rows.empty()) return false;
+
+    // Parse header
+    Header hdr;
+    hdr.build(rows[0]);
+
+    // Parse each competition
+    for (size_t i = 1; i < rows.size(); ++i) {
+        const auto& row = rows[i];
+        if (row.empty()) continue;
+
+        std::string league = Csv::trim(row.size() > 0 ? row[0] : "");
+        if (league.empty()) continue;
+
+        Competition comp;
+        comp.league = league;
+        comp.nation = Csv::trim(hdr.get(row, {"nation"}));
+        comp.hierarchy = hdr.getInt(row, {"hiracy", "hierarchy"});
+        comp.teams = hdr.getInt(row, {"teams"});
+        comp.rounds = hdr.getInt(row, {"rounds"});
+        comp.bench = hdr.getInt(row, {"bench"});
+        comp.subs = hdr.getInt(row, {"subs", "substitutions"});
+        comp.pauseStart = hdr.getInt(row, {"pausestart"});
+        comp.pauseEnd = hdr.getInt(row, {"pauseend"});
+        comp.transferWindowSummerStart = hdr.getInt(row, {"transferwindowsummerstart"});
+        comp.transferWindowSummerEnd = hdr.getInt(row, {"transferwindowsummerend"});
+        comp.transferWindowWinterStart = hdr.getInt(row, {"transferwindowwinterstart"});
+        comp.transferWindowWinterEnd = hdr.getInt(row, {"transferwindowwinterend"});
+        comp.defaultMatchDay = Csv::trim(hdr.get(row, {"defaultmatchday", "default match day"}));
+
+        // Set defaults if not specified
+        if (comp.bench == 0) comp.bench = 5;
+        if (comp.subs == 0) comp.subs = 3;
+        if (comp.defaultMatchDay.empty()) comp.defaultMatchDay = "Saturday";
+
+        // Parse round weeks (Round 1, Round 2, etc.)
+        comp.roundWeeks.clear();
+        for (int r = 1; r <= comp.rounds; ++r) {
+            std::string roundKey = "round" + std::to_string(r);
+            int week = hdr.getInt(row, {roundKey.c_str()});
+            comp.roundWeeks.push_back(week);
+        }
+
+        competitions[league] = comp;
+    }
+
+    return true;
 }
 
 }  // namespace nm

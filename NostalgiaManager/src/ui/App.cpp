@@ -382,7 +382,7 @@ bool App::init(const std::string& dataDir) {
         status_ = "Failed to load database from " + dataDir_;
         return false;
     }
-    AppLoadTexture(dataDir_ + "/images/menu_bg.png", &menuBg_);
+    AppLoadTexture(dataDir_ + "/images/NMSstart.png", &menuBg_);
     // Load Player Details background from file
     AppLoadTexture(dataDir_ + "/images/Playerdetails.png", &playerDetailBg_);
     // Load Team Overview background from file
@@ -586,10 +586,27 @@ void App::renderMain() {
         bg->AddRectFilledMultiColor(pos, ImVec2(pos.x + size.x, pos.y + size.y),
                                     IM_COL32(20, 40, 70, 255), IM_COL32(20, 40, 70, 255),
                                     IM_COL32(10, 20, 14, 255), IM_COL32(10, 20, 14, 255));
-        ImVec2 ts = ImGui::CalcTextSize("Nostalgia Manager Simulation");
-        bg->AddText(ImVec2(pos.x + (size.x - ts.x) * 0.5f, pos.y + size.y * 0.18f),
-                    IM_COL32(245, 215, 120, 255), "Nostalgia Manager Simulation");
     }
+
+    // Title at center top
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    const float titleScale = 2.5f;
+    ImGui::SetWindowFontScale(titleScale);
+
+    ImVec2 line1Size = ImGui::CalcTextSize("Nostalgia Manager Simulation");
+    ImVec2 line2Size = ImGui::CalcTextSize("by TBGreenbear");
+
+    float line1Y = pos.y + 30.0f;
+    float line2Y = line1Y + line1Size.y + 10.0f;
+
+    ImVec2 line1Pos = ImVec2(pos.x + (size.x - line1Size.x) * 0.5f, line1Y);
+    ImVec2 line2Pos = ImVec2(pos.x + (size.x - line2Size.x) * 0.5f, line2Y);
+
+    bg->AddText(ImGui::GetFont(), ImGui::GetFontSize(), line1Pos, IM_COL32(70, 90, 120, 255), "Nostalgia Manager Simulation");
+    bg->AddText(ImGui::GetFont(), ImGui::GetFontSize(), line2Pos, IM_COL32(70, 90, 120, 255), "by TBGreenbear");
+
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopFont();
 
     beginFullscreen("##main", false);
 
@@ -598,11 +615,11 @@ void App::renderMain() {
     const float gap = 14.0f;
     struct Item { const char* label; ImU32 col; Screen scr; };
     const Item items[] = {
-        {"Friendly Match", IM_COL32(86, 150, 38, 255), Screen::Friendly},
-        {"Career Game", IM_COL32(196, 150, 40, 255), Screen::CareerSetup},
-        {"Load Game", IM_COL32(40, 92, 178, 255), Screen::Career},
-        {"Edit Database", IM_COL32(180, 92, 30, 255), Screen::Database},
-        {"Exit", IM_COL32(188, 42, 38, 255), Screen::Main},
+        {"Friendly Match", IM_COL32(70, 90, 120, 255), Screen::Friendly},
+        {"Career Game", IM_COL32(70, 90, 120, 255), Screen::CareerSetup},
+        {"Load Game", IM_COL32(70, 90, 120, 255), Screen::Career},
+        {"Edit Database", IM_COL32(70, 90, 120, 255), Screen::Database},
+        {"Exit", IM_COL32(70, 90, 120, 255), Screen::Main},
     };
     const int n = (int)(sizeof(items) / sizeof(items[0]));
     float startY = pos.y + size.y * 0.46f;

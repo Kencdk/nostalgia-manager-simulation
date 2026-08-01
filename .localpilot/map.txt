@@ -1,5 +1,5 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-01T21:13:14.8493382+02:00
+# Generated: 2026-08-01T22:07:41.7008816+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
@@ -114,7 +114,7 @@ Architecture:
 - File: NostalgiaManager\src\data\Database.cpp
   Preview: "#include 'Database.h' #include <algorithm> #include <cctype> #include <cmath> #include <fstream> #include <unordered_map> #include 'Csv.h' namespace n..."
 - File: NostalgiaManager\src\data\Database.h
-  Preview: "#pragma once #include <string> #include <vector> #include '../core/Team.h' namespace nm { // In-memory store of all teams (and their players / leagues..."
+  Preview: "#pragma once #include <string> #include <vector> #include <map> #include '../core/Team.h' namespace nm { // Competition configuration for leagues and ..."
 - File: NostalgiaManager\src\engine\Config.cpp
   Preview: "#include 'Config.h' #include <algorithm> #include <fstream> #include <sstream> #include <utility> #include <vector> namespace nm { void Config::loadDe..."
 - File: NostalgiaManager\src\engine\Config.h
