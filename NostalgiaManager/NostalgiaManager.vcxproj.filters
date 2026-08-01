@@ -70,6 +70,8 @@
     <ClCompile Include="src\ui\Tactics.cpp" />
     <ClCompile Include="src\ui\TeamOverview.cpp" />
     <ClCompile Include="src\ui\PlayerDetail.cpp" />
+    <ClCompile Include="src\resources\PlayerDetailBg.cpp" />
+    <ClCompile Include="src\ui\CareerModeBase.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Attributes.h">
@@ -112,8 +114,7 @@
     <ClInclude Include="src\ui\UIHelpers.h" />
     <ClInclude Include="src\ui\Tactics.h" />
     <ClInclude Include="src\ui\TeamOverview.h" />
-    <ClInclude Include="src\resources\PlayerDetailBg.h" />
-    <ClInclude Include="src\ui\PlayerDetail.h" />
+    <ClInclude Include="src\ui\CareerModeBase.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\DATABASE_SETUP.md" />

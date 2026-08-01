@@ -43,7 +43,7 @@ class TeamOverviewScreen;
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, Data, About, PlayerDetail, TeamOverview };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, Data, About, PlayerDetail, TeamOverview };
 
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
@@ -69,6 +69,7 @@ public:
     friend class MatchScreen;
     friend class PlayerDetailScreen;
     friend class TeamOverviewScreen;
+    friend class CareerModeBaseScreen;
 
 private:
 
@@ -115,6 +116,8 @@ private:
     void drawPitch(ImVec2 pos, ImVec2 size, const Frame* f, const Frame* nextF, float t);
     void renderDatabase();
     void renderCareer();
+    void renderCareerSetup();
+    void renderCareerModeBase();
     void renderData();
     void renderAbout();
     void renderPlayerDetail();
@@ -195,6 +198,7 @@ private:
     int careerTeam_ = -1;
     int careerLeague_ = 0;
     char careerFilter_[64] = "";
+    char managerName_[128] = "";  // Manager's name for career mode
     std::string careerLeagueName_;
     std::vector<std::pair<int, int>> fixtures_;  // flattened home,away pairs
     std::vector<size_t> roundStart_;             // index into fixtures_ per round

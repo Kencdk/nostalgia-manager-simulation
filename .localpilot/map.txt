@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-01T20:14:14.6656062+02:00
+# Generated: 2026-08-01T20:30:15.5546334+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 86 relevant source files
+  Scale: 88 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -137,6 +137,10 @@ Architecture:
   Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <functional> ..."
 - File: NostalgiaManager\src\ui\App.h
   Preview: "#pragma once #include <map> #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '....."
+- File: NostalgiaManager\src\ui\CareerModeBase.cpp
+  Preview: "#include 'CareerModeBase.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void CareerModeBaseScreen::render(App* app) {   // Draw cycling..."
+- File: NostalgiaManager\src\ui\CareerModeBase.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class CareerModeBaseScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\Console.h
   Preview: "#pragma once #include <iostream> #include <limits> #include <string> namespace nm { // Small helpers for the text UI. class Console { public:   static..."
 - File: NostalgiaManager\src\ui\Game.cpp

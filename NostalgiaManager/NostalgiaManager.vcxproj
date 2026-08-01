@@ -84,6 +84,7 @@
     <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="src\ui\CareerModeBase.cpp" />
     <ClCompile Include="src\ui\Tactics.cpp" />
     <ClCompile Include="src\ui\TeamOverview.cpp" />
     <ClCompile Include="src\ui\PlayerDetail.cpp" />
@@ -102,6 +103,7 @@
     <ClInclude Include="src\engine\Rng.h" />
     <ClInclude Include="src\engine\Config.h" />
     <ClInclude Include="src\engine\MatchEngine.h" />
+    <ClInclude Include="src\ui\CareerModeBase.h" />
     <ClInclude Include="src\ui\Console.h" />
     <ClInclude Include="src\ui\Game.h" />
     <ClInclude Include="src\ui\Tactics.h" />

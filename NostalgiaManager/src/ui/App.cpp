@@ -13,6 +13,7 @@
 #include "imgui.h"
 #include "PlayerDetail.h"
 #include "TeamOverview.h"
+#include "CareerModeBase.h"
 
 namespace nm {
 
@@ -547,6 +548,8 @@ void App::render() {
         case Screen::Match: renderMatch(); break;
         case Screen::Database: renderDatabase(); break;
         case Screen::Career: renderCareer(); break;
+        case Screen::CareerSetup: renderCareerSetup(); break;
+        case Screen::CareerModeBase: renderCareerModeBase(); break;
         case Screen::Data: renderData(); break;
         case Screen::About: renderAbout(); break;
         case Screen::PlayerDetail: renderPlayerDetail(); break;
@@ -591,7 +594,7 @@ void App::renderMain() {
     struct Item { const char* label; ImU32 col; Screen scr; };
     const Item items[] = {
         {"Friendly Match", IM_COL32(86, 150, 38, 255), Screen::Friendly},
-        {"Career Game", IM_COL32(196, 150, 40, 255), Screen::Career},
+        {"Career Game", IM_COL32(196, 150, 40, 255), Screen::CareerSetup},
         {"Load Game", IM_COL32(40, 92, 178, 255), Screen::Career},
         {"Edit Database", IM_COL32(180, 92, 30, 255), Screen::Database},
         {"Exit", IM_COL32(188, 42, 38, 255), Screen::Main},
@@ -2382,101 +2385,99 @@ void App::careerLoad() {
         if (t) s.name = t->name;
     }
     status_ = "Career loaded.";
-    screen_ = Screen::Career;
+    screen_ = Screen::CareerModeBase;
 }
 
 void App::renderCareer() {
+    // This screen is now only used for loading saved games
+    // For new games, use CareerSetup screen
     // Draw cycling background
     drawCyclingBackground();
 
-    beginScreen("Career");
-    if (ImGui::Button("< Back")) screen_ = Screen::Main;
-    ImGui::SameLine();
-    if (ImGui::Button("Load Save")) careerLoad();
-
-    if (!careerActive_) {
-        ImGui::Spacing();
-        ImGui::TextWrapped("Pick a club to manage. You'll play a full round-robin "
-                           "season in its league.");
-        teamPicker("career", careerLeague_, careerTeam_, careerFilter_,
-                   sizeof(careerFilter_));
-        Team* t = teamById(careerTeam_);
-        bool ok = t && t->squad.size() >= 7;
-        if (!ok) ImGui::BeginDisabled();
-        if (ImGui::Button("Start Career", ImVec2(200, 40))) careerStart(careerTeam_);
-        if (!ok) ImGui::EndDisabled();
+    beginScreen("Load Career");
+    if (ImGui::Button("< Back")) {
+        screen_ = Screen::Main;
         ImGui::End();
         return;
     }
 
-    Team* myteam = teamById(careerTeam_);
-    int totalRounds = static_cast<int>(roundStart_.size()) - 1;
-    ImGui::Text("Managing: %s   (%s)", myteam ? myteam->name.c_str() : "?",
-                careerLeagueName_.c_str());
-    ImGui::Text("Round %d / %d", careerRound_, totalRounds);
-    ImGui::SameLine();
-    bool done = careerRound_ >= totalRounds;
-    if (done) ImGui::BeginDisabled();
-    if (ImGui::Button("Advance Round")) careerAdvance();
-    if (done) ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button("Tactics") && myteam) openTactics(myteam, Screen::Career);
-    ImGui::SameLine();
-    if (ImGui::Button("Save")) careerSave();
-    if (done) ImGui::SameLine(), ImGui::TextColored(ImVec4(1, 0.9f, 0.3f, 1), "Season complete!");
-
     ImGui::Spacing();
-    // Standings sorted by points then goal difference.
-    std::vector<Standing> rows;
-    rows.reserve(table_.size());
-    for (auto& kv : table_) rows.push_back(kv.second);
-    std::sort(rows.begin(), rows.end(), [](const Standing& a, const Standing& b) {
-        if (a.pts != b.pts) return a.pts > b.pts;
-        int ga = a.gf - a.ga, gb = b.gf - b.ga;
-        if (ga != gb) return ga > gb;
-        return a.gf > b.gf;
-    });
+    ImGui::TextWrapped("Load a previously saved career game.");
+    ImGui::Spacing();
 
-    ImGui::Columns(2, "careercols", false);
-    ImGui::SetColumnWidth(0, 560);
-    ImGuiTableFlags tf = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                         ImGuiTableFlags_ScrollY;
-    if (ImGui::BeginTable("table", 9, tf, ImVec2(0, 460))) {
-        ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 30);
-        ImGui::TableSetupColumn("Club", ImGuiTableColumnFlags_WidthFixed, 220);
-        const char* nums[] = {"P", "W", "D", "L", "GF", "GA", "Pts"};
-        for (const char* c : nums)
-            ImGui::TableSetupColumn(c, ImGuiTableColumnFlags_WidthFixed, 34);
-        ImGui::TableHeadersRow();
-        int pos = 1;
-        for (const Standing& s : rows) {
-            ImGui::TableNextRow();
-            bool mine = s.teamId == careerTeam_;
-            if (mine)
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
-                                       IM_COL32(40, 80, 40, 255));
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%d", pos++);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(s.name.c_str());
-            int vals[] = {s.p, s.w, s.d, s.l, s.gf, s.ga, s.pts};
-            for (int i = 0; i < 7; ++i) {
-                ImGui::TableSetColumnIndex(2 + i);
-                ImGui::Text("%d", vals[i]);
-            }
-        }
-        ImGui::EndTable();
+    if (ImGui::Button("Load Save", ImVec2(200, 50))) {
+        careerLoad();
     }
-    ImGui::NextColumn();
-    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1, 1), "Your results");
-    ImGui::BeginChild("clog", ImVec2(0, 460), true);
-    for (auto it = careerLog_.rbegin(); it != careerLog_.rend(); ++it)
-        ImGui::TextWrapped("%s", it->c_str());
-    ImGui::EndChild();
-    ImGui::Columns(1);
 
     ImGui::End();
+}
+
+void App::renderCareerSetup() {
+    // Draw cycling background
+    drawCyclingBackground();
+
+    beginScreen("Career Mode Setup");
+    if (ImGui::Button("< Back")) {
+        screen_ = Screen::Main;
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Manager name input
+    ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "Manager Setup");
+    ImGui::Spacing();
+    ImGui::Text("Enter your name:");
+    ImGui::SetNextItemWidth(400);
+    ImGui::InputTextWithHint("##managername", "Your name", managerName_, sizeof(managerName_));
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Team selection
+    ImGui::TextColored(ImVec4(0.95f, 0.97f, 1.0f, 1), "Select Your Team");
+    ImGui::Spacing();
+    ImGui::TextWrapped("Pick a club to manage. You'll play a full round-robin season in its league.");
+    ImGui::Spacing();
+
+    teamPicker("careersetup", careerLeague_, careerTeam_, careerFilter_, sizeof(careerFilter_));
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Start button
+    Team* t = teamById(careerTeam_);
+    bool hasName = std::strlen(managerName_) > 0;
+    bool hasTeam = t && t->squad.size() >= 7;
+    bool canStart = hasName && hasTeam;
+
+    if (!canStart) ImGui::BeginDisabled();
+
+    if (ImGui::Button("Done", ImVec2(200, 50))) {
+        careerStart(careerTeam_);
+        screen_ = Screen::CareerModeBase;
+    }
+
+    if (!canStart) ImGui::EndDisabled();
+
+    if (!hasName) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.2f, 1), "Please enter your name");
+    } else if (!hasTeam) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.2f, 1), "Please select a valid team");
+    }
+
+    ImGui::End();
+}
+
+void App::renderCareerModeBase() {
+    CareerModeBaseScreen::render(this);
 }
 
 void App::renderData() {
