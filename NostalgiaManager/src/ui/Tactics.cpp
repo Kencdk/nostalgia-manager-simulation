@@ -622,36 +622,31 @@ void TacticsScreen::render(App* app) {
 
     // Handle different screen return contexts
     if (app->tacticsReturn_ == App::Screen::CareerModeBase) {
-        // Career mode - find opponent and start match
-        Team* home = nullptr;
-        Team* away = nullptr;
+        if (app->careerMatchPending_) {
+            // Career mode - find opponent and start match
+            Team* home = nullptr;
+            Team* away = nullptr;
 
-        // Get the fixture details
-        if (app->careerPlayerMatchIdx_ < app->fixtures_.size()) {
-            int homeId = app->fixtures_[app->careerPlayerMatchIdx_].first;
-            int awayId = app->fixtures_[app->careerPlayerMatchIdx_].second;
-            home = app->teamById(homeId);
-            away = app->teamById(awayId);
-        }
+            // Get the fixture details
+            if (app->careerPlayerMatchIdx_ < app->fixtures_.size()) {
+                int homeId = app->fixtures_[app->careerPlayerMatchIdx_].first;
+                int awayId = app->fixtures_[app->careerPlayerMatchIdx_].second;
+                home = app->teamById(homeId);
+                away = app->teamById(awayId);
+            }
 
-        bool ok = home && away;
-        if (!ok) {
-            ImGui::BeginDisabled();
-            // Debug: show why button is disabled
-            if (!app->careerMatchPending_) {
-                ImGui::TextDisabled("No match pending");
-            } else if (app->careerPlayerMatchIdx_ >= app->fixtures_.size()) {
-                ImGui::TextDisabled("Invalid fixture index");
-            } else if (!home || !away) {
-                ImGui::TextDisabled("Cannot find teams");
+            bool ok = home && away;
+            if (!ok) ImGui::BeginDisabled();
+            if (tintButton("Play Match", IM_COL32(86, 150, 38, 255), ImVec2(220, 40))) {
+                if (home && away) {
+                    app->startMatch(home, away);
+                }
             }
+            if (!ok) ImGui::EndDisabled();
+        } else {
+            if (tintButton("Done", IM_COL32(86, 150, 38, 255), ImVec2(220, 40)))
+                app->screen_ = App::Screen::CareerModeBase;
         }
-        if (tintButton("Play Match", IM_COL32(86, 150, 38, 255), ImVec2(220, 40))) {
-            if (home && away) {
-                app->startMatch(home, away);
-            }
-        }
-        if (!ok) ImGui::EndDisabled();
     } else if (app->tacticsReturn_ == App::Screen::Friendly) {
         Team* away = app->teamById(app->awayTeam_);
         bool ok = away && t->id != away->id;
@@ -663,13 +658,8 @@ void TacticsScreen::render(App* app) {
         if (tintButton("Resume Match", IM_COL32(70, 120, 150, 255), ImVec2(220, 40)))
             app->screen_ = App::Screen::Match;
     } else {
-        // Debug: show which return screen this is
-        char debugText[64];
-        std::snprintf(debugText, sizeof(debugText), "Return screen: %d", static_cast<int>(app->tacticsReturn_));
-        ImGui::TextDisabled("%s", debugText);
-        ImGui::SameLine();
-        if (tintButton("Back to Career", IM_COL32(196, 150, 40, 255), ImVec2(220, 40)))
-            app->screen_ = App::Screen::Career;
+        if (tintButton("Done", IM_COL32(86, 150, 38, 255), ImVec2(220, 40)))
+            app->screen_ = app->tacticsReturn_;
     }
 
     ImGui::End();
