@@ -719,46 +719,83 @@ void MatchEngine::onShot(Action a, double finalScore, double thr) {
     int side = carrierSide_;
     int defendingSide = 1 - side;
     Player* shooter = carrier_;
-    std::string kind = (a == Action::Longshot)
-                           ? "lets fly from distance"
-                           : (a == Action::Header ? "rises for a header" : "shoots");
-    if (finalScore < thr) {
-        // Shot off target or blocked
-        // Determine if it's deflected for a corner or goes out for goal kick
-        // ~40% chance of corner if blocked/deflected, otherwise goal kick
-        bool isCorner = rng_.chance(0.40);
+    Player* gk = goalkeeper(defendingSide);
 
+    // Build the shot description based on action and quality
+    double margin = finalScore - thr;  // positive = good shot
+    bool powerfulStrike = (margin > 0.25);
+    bool longRange = (a == Action::Longshot);
+    bool header = (a == Action::Header);
+
+    // Miss commentary variety
+    const char* missLines[] = {
+        " shoots wide of the post",
+        " blazes it over the bar",
+        " tries their luck but sends it off target",
+        " unleashes a shot but it's blocked",
+        " strikes it but it's deflected out",
+    };
+    // Save commentary variety
+    const char* saveLines[] = {
+        " - SUPERB SAVE by ",
+        " - SAVED by ",
+        " - kept out by a fine save from ",
+        " - tipped over brilliantly by ",
+        " - pulled off a great stop, ",
+    };
+    // Goal commentary variety
+    const char* goalIntros[] = {
+        "GOAL! ",
+        "GOAL! What a strike! ",
+        "GOAL! Superb finish! ",
+        "GOAL! He's put it away! ",
+        "GOAL! Unstoppable! ",
+    };
+
+    if (finalScore < thr) {
+        bool isCorner = rng_.chance(0.40);
         if (isCorner) {
-            logEvent(shirt(*shooter) + " " + kind + " but it's deflected for a corner", true);
+            std::string line;
+            if (longRange) line = shirt(*shooter) + " lets fly from distance but it's deflected for a corner";
+            else if (header) line = shirt(*shooter) + " rises for a header but it's blocked for a corner";
+            else line = shirt(*shooter) + " shoots but it's deflected for a corner";
+            logEvent(line, true);
             cornerKick(side);
         } else {
-            logEvent(shirt(*shooter) + " " + kind + " but it is off target / blocked", true);
+            int idx = static_cast<int>(rng_.real(0.0, 5.0)) % 5;
+            std::string action = longRange ? " lets fly from distance" : (header ? " rises for a header" : "");
+            std::string line = shirt(*shooter) + (action.empty() ? missLines[idx] : (action + " - off target"));
+            logEvent(line, true);
             goalKick(defendingSide);
         }
         return;
     }
+
     ++stats_.onTarget[side];
-    // On target -> goalkeeper save model.
-    Player* gk = goalkeeper(defendingSide);
     double gkNorm = gk ? gk->norm("Goalkeeping") : 0.2;
-    double margin = finalScore - thr;
     double saveChance = cfg_.get("gk.save.base", 0.30) +
                         cfg_.get("gk.save.skill", 0.45) * gkNorm - 0.20 * margin;
     saveChance = std::max(0.05, std::min(0.95, saveChance));
+
     if (gk && rng_.chance(saveChance)) {
-        // Saved shots result in corners (keeper parries/deflects the ball)
-        logEvent(shirt(*shooter) + " " + kind + " - SAVED by " + shirt(*gk) + 
-                 ", corner kick", true);
+        int idx = static_cast<int>(rng_.real(0.0, 5.0)) % 5;
+        std::string action = longRange ? " lets fly from distance"
+                           : (header ? " heads powerfully"
+                           : (powerfulStrike ? " unleashes a powerful shot" : " shoots"));
+        std::string line = shirt(*shooter) + action + saveLines[idx] + shirt(*gk) + ", corner kick";
+        logEvent(line, true);
         cornerKick(side);
     } else {
         ++score_[side];
-        logEvent("GOAL! " + shirt(*shooter) + " scores! (" +
-                     std::to_string(score_[0]) + "-" + std::to_string(score_[1]) + ")",
-                 true);
-        // Reset to center and give ball to conceding side for kickoff
+        int idx = static_cast<int>(rng_.real(0.0, 5.0)) % 5;
+        std::string action = longRange ? shirt(*shooter) + " fires in from distance! "
+                           : (header ? shirt(*shooter) + " heads home! "
+                           : (powerfulStrike ? shirt(*shooter) + " with a superb strike! "
+                           : shirt(*shooter) + " slots it in! "));
+        std::string line = std::string(goalIntros[idx]) + action +
+                           "(" + std::to_string(score_[0]) + "-" + std::to_string(score_[1]) + ")";
+        logEvent(line, true);
         kickoff(defendingSide);
-        // Note: kickoff() resets ball to center, repositions all players to home positions,
-        // and gives possession to the conceding team for restart
     }
 }
 

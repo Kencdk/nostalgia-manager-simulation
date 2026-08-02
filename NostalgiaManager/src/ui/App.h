@@ -179,11 +179,12 @@ private:
     std::string matchHome_, matchAway_;
     int finalHG_ = 0, finalAG_ = 0, finalHS_ = 0, finalAS_ = 0;
     std::vector<std::pair<int, std::string>> homeScorers_, awayScorers_;
-    int matchTab_ = 0;  // 0 = Match, 1 = Statistics
+    int matchTab_ = 1;  // 0 = Home Tactics, 1 = Match, 2 = Statistics, 3 = Away Tactics
 
     // Per-player match statistics (shirt number -> stats)
     std::map<int, PlayerMatchStats> homePlayerStats_;
     std::map<int, PlayerMatchStats> awayPlayerStats_;
+    size_t statsComputedIdx_ = 0;  // frames processed into playerStats so far
 
     Team* matchHomeTeam_ = nullptr;
     Team* matchAwayTeam_ = nullptr;

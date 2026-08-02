@@ -203,11 +203,27 @@ bool Database::loadTeams(const std::string& path) {
         std::string m = h.get(r, {"mentality", "mentalitiy"});
         if (!m.empty()) t.mentality = mentalityFromString(m);
 
-        // Load team colors
-        t.homeColor1 = h.get(r, {"teamcolourmain1", "teamcolormain1", "homecolor1", "homecolour1"});
-        t.homeColor2 = h.get(r, {"teamcolourmain2", "teamcolormain2", "homecolor2", "homecolour2"});
-        t.awayColor1 = h.get(r, {"awaycolour1", "awaycolor1"});
-        t.awayColor2 = h.get(r, {"awaycolour2", "awaycolor2"});
+        // Load team colors (new ClubsDB columns take priority)
+        t.homeColor1 = h.get(r, {"homeshirtcolour", "homeshirtcolor", "teamcolourmain1", "teamcolormain1", "homecolor1", "homecolour1"});
+        t.homeColor2 = h.get(r, {"homeshortscolour", "homeshortscolor", "teamcolourmain2", "teamcolormain2", "homecolor2", "homecolour2"});
+        t.awayColor1 = h.get(r, {"awayshirtcolour", "awayshirtcolor", "awaycolour1", "awaycolor1"});
+        t.awayColor2 = h.get(r, {"awayshortscolour", "awayshortscolor", "awaycolour2", "awaycolor2"});
+
+        // Enforce: shirt and shorts colours must never be identical.
+        // Fall back to a contrasting colour when they are.
+        auto fixContrast = [](std::string& col1, std::string& col2) {
+            if (!col1.empty() && col1 == col2) {
+                // Pick a contrasting default based on the shirt colour.
+                std::string s = col1;
+                for (char& c : s) c = (char)std::tolower((unsigned char)c);
+                if (s == "white" || s == "yellow" || s == "skyblue" || s == "lightblue")
+                    col2 = "Black";
+                else
+                    col2 = "White";
+            }
+        };
+        fixContrast(t.homeColor1, t.homeColor2);
+        fixContrast(t.awayColor1, t.awayColor2);
 
         // Load jersey number -> player ID mappings (Jersey1 .. Jersey99)
         // Values in these columns are now unique player IDs (integers)

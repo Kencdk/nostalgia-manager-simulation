@@ -121,10 +121,12 @@
     <CopyFileToFolders Include="data\PlayersDB.csv">
       <FileType>Document</FileType>
     </CopyFileToFolders>
+    <None Include="data\fix_kit_colors.ps1" />
     <None Include="data\HALFTIME_SWITCH_IMPLEMENTATION.md" />
     <None Include="data\images\teams\README.md" />
     <None Include="data\PLAYER_DATA_SOURCE_VERIFICATION.md" />
     <None Include="data\SCREENSHOTS_QUICKSTART.md" />
+    <None Include="data\set_kit_colors.ps1" />
     <None Include="data\TEAM_COLORS.md" />
     <None Include="data\TEAM_COLORS_EXAMPLES.md" />
     <None Include="data\TEAM_SCREENSHOTS.md" />
