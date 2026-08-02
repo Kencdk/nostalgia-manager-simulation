@@ -7,13 +7,40 @@
 
 namespace nm {
 
+// Normalise a formation string so that both "4231" and "4-2-3-1" (and
+// "4231 defensive" etc.) all resolve to the same canonical dash-separated
+// form used by the position table below.
+// "4231"          -> "4-2-3-1"
+// "433 defensive" -> "4-3-3"   (variant words are stripped)
+// "4-4-2"         -> "4-4-2"   (already canonical, left unchanged)
+static std::string normaliseFormation(const std::string& raw) {
+    // Strip any trailing non-digit/non-dash word (e.g. " defensive", " Custom")
+    std::string s;
+    for (char c : raw) {
+        if (std::isdigit(static_cast<unsigned char>(c)) || c == '-') s += c;
+        else if (c == ' ') break;  // stop at first space
+    }
+    if (s.empty()) return raw;
+
+    // If it already contains dashes it is already canonical
+    if (s.find('-') != std::string::npos) return s;
+
+    // Insert a dash between every adjacent digit pair
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        out += s[i];
+        if (i + 1 < s.size()) out += '-';
+    }
+    return out;
+}
+
 // Returns the specific positions for a formation layout.
 // Each formation defines exactly which positions to fill.
 std::vector<Position> getFormationPositions(const std::string& formation) {
-    // Strip " Custom" suffix if present
-    std::string baseFormation = formation;
+    // Strip " Custom" suffix if present, then normalise to dash-separated digits
+    std::string baseFormation = normaliseFormation(formation);
     const std::string customSuffix = " Custom";
-    if (baseFormation.size() >= customSuffix.size() && 
+    if (baseFormation.size() >= customSuffix.size() &&
         baseFormation.substr(baseFormation.size() - customSuffix.size()) == customSuffix) {
         baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
     }
@@ -24,7 +51,7 @@ std::vector<Position> getFormationPositions(const std::string& formation) {
                 Position::MR, Position::MC, Position::MC, Position::ML,
                 Position::FC, Position::FC};
     }
-    if (formation == "4-3-3") {
+    if (baseFormation == "4-3-3") {
         return {Position::GK,
                 Position::DR, Position::DC, Position::DC, Position::DL,
                 Position::DM, Position::MC, Position::MC,
@@ -120,6 +147,48 @@ void Team::autoSelectXI() {
     assignedPositions.clear();
 
     std::vector<Position> formationPos = getFormationPositions(formation);
+    autoSelectXIFromPositions(formationPos);
+}
+
+void Team::autoSelectXI(const void* tacticTemplatePtr) {
+    startingXI.clear();
+    assignedPositions.clear();
+
+    // tacticTemplatePtr is a TacticTemplate* passed as void* to avoid a
+    // circular include between Team.cpp and Database.h.
+    // We reconstruct the position list via a small inline helper that mirrors
+    // TacticTemplate::toPositionList() — kept in sync manually.
+    struct PosEntry { const char* key; Position pos; };
+    static const PosEntry order[] = {
+        {"GK",  Position::GK},
+        {"DC",  Position::DC}, {"DR",  Position::DR}, {"DL",  Position::DL},
+        {"WBR", Position::WBR},{"WBL", Position::WBL},
+        {"DMC", Position::DM},
+        {"MC",  Position::MC}, {"MR",  Position::MR}, {"ML",  Position::ML},
+        {"AMC", Position::AMC},{"AMR", Position::AMR},{"AML", Position::AML},
+        {"FC",  Position::FC}, {"FR",  Position::FR}, {"FL",  Position::FL},
+    };
+
+    // The caller guarantees the pointer is a const std::map<std::string,int>*
+    // (the positionCounts member) or null.
+    const std::map<std::string, int>* counts =
+        static_cast<const std::map<std::string, int>*>(tacticTemplatePtr);
+
+    std::vector<Position> formationPos;
+    if (counts && !counts->empty()) {
+        for (const auto& o : order) {
+            auto it = counts->find(o.key);
+            if (it == counts->end()) continue;
+            for (int i = 0; i < it->second; ++i) formationPos.push_back(o.pos);
+        }
+    }
+    if (formationPos.empty())
+        formationPos = getFormationPositions(formation);
+
+    autoSelectXIFromPositions(formationPos);
+}
+
+void Team::autoSelectXIFromPositions(const std::vector<Position>& formationPos) {
 
     // Build all valid (player, slot) candidates.
     // A candidate is only valid when positionRating >= 50 (hard minimum).

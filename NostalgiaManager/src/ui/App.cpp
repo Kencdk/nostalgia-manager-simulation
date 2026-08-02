@@ -856,9 +856,17 @@ void App::openTactics(Team* team, Screen returnTo) {
         if (team->formation.empty()) {
             team->formation = team->preferredFormation;
         }
+        // Always reflect the team's actual formation in the tactics panel
+        if (!team->formation.empty()) {
+            team->tactics.formation = team->formation;
+        }
         // Only regenerate the starting XI if it's empty (first time opening)
         if (team->startingXI.empty()) {
-            team->autoSelectXI();
+            const TacticTemplate* tmpl = db_.findTactic(team->formation);
+            if (tmpl)
+                team->autoSelectXI(static_cast<const void*>(&tmpl->positionCounts));
+            else
+                team->autoSelectXI();
         }
     }
     screen_ = Screen::Tactics;

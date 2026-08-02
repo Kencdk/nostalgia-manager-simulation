@@ -27,6 +27,49 @@ struct Competition {
     std::vector<int> roundWeeks;  // Week number for each round
 };
 
+// Positional layout for a named formation loaded from Tactics.csv.
+// positionCounts maps position abbreviation ("DC", "MC", etc.) to the number
+// of players required in that position.
+struct TacticTemplate {
+    std::string name;                          // e.g. "442", "4231"
+    std::map<std::string, int> positionCounts; // position -> count (only entries > 0)
+    std::string style;                         // optional style tag
+    std::string mentality;                     // optional mentality tag
+
+    // Expand positionCounts into an ordered list of Position enums suitable
+    // for use in autoSelectXI / getFormationPositions.
+    // Order: GK, D (DC/DR/DL/WBR/WBL), DMC, M (MC/MR/ML), AM (AMC/AMR/AML), F (FC/FR/FL)
+    std::vector<Position> toPositionList() const {
+        // Canonical order to emit positions
+        const struct { const char* key; Position pos; } order[] = {
+            {"GK",  Position::GK},
+            {"DC",  Position::DC}, {"DR",  Position::DR}, {"DL",  Position::DL},
+            {"WBR", Position::WBR},{"WBL", Position::WBL},
+            {"DMC", Position::DM},
+            {"MC",  Position::MC}, {"MR",  Position::MR}, {"ML",  Position::ML},
+            {"AMC", Position::AMC},{"AMR", Position::AMR},{"AML", Position::AML},
+            {"FC",  Position::FC}, {"FR",  Position::FR}, {"FL",  Position::FL},
+        };
+        std::vector<Position> out;
+        for (const auto& o : order) {
+            auto it = positionCounts.find(o.key);
+            if (it == positionCounts.end()) continue;
+            for (int i = 0; i < it->second; ++i) out.push_back(o.pos);
+        }
+        return out;
+    }
+
+    // Returns a human-readable summary, e.g. "GK x1  DC x2  MC x2  FC x2"
+    std::string summary() const {
+        std::string s;
+        for (const auto& kv : positionCounts) {
+            if (!s.empty()) s += "  ";
+            s += kv.first + " x" + std::to_string(kv.second);
+        }
+        return s;
+    }
+};
+
 // In-memory store of all teams (and their players / leagues) loaded from the
 // CSV data files. The loader is header-driven and supports both the bundled
 // sample format and Championship Manager / FM style exports (see Database.cpp).
@@ -34,6 +77,7 @@ class Database {
 public:
     std::vector<Team> teams;
     std::map<std::string, Competition> competitions;  // League name -> Competition config
+    std::map<std::string, TacticTemplate> tactics;    // Formation name -> TacticTemplate
 
     // Loads using paths from data/datasources.cfg if present, else the bundled
     // TeamsDB.csv / PlayersDB.csv inside dataDir.
@@ -42,10 +86,16 @@ public:
     bool loadTeams(const std::string& path);
     bool loadPlayers(const std::string& path);
     bool loadCompetitions(const std::string& path);
+    bool loadTactics(const std::string& path);
+    // Patch formation fields on already-loaded teams from a secondary CSV
+    // (matched by club name). Used when ClubsDB provides IDs/colours and
+    // TeamsDB provides the actual formations.
+    void patchFormations(const std::string& path);
 
     Team* findTeam(int id);
     Team* findTeamByName(const std::string& name);
     Competition* findCompetition(const std::string& league);
+    const TacticTemplate* findTactic(const std::string& formation) const;
     std::vector<std::string> leagues() const;
     std::vector<Team*> teamsInLeague(const std::string& league);
 

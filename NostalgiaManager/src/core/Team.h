@@ -46,8 +46,11 @@ struct Team {
     }
 
     // Best 11 by aggregate ability, always including a goalkeeper, used when no
-    // explicit XI is configured.
+    // explicit XI is configured. If tacticTemplate is non-null its position list
+    // is used instead of the hardcoded getFormationPositions table.
     void autoSelectXI();
+    void autoSelectXI(const void* tacticTemplate);  // accepts TacticTemplate* (void* avoids circular include)
+    void autoSelectXIFromPositions(const std::vector<Position>& positions);
 
     // Order substitutes to ensure positional balance (1 GK, min 1 DEF, min 1 MID, min 1 ATT)
     // Reorders the squad so the first 5 non-starters are balanced substitutes

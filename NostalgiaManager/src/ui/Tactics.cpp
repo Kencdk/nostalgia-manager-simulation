@@ -1,6 +1,7 @@
 #include "Tactics.h"
 #include "UIHelpers.h"
 #include <algorithm>
+#include <set>
 
 namespace nm {
 
@@ -14,8 +15,16 @@ void TacticsScreen::openTactics(App* app, Team* team, App::Screen returnTo) {
         if (team->formation.empty()) {
             team->formation = team->preferredFormation;
         }
+        // Always reflect the team's actual formation in the tactics panel
+        if (!team->formation.empty()) {
+            team->tactics.formation = team->formation;
+        }
         if (team->startingXI.empty()) {
-            team->autoSelectXI();
+            const TacticTemplate* tmpl = app->db_.findTactic(team->formation);
+            if (tmpl)
+                team->autoSelectXI(static_cast<const void*>(&tmpl->positionCounts));
+            else
+                team->autoSelectXI();
         }
     }
     app->screen_ = App::Screen::Tactics;
@@ -559,19 +568,50 @@ void TacticsScreen::render(App* app) {
     if (tintButton("Change Formation", IM_COL32(60, 130, 60, 255), ImVec2(-1, 34))) {
         std::string baseFormation = t->tactics.formation;
         const std::string customSuffix = " Custom";
-        if (baseFormation.size() >= customSuffix.size() && 
+        if (baseFormation.size() >= customSuffix.size() &&
             baseFormation.substr(baseFormation.size() - customSuffix.size()) == customSuffix) {
             baseFormation = baseFormation.substr(0, baseFormation.size() - customSuffix.size());
         }
 
-        int n = kNumFormations;
+        // Build formation list purely from Tactics.csv unique names; fall back
+        // to the hardcoded list only when no tactics were loaded.
+        std::vector<std::string> formList;
+        if (!app->db_.tactics.empty()) {
+            std::set<std::string> seen;
+            for (const auto& kv : app->db_.tactics) {
+                if (seen.insert(kv.second.name).second)
+                    formList.push_back(kv.second.name);
+            }
+            std::sort(formList.begin(), formList.end());
+        }
+        if (formList.empty()) {
+            for (int i = 0; i < kNumFormations; ++i) formList.push_back(kFormations[i]);
+        }
+
+        int n = static_cast<int>(formList.size());
+        // Find current: try exact match, then by normalised key
         int cur = 0;
-        for (int i = 0; i < n; ++i)
-            if (baseFormation == kFormations[i]) { cur = i; break; }
-        t->tactics.formation = kFormations[(cur + 1) % n];
-        t->formation = t->tactics.formation;
+        for (int i = 0; i < n; ++i) {
+            if (baseFormation == formList[i]) { cur = i; break; }
+        }
+        if (cur == 0) {
+            // Try normalised match (strip non-alphanumeric)
+            auto norm = [](const std::string& s) {
+                std::string o; for (char c : s) if (std::isalnum((unsigned char)c)) o += std::tolower((unsigned char)c); return o;
+            };
+            std::string baseNorm = norm(baseFormation);
+            for (int i = 0; i < n; ++i)
+                if (baseNorm == norm(formList[i])) { cur = i; break; }
+        }
+        std::string newFormation = formList[(cur + 1) % n];
+        t->tactics.formation = newFormation;
+        t->formation = newFormation;
         if (!inMatch) {
-            t->autoSelectXI();
+            const TacticTemplate* tmpl = app->db_.findTactic(newFormation);
+            if (tmpl)
+                t->autoSelectXI(static_cast<const void*>(&tmpl->positionCounts));
+            else
+                t->autoSelectXI();
             app->tacticsXiSel_ = app->tacticsSubSel_ = app->tacticsPlayerSel_ = -1;
         } else {
             t->updateFormationPositions();

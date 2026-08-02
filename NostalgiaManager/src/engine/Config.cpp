@@ -79,85 +79,99 @@ void Config::loadDefaults() {
     v["exec.random"] = 0.15;
     // Balancing knob: additive lift to every execution score so realistic skill
     // levels clear the thresholds and matches produce sensible stat lines.
-    v["exec.base"] = 0.11;
+    v["exec.base"] = 0.05;
 
     // Balancing knob: per-action desire multipliers (lower = less frequently
     // attempted). Shots are scaled down so teams don't shoot every other action.
     v["desire.scale.Longshot"] = 0.15;
     v["desire.scale.Finish"] = 0.32;
 
-    // Passing execution
-    v["exec.Passing.skill.Passing"] = 0.55;
-    v["exec.Passing.skill.Technique"] = 0.25;
-    v["exec.Passing.skill.Creativity"] = 0.20;
-    v["exec.Passing.mental.Positioning"] = 0.50;
-    v["exec.Passing.mental.Determination"] = 0.50;
-    v["exec.Passing.physical.Stamina"] = 0.50;
-    v["exec.Passing.physical.Pace"] = 0.50;
-    v["threshold.Passing.Easy"] = 0.50;
-    v["threshold.Passing.Medium"] = 0.60;
-    v["threshold.Passing.Hard"] = 0.68;
+    // ---------------------------------------------------------------------------
+    // Execution weights — each of the three categories (skill/mental/physical)
+    // contributes its own weighted sum.  They all ADD together, so the combined
+    // weights across ALL categories must be kept small.
+    //
+    // Design target (no defensive pressure):
+    //   avg player (all stats 10/20, norm=0.5):  exec ? 0.47   ? ~75 % pass completion
+    //   elite player (stats 16/20, norm=0.8):    exec ? 0.62   ? ~95 % easy / ~80 % medium
+    //   poor player  (stats  6/20, norm=0.3):    exec ? 0.35   ? frequent failures
+    //
+    // Rule of thumb: sum of all weights across skill+mental+physical = 0.84
+    // so avg player contribution = 0.84 × 0.5 = 0.42, plus base 0.05 ? 0.47
+    // ---------------------------------------------------------------------------
 
-    // Longpass execution (reuse passing skill profile; own threshold)
-    v["exec.Longpass.skill.Passing"] = 0.55;
-    v["exec.Longpass.skill.Technique"] = 0.25;
-    v["exec.Longpass.skill.Creativity"] = 0.20;
-    v["exec.Longpass.mental.Positioning"] = 0.50;
-    v["exec.Longpass.mental.Determination"] = 0.50;
-    v["exec.Longpass.physical.Stamina"] = 0.50;
-    v["exec.Longpass.physical.Pace"] = 0.50;
-    v["threshold.Longpass.Medium"] = 0.66;
+    // Passing execution  (skill 0.42 + mental 0.22 + physical 0.20 = 0.84 total)
+    v["exec.Passing.skill.Passing"]       = 0.25;
+    v["exec.Passing.skill.Technique"]     = 0.10;
+    v["exec.Passing.skill.Creativity"]    = 0.07;
+    v["exec.Passing.mental.Positioning"]  = 0.11;
+    v["exec.Passing.mental.Determination"]= 0.11;
+    v["exec.Passing.physical.Stamina"]    = 0.10;
+    v["exec.Passing.physical.Pace"]       = 0.10;
+    v["threshold.Passing.Easy"]   = 0.42;
+    v["threshold.Passing.Medium"] = 0.50;
+    v["threshold.Passing.Hard"]   = 0.58;
+
+    // Longpass execution  (harder than short pass)
+    v["exec.Longpass.skill.Passing"]       = 0.22;
+    v["exec.Longpass.skill.Technique"]     = 0.10;
+    v["exec.Longpass.skill.Creativity"]    = 0.10;
+    v["exec.Longpass.mental.Positioning"]  = 0.11;
+    v["exec.Longpass.mental.Determination"]= 0.11;
+    v["exec.Longpass.physical.Stamina"]    = 0.10;
+    v["exec.Longpass.physical.Pace"]       = 0.10;
+    v["threshold.Longpass.Medium"] = 0.54;
 
     // Move execution
-    v["exec.Move.skill.Technique"] = 0.50;
-    v["exec.Move.skill.Dribbling"] = 0.50;
-    v["exec.Move.mental.Positioning"] = 0.50;
-    v["exec.Move.mental.OffTheBall"] = 0.50;
-    v["exec.Move.physical.Pace"] = 0.60;
-    v["exec.Move.physical.Stamina"] = 0.40;
-    v["threshold.Move.Open"] = 0.45;
-    v["threshold.Move.Pressured"] = 0.58;
+    v["exec.Move.skill.Technique"]      = 0.21;
+    v["exec.Move.skill.Dribbling"]      = 0.21;
+    v["exec.Move.mental.Positioning"]   = 0.11;
+    v["exec.Move.mental.OffTheBall"]    = 0.11;
+    v["exec.Move.physical.Pace"]        = 0.13;
+    v["exec.Move.physical.Stamina"]     = 0.07;
+    v["threshold.Move.Open"]      = 0.38;
+    v["threshold.Move.Pressured"] = 0.50;
 
     // Dribble execution
-    v["exec.Dribble.skill.Dribbling"] = 0.60;
-    v["exec.Dribble.skill.Technique"] = 0.25;
-    v["exec.Dribble.skill.Flair"] = 0.15;
-    v["exec.Dribble.mental.Determination"] = 0.50;
-    v["exec.Dribble.mental.Creativity"] = 0.50;
-    v["exec.Dribble.physical.Pace"] = 0.60;
-    v["exec.Dribble.physical.Strength"] = 0.40;
-    v["threshold.Dribble.Normal"] = 0.60;
-    v["threshold.Dribble.Crowded"] = 0.72;
+    v["exec.Dribble.skill.Dribbling"]      = 0.25;
+    v["exec.Dribble.skill.Technique"]      = 0.11;
+    v["exec.Dribble.skill.Flair"]          = 0.06;
+    v["exec.Dribble.mental.Determination"] = 0.11;
+    v["exec.Dribble.mental.Creativity"]    = 0.11;
+    v["exec.Dribble.physical.Pace"]        = 0.13;
+    v["exec.Dribble.physical.Strength"]    = 0.07;
+    v["threshold.Dribble.Normal"]  = 0.50;
+    v["threshold.Dribble.Crowded"] = 0.62;
 
     // Longshot execution
-    v["exec.Longshot.skill.Shooting"] = 0.60;
-    v["exec.Longshot.skill.Technique"] = 0.25;
-    v["exec.Longshot.skill.Flair"] = 0.15;
-    v["exec.Longshot.mental.Determination"] = 0.50;
-    v["exec.Longshot.mental.Influence"] = 0.50;
-    v["exec.Longshot.physical.Strength"] = 0.50;
-    v["exec.Longshot.physical.Stamina"] = 0.50;
-    v["threshold.Longshot.Normal"] = 0.68;
+    v["exec.Longshot.skill.Shooting"]      = 0.25;
+    v["exec.Longshot.skill.Technique"]     = 0.11;
+    v["exec.Longshot.skill.Flair"]         = 0.06;
+    v["exec.Longshot.mental.Determination"]= 0.11;
+    v["exec.Longshot.mental.Influence"]    = 0.11;
+    v["exec.Longshot.physical.Strength"]   = 0.10;
+    v["exec.Longshot.physical.Stamina"]    = 0.10;
+    v["threshold.Longshot.Normal"] = 0.58;
 
     // Finish (shot) execution
-    v["exec.Finish.skill.Shooting"] = 0.60;
-    v["exec.Finish.skill.Technique"] = 0.25;
-    v["exec.Finish.skill.Flair"] = 0.15;
-    v["exec.Finish.mental.Determination"] = 0.50;
-    v["exec.Finish.mental.Positioning"] = 0.50;
-    v["exec.Finish.physical.Strength"] = 0.50;
-    v["exec.Finish.physical.Pace"] = 0.50;
-    v["threshold.Finish.Good"] = 0.60;
-    v["threshold.Finish.Tight"] = 0.70;
+    v["exec.Finish.skill.Shooting"]      = 0.25;
+    v["exec.Finish.skill.Technique"]     = 0.11;
+    v["exec.Finish.skill.Flair"]         = 0.06;
+    v["exec.Finish.mental.Determination"]= 0.11;
+    v["exec.Finish.mental.Positioning"]  = 0.11;
+    v["exec.Finish.physical.Strength"]   = 0.10;
+    v["exec.Finish.physical.Pace"]       = 0.10;
+    v["threshold.Finish.Good"]  = 0.50;
+    v["threshold.Finish.Tight"] = 0.62;
 
     // Finish (header) execution
-    v["exec.Header.skill.Heading"] = 0.60;
-    v["exec.Header.skill.Technique"] = 0.40;
-    v["exec.Header.mental.Determination"] = 0.50;
-    v["exec.Header.mental.Positioning"] = 0.50;
-    v["exec.Header.physical.Jumping"] = 0.50;
-    v["exec.Header.physical.Strength"] = 0.50;
-    v["threshold.Header.Normal"] = 0.66;
+    v["exec.Header.skill.Heading"]         = 0.25;
+    v["exec.Header.skill.Technique"]       = 0.17;
+    v["exec.Header.mental.Determination"]  = 0.11;
+    v["exec.Header.mental.Positioning"]    = 0.11;
+    v["exec.Header.physical.Jumping"]      = 0.13;
+    v["exec.Header.physical.Strength"]     = 0.07;
+    v["threshold.Header.Normal"] = 0.52;
 
     // ---- Defensive pressure (spec section 9) ----
     v["pressure.Tackling"] = 0.30;

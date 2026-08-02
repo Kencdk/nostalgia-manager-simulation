@@ -195,10 +195,15 @@ bool Database::loadTeams(const std::string& path) {
         t.league = asciiFold(h.get(r, {"league", "division", "div", "competition"}));
         if (t.league.empty()) t.league = asciiFold(h.get(r, {"nation", "country", "nationality"}));
         if (t.league.empty()) t.league = "League";
-        std::string f = h.get(r, {"formationa", "formation", "formationb", "shape"});
+        std::string f = h.get(r, {"formationa", "formation", "shape"});
+        std::string f2 = h.get(r, {"formationb"});
         if (!f.empty()) {
             t.formation = f;
             t.preferredFormation = f;
+            t.tactics.formation = f;
+        }
+        if (!f2.empty()) {
+            t.preferredFormation = f2;  // Formation B is the preferred/alternate formation
         }
         std::string m = h.get(r, {"mentality", "mentalitiy"});
         if (!m.empty()) t.mentality = mentalityFromString(m);
@@ -604,12 +609,14 @@ bool Database::loadPlayers(const std::string& path) {
 bool Database::load(const std::string& dataDir) {
     teams.clear();
     competitions.clear();
+    tactics.clear();
     jerseyMap_.clear();
     nextTeamId_ = 1;
 
     std::string teamsPath = dataDir + "/TeamsDB.csv";
     std::string playersPath = dataDir + "/PlayersDB.csv";
     std::string competitionsPath = dataDir + "/Competetions.csv";
+    std::string formationsPath;  // optional secondary file that patches formation columns
 
     // Optional override file lets the user point at their own databases
     // (e.g. players = D:\DEV\Docs\Players db1 csv.csv).
@@ -635,16 +642,34 @@ bool Database::load(const std::string& dataDir) {
                 teamsPath = resolve(val);
             else if (key == "competitions" || key == "competitionsdb")
                 competitionsPath = resolve(val);
+            else if (key == "formations" || key == "formationsdb" || key == "teamsformation")
+                formationsPath = resolve(val);
         }
     }
 
     // Clubs are optional: if absent or unreadable, they are created on demand
     // from the players' Club column.
     loadTeams(teamsPath);
+
+    // Patch formation data from a secondary file if provided (e.g. TeamsDB.csv
+    // when ClubsDB.csv is the primary teams file for kit colours / IDs).
+    if (!formationsPath.empty()) patchFormations(formationsPath);
+
     if (!loadPlayers(playersPath)) return false;
 
     // Load competitions (optional)
     loadCompetitions(competitionsPath);
+
+    // Load tactic templates (optional)
+    loadTactics(dataDir + "/Tactics.csv");
+
+    // Re-select XI for all teams using Tactics.csv positions now that templates are loaded
+    for (auto& t : teams) {
+        const TacticTemplate* tmpl = findTactic(t.formation);
+        if (tmpl) {
+            t.autoSelectXI(static_cast<const void*>(&tmpl->positionCounts));
+        }
+    }
 
     return !teams.empty();
 }
@@ -757,6 +782,131 @@ bool Database::loadCompetitions(const std::string& path) {
     }
 
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Load Tactics
+// ---------------------------------------------------------------------------
+bool Database::loadTactics(const std::string& path) {
+    std::vector<std::vector<std::string>> rows;
+    if (!Csv::read(path, rows) || rows.size() < 2) return false;
+
+    // The position columns sit between "Formation" and the optional trailing
+    // "Style" / "Mentality" columns.  Build the header map as usual, but treat
+    // every column that is NOT "formation", "style" or "mentality" as a
+    // position name.
+    const std::vector<std::string>& hdrRow = rows[0];
+    int formationCol = -1;
+    int styleCol     = -1;
+    int mentalityCol = -1;
+    // position column index -> canonical uppercase name
+    std::vector<std::pair<int, std::string>> posCols;
+
+    for (int i = 0; i < static_cast<int>(hdrRow.size()); ++i) {
+        std::string k = normKey(hdrRow[i]);
+        std::string orig = Csv::trim(hdrRow[i]);
+        if (k == "formation") { formationCol = i; continue; }
+        if (k == "style")     { styleCol     = i; continue; }
+        if (k == "mentality") { mentalityCol = i; continue; }
+        if (!orig.empty()) posCols.emplace_back(i, orig);
+    }
+
+    if (formationCol < 0 || posCols.empty()) return false;
+
+    for (size_t r = 1; r < rows.size(); ++r) {
+        const auto& row = rows[r];
+        if (formationCol >= static_cast<int>(row.size())) continue;
+        std::string name = Csv::trim(row[formationCol]);
+        if (name.empty()) continue;
+
+        TacticTemplate tmpl;
+        tmpl.name = name;
+        if (styleCol >= 0 && styleCol < static_cast<int>(row.size()))
+            tmpl.style = Csv::trim(row[styleCol]);
+        if (mentalityCol >= 0 && mentalityCol < static_cast<int>(row.size()))
+            tmpl.mentality = Csv::trim(row[mentalityCol]);
+
+        for (const auto& pc : posCols) {
+            if (pc.first >= static_cast<int>(row.size())) continue;
+            std::string val = Csv::trim(row[pc.first]);
+            if (val.empty()) continue;
+            int count = 0;
+            try { count = std::stoi(val); } catch (...) { continue; }
+            if (count > 0) tmpl.positionCounts[pc.second] = count;
+        }
+
+        // Store under original name and a lowercase/no-space variant for
+        // flexible lookup (e.g. "4-4-2" -> "442").
+        tactics[name] = tmpl;
+        std::string norm;
+        for (char c : name) if (std::isalnum(static_cast<unsigned char>(c))) norm += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (norm != name) tactics[norm] = tmpl;
+    }
+
+    return !tactics.empty();
+}
+
+// ---------------------------------------------------------------------------
+// findTactic: matches by exact name, then by normalised (alphanumeric-only)
+// key so "4-4-2", "442" and "4 4 2" all resolve to the same template.
+// ---------------------------------------------------------------------------
+const TacticTemplate* Database::findTactic(const std::string& formation) const {
+    // Exact match first
+    auto it = tactics.find(formation);
+    if (it != tactics.end()) return &it->second;
+
+    // Normalised match (strip non-alphanumeric, lowercase)
+    std::string norm;
+    for (char c : formation)
+        if (std::isalnum(static_cast<unsigned char>(c)))
+            norm += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    it = tactics.find(norm);
+    if (it != tactics.end()) return &it->second;
+
+    return nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// patchFormations: read a secondary teams CSV and overwrite formation fields
+// on already-loaded teams (matched by club name, case-insensitive).
+// Only Formation A and Formation B columns are patched; everything else is
+// left untouched so kit colours / IDs from the primary file are preserved.
+// ---------------------------------------------------------------------------
+void Database::patchFormations(const std::string& path) {
+    std::vector<std::vector<std::string>> rows;
+    if (!Csv::read(path, rows) || rows.size() < 2) return;
+
+    Header h;
+    h.build(rows[0]);
+
+    int nameCol = h.col({"club", "name", "clubname", "teamname", "team"});
+    if (nameCol < 0) return;
+
+    // Build a fast lowercase-name -> team index lookup
+    std::unordered_map<std::string, size_t> nameIdx;
+    for (size_t i = 0; i < teams.size(); ++i)
+        nameIdx[lower(teams[i].name)] = i;
+
+    for (size_t i = 1; i < rows.size(); ++i) {
+        const auto& r = rows[i];
+        if (nameCol >= static_cast<int>(r.size())) continue;
+        std::string name = asciiFold(Csv::trim(r[nameCol]));
+        auto it = nameIdx.find(lower(name));
+        if (it == nameIdx.end()) continue;
+        Team& t = teams[it->second];
+
+        std::string fa = h.get(r, {"formationa", "formation", "shape"});
+        std::string fb = h.get(r, {"formationb"});
+
+        if (!fa.empty()) {
+            t.formation = fa;
+            t.preferredFormation = fa;
+            t.tactics.formation = fa;
+        }
+        if (!fb.empty()) {
+            t.preferredFormation = fb;
+        }
+    }
 }
 
 }  // namespace nm
