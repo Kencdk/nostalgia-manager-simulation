@@ -332,6 +332,8 @@ bool Database::loadPlayers(const std::string& path) {
             p.nationality = h.get(r, {"nationality", "nation", "nat"});
             p.internationalCaps = h.getInt(r, {"internationalcaps", "intcaps", "caps"});
             p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
+            p.personality = h.getInt(r, {"character", "personality", "prof"});
+            p.injuryProneness = h.getInt(r, {"injprone", "injuryproneness", "injuryprone", "injpron", "injury"});
 
             for (const auto& an : AttributeNames()) {
                 std::string v = h.get(r, {normKey(an).c_str()});
@@ -363,8 +365,10 @@ bool Database::loadPlayers(const std::string& path) {
         p.nationality = h.get(r, {"nationality", "nation", "nat"});
         p.internationalCaps = h.getInt(r, {"internationalcaps", "intcaps", "caps"});
         p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
+        p.personality = h.getInt(r, {"character", "personality", "prof"});
+        p.injuryProneness = h.getInt(r, {"injprone", "injuryproneness", "injuryprone", "injpron", "injury"});
 
-        // Overall ability (0-200) drives the GK rating and acts as a baseline
+        // Overall ability
         // for skills the export left blank (these databases are often sparse).
         int ability = h.getInt(r, {"ability", "currentability", "ca"});
         int abil20 = static_cast<int>(std::lround(ability / 10.0));

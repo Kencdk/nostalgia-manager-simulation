@@ -156,6 +156,8 @@ struct Player {
     std::string nationality;        // Nationality/Country
     int internationalCaps = 0;      // Number of international appearances
     int internationalGoals = 0;     // Number of international goals
+    int personality = 0;            // Character/Personality (1-20 scale)
+    int injuryProneness = 0;        // Injury Proneness (1-20 scale)
 
     bool canPlay(Position pos) const {
         for (Position p : playablePositions)
@@ -168,6 +170,21 @@ struct Player {
         auto it = positionRatings.find(pos);
         return it != positionRatings.end() ? it->second : 0;
     }
+
+    // Season statistics (accumulated across all matches this season).
+    struct SeasonStats {
+        int games = 0;
+        int goals = 0;
+        int assists = 0;
+        int yellowCards = 0;
+        int redCards = 0;
+        double totalRating = 0.0;  // sum of per-match ratings
+        int ratingGames = 0;       // matches with a rating recorded
+
+        double avgRating() const {
+            return ratingGames > 0 ? totalRating / ratingGames : 0.0;
+        }
+    } seasonStats;
 
     // Live match state (reset each match).
     Position2D position = Position2D();  // Continuous position in meters

@@ -107,14 +107,9 @@ void PlayerDetailScreen::render(App* app) {
 
     ImGui::Spacing();
 
-    // === BOTTOM SECTION: Attributes (left half) and Position/Pitch (right half) ===
+    // === BOTTOM SECTION: Left column (Attributes + Season Stats) and Right column (Pitch) ===
     float halfW = fullW * 0.49f;
     float bottomH = fullH * 0.78f;
-
-    // Left half: Categorized attributes (compact)
-    float attrSectionH = bottomH * 0.55f;  // Use only 55% of bottom height for attributes
-    ImGui::BeginChild("player_attributes", ImVec2(halfW, attrSectionH), true, ImGuiWindowFlags_NoScrollbar);
-    panelHeader("Attributes");
 
     // Helper lambda for attribute rows
     auto attrRow = [](const char* name, int value) {
@@ -125,13 +120,36 @@ void PlayerDetailScreen::render(App* app) {
         ImGui::Text("%d", value);
     };
 
-    // Display attributes in 4 columns side by side (2 rows of 2)
+    // Left column: Attributes + Season Stats stacked
+    ImGui::BeginChild("left_column", ImVec2(halfW, bottomH), false, ImGuiWindowFlags_NoScrollbar);
+
+    // --- Attributes panel ---
     float categoryWidth = halfW * 0.48f;
-    float categoryRowH = (attrSectionH - 35) * 0.485f;  // Adjusted for tighter fit
+
+    // Technical attributes (GK adds one extra row)
+    int techRows = (p->role == Role::GK) ? 6 : 5;
+    float rowH = ImGui::GetTextLineHeightWithSpacing();
+    float headerH = ImGui::GetTextLineHeightWithSpacing() + 6.0f;
+
+    // Compute natural height for each category box: header + table rows + padding
+    auto categoryH = [&](int rows) {
+        return headerH + rows * rowH + 10.0f;
+    };
+
+    float techH  = categoryH(techRows);
+    float physH  = categoryH(4) + rowH + 4.0f;  // +1 row for Injury Proneness
+    float tactH  = categoryH(4);
+    int mentRows = 5 + (p->personality > 0 ? 1 : 0);
+    float mentH  = categoryH(mentRows) + (p->personality > 0 ? rowH + 4.0f : 0.0f);
+    float row1H  = std::max(techH,  physH);
+    float row2H  = std::max(tactH,  mentH);
+    float attrPanelH = row1H + row2H + 12.0f;  // 12px gap between rows
+
+    ImGui::BeginChild("player_attributes", ImVec2(halfW, attrPanelH), true, ImGuiWindowFlags_NoScrollbar);
+    panelHeader("Attributes");
 
     // === Top row: Technical and Physical ===
-    // Technical
-    ImGui::BeginChild("technical", ImVec2(categoryWidth, categoryRowH), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("technical", ImVec2(categoryWidth, row1H), true, ImGuiWindowFlags_NoScrollbar);
     panelHeader("Technical", IM_COL32(70, 85, 110, 255));
 
     if (ImGui::BeginTable("tech_attrs", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -153,7 +171,7 @@ void PlayerDetailScreen::render(App* app) {
 
     // Physical
     ImGui::SameLine();
-    ImGui::BeginChild("physical", ImVec2(categoryWidth, categoryRowH), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("physical", ImVec2(categoryWidth, row1H), true, ImGuiWindowFlags_NoScrollbar);
     panelHeader("Physical", IM_COL32(70, 85, 110, 255));
 
     if (ImGui::BeginTable("phys_attrs", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -167,11 +185,28 @@ void PlayerDetailScreen::render(App* app) {
 
         ImGui::EndTable();
     }
+
+    {
+        ImGui::Spacing();
+        const char* injuryLabel = "";
+        if      (p->injuryProneness <= 0)  injuryLabel = "-";
+        else if (p->injuryProneness <= 4)  injuryLabel = "Very Healthy";
+        else if (p->injuryProneness <= 8)  injuryLabel = "Healthy";
+        else if (p->injuryProneness <= 12) injuryLabel = "Average Risk";
+        else if (p->injuryProneness <= 16) injuryLabel = "Above Average Risk";
+        else                               injuryLabel = "Injury Prone";
+        ImGui::TextDisabled("Injury Pron:");
+        ImGui::SameLine();
+        if (p->injuryProneness > 0)
+            ImGui::Text("%d - %s", p->injuryProneness, injuryLabel);
+        else
+            ImGui::TextDisabled("%s", injuryLabel);
+    }
+
     ImGui::EndChild();
 
     // === Bottom row: Tactical and Mental ===
-    // Tactical
-    ImGui::BeginChild("tactical", ImVec2(categoryWidth, categoryRowH), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("tactical", ImVec2(categoryWidth, row2H), true, ImGuiWindowFlags_NoScrollbar);
     panelHeader("Tactical", IM_COL32(70, 85, 110, 255));
 
     if (ImGui::BeginTable("tact_attrs", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -189,7 +224,7 @@ void PlayerDetailScreen::render(App* app) {
 
     // Mental
     ImGui::SameLine();
-    ImGui::BeginChild("mental", ImVec2(categoryWidth, categoryRowH), true, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("mental", ImVec2(categoryWidth, row2H), true, ImGuiWindowFlags_NoScrollbar);
     panelHeader("Mental", IM_COL32(70, 85, 110, 255));
 
     if (ImGui::BeginTable("ment_attrs", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -204,12 +239,72 @@ void PlayerDetailScreen::render(App* app) {
 
         ImGui::EndTable();
     }
-    ImGui::EndChild();
+
+    if (p->personality > 0) {
+        ImGui::Spacing();
+        const char* personalityLabel = "";
+        if      (p->personality <= 5)  personalityLabel = "Unprofessional";
+        else if (p->personality <= 10) personalityLabel = "Below Average";
+        else if (p->personality <= 15) personalityLabel = "Normal";
+        else                           personalityLabel = "Excellent Pro";
+        ImGui::TextDisabled("Character:");
+        ImGui::SameLine();
+        ImGui::Text("%d - %s", p->personality, personalityLabel);
+        if (ImGui::IsItemHovered()) {
+            const char* fullLabel = p->personality <= 5  ? "Unprofessional, difficult to develop"
+                                  : p->personality <= 10 ? "Below average"
+                                  : p->personality <= 15 ? "Normal"
+                                                         : "Excellent professional";
+            ImGui::SetTooltip("%s", fullLabel);
+        }
+    }
+
+    ImGui::EndChild();  // mental
 
     ImGui::EndChild();  // player_attributes
 
-    // Space below attributes available for future content
-    // You can add more sections here using the remaining space
+    // --- Season Stats panel ---
+    ImGui::Spacing();
+    float statsH = bottomH - attrPanelH - ImGui::GetStyle().ItemSpacing.y * 2.0f;
+    ImGui::BeginChild("season_stats", ImVec2(halfW, statsH), true, ImGuiWindowFlags_NoScrollbar);
+    panelHeader("Season Stats");
+    ImGui::Spacing();
+
+    const auto& ss = p->seasonStats;
+    if (ImGui::BeginTable("season_stats_tbl", 6,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                          ImGuiTableFlags_SizingStretchSame)) {
+        ImGui::TableSetupColumn("Avg Rat");
+        ImGui::TableSetupColumn("Games");
+        ImGui::TableSetupColumn("Goals");
+        ImGui::TableSetupColumn("Assists");
+        ImGui::TableSetupColumn("Yellow");
+        ImGui::TableSetupColumn("Red");
+        ImGui::TableHeadersRow();
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        if (ss.ratingGames > 0)
+            ImGui::Text("%.2f", ss.avgRating());
+        else
+            ImGui::TextDisabled("-");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%d", ss.games);
+        ImGui::TableSetColumnIndex(2);
+        ImGui::Text("%d", ss.goals);
+        ImGui::TableSetColumnIndex(3);
+        ImGui::Text("%d", ss.assists);
+        ImGui::TableSetColumnIndex(4);
+        ImGui::Text("%d", ss.yellowCards);
+        ImGui::TableSetColumnIndex(5);
+        ImGui::Text("%d", ss.redCards);
+
+        ImGui::EndTable();
+    }
+
+    ImGui::EndChild();  // season_stats
+
+    ImGui::EndChild();  // left_column
 
     // Right half: Position visualization and pitch
     ImGui::SameLine();
