@@ -20,6 +20,7 @@ inline std::string MentalityName(Mentality m) {
 struct Team {
     int id = 0;
     std::string name;
+    std::string nation;
     std::string league;
     std::string formation = "4-4-2";
     std::string preferredFormation = "4-4-2";  // Club's default formation (from database)

@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
+#include <set>
 #include <unordered_map>
 
 #include "Csv.h"
@@ -183,7 +185,9 @@ bool Database::loadTeams(const std::string& path) {
         t.id = hasId ? h.getInt(r, {"id"}) : nextTeamId_++;
         if (t.id >= nextTeamId_) nextTeamId_ = t.id + 1;
         t.name = name;
-        t.league = asciiFold(h.get(r, {"league", "division", "div", "competition", "nation", "country"}));
+        t.nation = asciiFold(h.get(r, {"nation", "country", "nationality"}));
+        t.league = asciiFold(h.get(r, {"league", "division", "div", "competition"}));
+        if (t.league.empty()) t.league = asciiFold(h.get(r, {"nation", "country", "nationality"}));
         if (t.league.empty()) t.league = "League";
         std::string f = h.get(r, {"formation", "formationa", "formationb", "shape"});
         if (!f.empty()) {
@@ -198,6 +202,20 @@ bool Database::loadTeams(const std::string& path) {
         t.homeColor2 = h.get(r, {"teamcolourmain2", "teamcolormain2", "homecolor2", "homecolour2"});
         t.awayColor1 = h.get(r, {"awaycolour1", "awaycolor1"});
         t.awayColor2 = h.get(r, {"awaycolour2", "awaycolor2"});
+
+        // Load jersey number -> player name mappings (Jersey1 .. Jersey99)
+        {
+            std::map<int, std::string> jmap;
+            for (int n = 1; n <= 99; ++n) {
+                char key[12];
+                std::snprintf(key, sizeof(key), "jersey%d", n);
+                if (h.has(key)) {
+                    std::string pname = h.get(r, {key});
+                    if (!pname.empty()) jmap[n] = asciiFold(pname);
+                }
+            }
+            if (!jmap.empty()) jerseyMap_[lower(t.name)] = std::move(jmap);
+        }
 
         teams.push_back(std::move(t));
     }
@@ -492,17 +510,63 @@ bool Database::loadPlayers(const std::string& path) {
         teams[idx].squad.push_back(std::move(p));
     }
 
-    // Assign shirt numbers per club (1..N) where missing, and pick a starting XI.
+    // Apply jersey number mappings from ClubsDB, then fill in any missing numbers.
     for (auto& t : teams) {
-        bool anyNumbers = false;
-        for (const auto& pl : t.squad)
-            if (pl.shirtNumber > 0) { anyNumbers = true; break; }
-        if (!anyNumbers) {
-            int n = 1;
-            for (auto& pl : t.squad) pl.shirtNumber = n++;
+        auto jit = jerseyMap_.find(lower(t.name));
+        if (jit != jerseyMap_.end()) {
+            const std::map<int, std::string>& jmap = jit->second;
+            // Build a lookup from normalised player name -> player index
+            std::unordered_map<std::string, size_t> nameIdx;
+            for (size_t pi = 0; pi < t.squad.size(); ++pi) {
+                std::string key = lower(t.squad[pi].name);
+                nameIdx[key] = pi;
+            }
+            // Also index by last name only for loose matching
+            std::unordered_map<std::string, size_t> lastNameIdx;
+            for (size_t pi = 0; pi < t.squad.size(); ++pi) {
+                std::string n = lower(t.squad[pi].name);
+                size_t sp = n.rfind(' ');
+                if (sp != std::string::npos) {
+                    std::string last = n.substr(sp + 1);
+                    if (lastNameIdx.find(last) == lastNameIdx.end())
+                        lastNameIdx[last] = pi;
+                }
+            }
+            for (const auto& kv : jmap) {
+                int num = kv.first;
+                std::string pname = lower(kv.second);
+                // Full name match first
+                auto it = nameIdx.find(pname);
+                if (it != nameIdx.end()) {
+                    t.squad[it->second].shirtNumber = num;
+                    continue;
+                }
+                // Fallback: last name only
+                size_t sp = pname.rfind(' ');
+                std::string last = (sp != std::string::npos) ? pname.substr(sp + 1) : pname;
+                auto lt = lastNameIdx.find(last);
+                if (lt != lastNameIdx.end())
+                    t.squad[lt->second].shirtNumber = num;
+            }
         }
+
+        // Assign sequential numbers to any player still without one
+        // Use numbers not already taken
+        std::set<int> taken;
+        for (const auto& pl : t.squad)
+            if (pl.shirtNumber > 0) taken.insert(pl.shirtNumber);
+        int next = 1;
+        for (auto& pl : t.squad) {
+            if (pl.shirtNumber <= 0) {
+                while (taken.count(next)) ++next;
+                pl.shirtNumber = next;
+                taken.insert(next);
+                ++next;
+            }
+        }
+
         if (t.startingXI.empty()) t.autoSelectXI();
-        t.autoOrderSubstitutes();  // Ensure substitutes have proper positional balance
+        t.autoOrderSubstitutes();
     }
     return true;
 }
@@ -513,6 +577,7 @@ bool Database::loadPlayers(const std::string& path) {
 bool Database::load(const std::string& dataDir) {
     teams.clear();
     competitions.clear();
+    jerseyMap_.clear();
     nextTeamId_ = 1;
 
     std::string teamsPath = dataDir + "/TeamsDB.csv";

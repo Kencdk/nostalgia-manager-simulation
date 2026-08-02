@@ -126,7 +126,7 @@ private:
     void renderPlayerDetail();
     void renderTeamOverview();
 
-    void teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
+    void teamPicker(const char* id, int& countryIdx, int& leagueIdx, int& teamId, char* filter,
                     size_t filterSz);
     void startMatch(Team* home, Team* away);
     void openTactics(Team* team, Screen returnTo);
@@ -153,8 +153,9 @@ private:
     AppTexture playerDetailBg_;  // Background for player detail screen
     AppTexture teamOverviewBg_;  // Background for team overview screen
     AppTexture careerModeBaseBg_;  // Background for career mode base screen
+    std::vector<std::string> nations_;
     std::vector<std::string> leagues_;
-    std::vector<AppTexture> friendlyScreenshots_;  // Decorative images for Friendly screen
+    std::vector<AppTexture> friendlyScreenshots_;
 
     // Tactics screen
     Team* tacticsTeam_ = nullptr;
@@ -167,6 +168,7 @@ private:
     static constexpr int kMaxMatchSubs = 3;
 
     // Friendly selection
+    int homeCountry_ = 0, awayCountry_ = 0;
     int homeLeague_ = 0, awayLeague_ = 0;
     int homeTeam_ = -1, awayTeam_ = -1;
     char homeFilter_[64] = "";
@@ -177,6 +179,7 @@ private:
     std::string matchHome_, matchAway_;
     int finalHG_ = 0, finalAG_ = 0, finalHS_ = 0, finalAS_ = 0;
     std::vector<std::pair<int, std::string>> homeScorers_, awayScorers_;
+    int matchTab_ = 0;  // 0 = Match, 1 = Statistics
 
     // Per-player match statistics (shirt number -> stats)
     std::map<int, PlayerMatchStats> homePlayerStats_;
@@ -202,6 +205,7 @@ private:
     // Career
     bool careerActive_ = false;
     int careerTeam_ = -1;
+    int careerCountry_ = 0;
     int careerLeague_ = 0;
     char careerFilter_[64] = "";
     char managerName_[128] = "";  // Manager's name for career mode

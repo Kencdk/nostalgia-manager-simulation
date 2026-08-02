@@ -418,6 +418,16 @@ bool App::init(const std::string& dataDir) {
     }
 
     leagues_ = db_.leagues();
+
+    // Build sorted unique nations list
+    nations_.clear();
+    for (const auto& t : db_.teams) {
+        if (!t.nation.empty() &&
+            std::find(nations_.begin(), nations_.end(), t.nation) == nations_.end())
+            nations_.push_back(t.nation);
+    }
+    std::sort(nations_.begin(), nations_.end());
+
     status_ = "Loaded " + std::to_string(db_.teams.size()) + " teams across " +
               std::to_string(leagues_.size()) + " leagues.";
     return true;
@@ -654,32 +664,74 @@ void App::renderMain() {
     ImGui::End();
 }
 
-void App::teamPicker(const char* id, int& leagueIdx, int& teamId, char* filter,
-                     size_t filterSz) {
+void App::teamPicker(const char* id, int& countryIdx, int& leagueIdx, int& teamId,
+                     char* filter, size_t filterSz) {
     ImGui::PushID(id);
-    if (leagues_.empty()) {
-        ImGui::TextDisabled("No leagues loaded.");
+    if (nations_.empty()) {
+        ImGui::TextDisabled("No teams loaded.");
         ImGui::PopID();
         return;
     }
-    if (leagueIdx < 0 || leagueIdx >= static_cast<int>(leagues_.size())) leagueIdx = 0;
-    if (ImGui::BeginCombo("League", leagues_[leagueIdx].c_str())) {
-        for (int i = 0; i < static_cast<int>(leagues_.size()); ++i) {
-            bool sel = (i == leagueIdx);
-            if (ImGui::Selectable(leagues_[i].c_str(), sel)) {
-                leagueIdx = i;
-                teamId = -1;
+
+    // Clamp indices
+    if (countryIdx < 0 || countryIdx >= static_cast<int>(nations_.size())) countryIdx = 0;
+
+    // --- Country combo ---
+    if (ImGui::BeginCombo("Country", nations_[countryIdx].c_str())) {
+        for (int i = 0; i < static_cast<int>(nations_.size()); ++i) {
+            bool sel = (i == countryIdx);
+            if (ImGui::Selectable(nations_[i].c_str(), sel)) {
+                if (i != countryIdx) {
+                    countryIdx = i;
+                    leagueIdx = 0;
+                    teamId = -1;
+                }
             }
             if (sel) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
     }
+
+    // Build leagues for this country
+    const std::string& nation = nations_[countryIdx];
+    std::vector<std::string> countryLeagues;
+    for (const auto& t : db_.teams)
+        if (t.nation == nation &&
+            std::find(countryLeagues.begin(), countryLeagues.end(), t.league) == countryLeagues.end())
+            countryLeagues.push_back(t.league);
+    std::sort(countryLeagues.begin(), countryLeagues.end());
+
+    if (leagueIdx < 0 || leagueIdx >= static_cast<int>(countryLeagues.size())) leagueIdx = 0;
+
+    // --- League combo ---
+    const char* leagueLabel = countryLeagues.empty() ? "(none)" : countryLeagues[leagueIdx].c_str();
+    if (!countryLeagues.empty() && ImGui::BeginCombo("League", leagueLabel)) {
+        for (int i = 0; i < static_cast<int>(countryLeagues.size()); ++i) {
+            bool sel = (i == leagueIdx);
+            if (ImGui::Selectable(countryLeagues[i].c_str(), sel)) {
+                if (i != leagueIdx) {
+                    leagueIdx = i;
+                    teamId = -1;
+                }
+            }
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    // --- Team list ---
     ImGui::InputTextWithHint("Filter", "type to filter teams", filter, filterSz);
 
-    std::vector<Team*> teams = db_.teamsInLeague(leagues_[leagueIdx]);
-    std::sort(teams.begin(), teams.end(),
-              [](Team* a, Team* b) { return a->name < b->name; });
-    ImGui::BeginChild("teamlist", ImVec2(360, 240), true);
+    std::vector<Team*> teams;
+    if (!countryLeagues.empty()) {
+        const std::string& league = countryLeagues[leagueIdx];
+        for (auto& t : db_.teams)
+            if (t.nation == nation && t.league == league)
+                teams.push_back(&t);
+    }
+    std::sort(teams.begin(), teams.end(), [](Team* a, Team* b) { return a->name < b->name; });
+
+    ImGui::BeginChild("teamlist", ImVec2(360, 200), true);
     for (Team* t : teams) {
         if (!contains(t->name, filter)) continue;
         char label[160];
@@ -701,10 +753,10 @@ void App::renderFriendly() {
 
     ImGui::Columns(2, "sel", false);
     ImGui::TextColored(ImVec4(0.5f, 0.8f, 1, 1), "Home");
-    teamPicker("home", homeLeague_, homeTeam_, homeFilter_, sizeof(homeFilter_));
+    teamPicker("home", homeCountry_, homeLeague_, homeTeam_, homeFilter_, sizeof(homeFilter_));
     ImGui::NextColumn();
     ImGui::TextColored(ImVec4(1, 0.7f, 0.5f, 1), "Away");
-    teamPicker("away", awayLeague_, awayTeam_, awayFilter_, sizeof(awayFilter_));
+    teamPicker("away", awayCountry_, awayLeague_, awayTeam_, awayFilter_, sizeof(awayFilter_));
     ImGui::Columns(1);
 
     ImGui::Spacing();
@@ -775,6 +827,7 @@ void App::startMatch(Team* home, Team* away) {
     matchOver_ = false;
     halftimePause_ = false;
     halftimeIdx_ = 0;
+    matchTab_ = 0;
     matchHome_ = home->name;
     matchAway_ = away->name;
     matchHomeTeam_ = home;
@@ -1174,6 +1227,55 @@ void App::renderMatch() {
     ImGui::Dummy(ImVec2(fullW, barHeight));
     ImGui::Separator();
 
+    // ---- Tab bar: Match | Tactics | Statistics ----
+    {
+        const char* tabLabels[] = { "Match", "Tactics", "Statistics" };
+        const int tabCount = 3;
+        const float tabW = 140.0f;
+        const float tabH = 32.0f;
+        const float tabBarY = ImGui::GetCursorScreenPos().y;
+        ImDrawList* tabDl = ImGui::GetWindowDrawList();
+
+        for (int i = 0; i < tabCount; ++i) {
+            ImVec2 tabMin(ImGui::GetCursorScreenPos().x + i * tabW, tabBarY);
+            ImVec2 tabMax(tabMin.x + tabW - 2, tabBarY + tabH);
+            bool active = (matchTab_ == i);
+            ImU32 tabBg = active ? IM_COL32(40, 80, 40, 255) : IM_COL32(30, 50, 30, 200);
+            ImU32 tabFg = active ? IM_COL32(255, 255, 255, 255) : IM_COL32(180, 200, 180, 255);
+            tabDl->AddRectFilled(tabMin, tabMax, tabBg, 4.0f);
+            if (active) tabDl->AddRect(tabMin, tabMax, IM_COL32(100, 180, 100, 255), 4.0f);
+            ImVec2 textSz = ImGui::CalcTextSize(tabLabels[i]);
+            tabDl->AddText(ImVec2(tabMin.x + (tabW - 2 - textSz.x) * 0.5f,
+                                  tabMin.y + (tabH - textSz.y) * 0.5f),
+                           tabFg, tabLabels[i]);
+            // Invisible button for click detection
+            ImGui::SetCursorScreenPos(tabMin);
+            ImGui::PushID(i);
+            if (ImGui::InvisibleButton("##tab", ImVec2(tabW - 2, tabH))) {
+                if (i == 1) {
+                    // Tactics tab: navigate to tactics for the human team
+                    Team* humanTeam = nullptr;
+                    if (careerActive_) {
+                        if (matchHomeTeam_ && matchHomeTeam_->id == careerTeam_) humanTeam = matchHomeTeam_;
+                        else if (matchAwayTeam_ && matchAwayTeam_->id == careerTeam_) humanTeam = matchAwayTeam_;
+                    } else {
+                        humanTeam = matchHomeTeam_;  // In friendly, home team is the human team
+                    }
+                    if (humanTeam) {
+                        playing_ = false;
+                        openTactics(humanTeam, Screen::Match);
+                    }
+                } else {
+                    matchTab_ = i;
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::SetCursorScreenPos(ImVec2(ImGui::GetCursorScreenPos().x, tabBarY + tabH + 4));
+    }
+    ImGui::Separator();
+
+    if (matchTab_ == 0) {
     // ---- New Layout: [Team 1 - Full Height] | [Pitch + Commentary] | [Team 2 - Full Height] ----
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
     const float bottomH = 54.0f;
@@ -1443,6 +1545,108 @@ void App::renderMatch() {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(200);
         ImGui::SliderFloat("Speed", &speed_, 2.0f, 40.0f, "%.0f ev/s");
+    }
+
+    } else if (matchTab_ == 2) {
+        // ---- Statistics tab ----
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float availH = ImGui::GetContentRegionAvail().y - 4;
+        const float halfW = (fullW - spacing) * 0.5f;
+
+        const auto renderPlayerStatsTable = [&](const char* id, const std::string& teamName,
+                                                 Team* team,
+                                                 const std::map<int, PlayerMatchStats>& stats) {
+            ImGui::BeginChild(id, ImVec2(halfW, availH), true);
+            const ImVec4 header(0.60f, 0.75f, 0.95f, 1);
+            ImGui::TextColored(header, "%s", teamName.c_str());
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Column widths
+            const float nameW  = halfW * 0.28f;
+            const float numW   = halfW * 0.08f;
+            ImGui::Columns(10, (std::string(id) + "_cols").c_str(), true);
+            ImGui::SetColumnWidth(0, nameW);
+            for (int c = 1; c <= 9; ++c) ImGui::SetColumnWidth(c, numW);
+
+            ImGui::TextColored(header, "Name");       ImGui::NextColumn();
+            ImGui::TextColored(header, "Min");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Gls");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Ast");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Sh");         ImGui::NextColumn();
+            ImGui::TextColored(header, "SoT");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Pas");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Pac%");       ImGui::NextColumn();
+            ImGui::TextColored(header, "Tck");        ImGui::NextColumn();
+            ImGui::TextColored(header, "Fls");        ImGui::NextColumn();
+            ImGui::Separator();
+
+            // Build sorted list: starters first (in XI order), then subs
+            if (team) {
+                auto renderRow = [&](const Player* p) {
+                    auto it = stats.find(p->shirtNumber);
+                    const PlayerMatchStats& ps = (it != stats.end()) ? it->second : PlayerMatchStats{};
+                    int passPct = ps.passes > 0 ? (ps.passesCompleted * 100) / ps.passes : 0;
+                    // Match rating
+                    float rating = 0.0f;
+                    if (ps.minutesPlayed > 0) {
+                        rating = 6.0f;
+                        rating += ps.goals * 1.5f;
+                        rating += ps.assists * 1.0f;
+                        if (ps.shots > 0) rating += (ps.shots * 0.1f) + ((float)ps.shotsOnTarget / ps.shots * 0.5f);
+                        if (ps.passes > 0) rating += ((float)ps.passesCompleted / ps.passes - 0.7f) * 2.0f;
+                        rating += ps.tackles * 0.2f;
+                        rating -= ps.fouls * 0.3f;
+                        if (rating < 1.0f) rating = 1.0f;
+                        if (rating > 10.0f) rating = 10.0f;
+                    }
+                    // Colour the name by rating
+                    ImVec4 nameCol = (rating >= 7.5f) ? ImVec4(0.3f, 1.0f, 0.4f, 1)
+                                   : (rating >= 6.5f) ? ImVec4(1, 1, 1, 1)
+                                   : (rating > 0.0f)  ? ImVec4(1, 0.5f, 0.4f, 1)
+                                   :                    ImVec4(0.6f, 0.6f, 0.6f, 1);
+                    char nameLabel[80];
+                    if (rating > 0.0f)
+                        std::snprintf(nameLabel, sizeof(nameLabel), "#%d %s  %.1f",
+                                      p->shirtNumber, shortName(p->name).c_str(), rating);
+                    else
+                        std::snprintf(nameLabel, sizeof(nameLabel), "#%d %s",
+                                      p->shirtNumber, shortName(p->name).c_str());
+                    ImGui::TextColored(nameCol, "%s", nameLabel);    ImGui::NextColumn();
+                    ImGui::Text("%d", ps.minutesPlayed);             ImGui::NextColumn();
+                    ImGui::Text("%d", ps.goals);                     ImGui::NextColumn();
+                    ImGui::Text("%d", ps.assists);                   ImGui::NextColumn();
+                    ImGui::Text("%d", ps.shots);                     ImGui::NextColumn();
+                    ImGui::Text("%d", ps.shotsOnTarget);             ImGui::NextColumn();
+                    ImGui::Text("%d", ps.passes);                    ImGui::NextColumn();
+                    if (ps.passes > 0) ImGui::Text("%d%%", passPct); else ImGui::Text("-");
+                    ImGui::NextColumn();
+                    ImGui::Text("%d", ps.tackles);                   ImGui::NextColumn();
+                    ImGui::Text("%d", ps.fouls);                     ImGui::NextColumn();
+                };
+
+                // Starters in XI order
+                for (int pid : team->startingXI) {
+                    const Player* p = team->findPlayer(pid);
+                    if (p) renderRow(p);
+                }
+                // Subs (any squad member not in XI that has minutes played)
+                ImGui::Separator();
+                for (const auto& pl : team->squad) {
+                    bool starter = std::find(team->startingXI.begin(), team->startingXI.end(), pl.id) != team->startingXI.end();
+                    if (!starter) {
+                        auto it = stats.find(pl.shirtNumber);
+                        if (it != stats.end() && it->second.minutesPlayed > 0) renderRow(&pl);
+                    }
+                }
+            }
+            ImGui::Columns(1);
+            ImGui::EndChild();
+        };
+
+        renderPlayerStatsTable("stats_home", matchHome_, matchHomeTeam_, homePlayerStats_);
+        ImGui::SameLine();
+        renderPlayerStatsTable("stats_away", matchAway_, matchAwayTeam_, awayPlayerStats_);
     }
 
     ImGui::PopStyleColor();  // Pop the white background color
@@ -1924,7 +2128,7 @@ void App::renderCareerSetup() {
     ImGui::TextWrapped("Pick a club to manage. You'll play a full round-robin season in its league.");
     ImGui::Spacing();
 
-    teamPicker("careersetup", careerLeague_, careerTeam_, careerFilter_, sizeof(careerFilter_));
+    teamPicker("careersetup", careerCountry_, careerLeague_, careerTeam_, careerFilter_, sizeof(careerFilter_));
 
     ImGui::Spacing();
     ImGui::Separator();

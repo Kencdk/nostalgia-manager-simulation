@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <map>
 
@@ -55,6 +56,8 @@ public:
 
 private:
     int nextTeamId_ = 1;
+    // jersey# -> player name, keyed by lower-cased team name; populated by loadTeams
+    std::unordered_map<std::string, std::map<int, std::string>> jerseyMap_;
 };
 
 }  // namespace nm
