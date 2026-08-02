@@ -56,8 +56,8 @@ public:
 
 private:
     int nextTeamId_ = 1;
-    // jersey# -> player name, keyed by lower-cased team name; populated by loadTeams
-    std::unordered_map<std::string, std::map<int, std::string>> jerseyMap_;
+    // jersey# -> player ID, keyed by team ID; populated by loadTeams
+    std::unordered_map<int, std::map<int, int>> jerseyMap_;
 };
 
 }  // namespace nm

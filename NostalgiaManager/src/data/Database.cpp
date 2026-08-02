@@ -176,23 +176,29 @@ bool Database::loadTeams(const std::string& path) {
     Header h;
     h.build(rows[0]);
 
-    bool hasId = h.has("id");
+    // Prefer explicit "club id" / "clubid" / "id" column for team IDs
+    bool hasId = h.has("clubid") || h.has("id");
     for (size_t i = 1; i < rows.size(); ++i) {
         const auto& r = rows[i];
-        std::string name = asciiFold(h.get(r, {"name", "club", "clubname", "teamname", "team"}));
+        std::string name = asciiFold(h.get(r, {"club", "name", "clubname", "teamname", "team"}));
         if (name.empty() || isNonClub(name)) continue;
         Team t;
-        t.id = hasId ? h.getInt(r, {"id"}) : nextTeamId_++;
+        if (hasId) {
+            t.id = h.getInt(r, {"clubid", "id"});
+        } else {
+            t.id = nextTeamId_++;
+        }
+        if (t.id <= 0) t.id = nextTeamId_++;
         if (t.id >= nextTeamId_) nextTeamId_ = t.id + 1;
         t.name = name;
         t.nation = asciiFold(h.get(r, {"nation", "country", "nationality"}));
         t.league = asciiFold(h.get(r, {"league", "division", "div", "competition"}));
         if (t.league.empty()) t.league = asciiFold(h.get(r, {"nation", "country", "nationality"}));
         if (t.league.empty()) t.league = "League";
-        std::string f = h.get(r, {"formation", "formationa", "formationb", "shape"});
+        std::string f = h.get(r, {"formationa", "formation", "formationb", "shape"});
         if (!f.empty()) {
             t.formation = f;
-            t.preferredFormation = f;  // Store as club's preferred formation
+            t.preferredFormation = f;
         }
         std::string m = h.get(r, {"mentality", "mentalitiy"});
         if (!m.empty()) t.mentality = mentalityFromString(m);
@@ -203,18 +209,19 @@ bool Database::loadTeams(const std::string& path) {
         t.awayColor1 = h.get(r, {"awaycolour1", "awaycolor1"});
         t.awayColor2 = h.get(r, {"awaycolour2", "awaycolor2"});
 
-        // Load jersey number -> player name mappings (Jersey1 .. Jersey99)
+        // Load jersey number -> player ID mappings (Jersey1 .. Jersey99)
+        // Values in these columns are now unique player IDs (integers)
         {
-            std::map<int, std::string> jmap;
+            std::map<int, int> jmap;
             for (int n = 1; n <= 99; ++n) {
                 char key[12];
                 std::snprintf(key, sizeof(key), "jersey%d", n);
                 if (h.has(key)) {
-                    std::string pname = h.get(r, {key});
-                    if (!pname.empty()) jmap[n] = asciiFold(pname);
+                    int pid = h.getInt(r, {key});
+                    if (pid > 0) jmap[n] = pid;
                 }
             }
-            if (!jmap.empty()) jerseyMap_[lower(t.name)] = std::move(jmap);
+            if (!jmap.empty()) jerseyMap_[t.id] = std::move(jmap);
         }
 
         teams.push_back(std::move(t));
@@ -235,8 +242,12 @@ bool Database::loadPlayers(const std::string& path) {
     // Legacy bundled format has an explicit teamId + role + number column.
     bool legacy = h.has("teamid") && h.has("role");
 
+    // Does this file have explicit unique player IDs and club ID columns?
+    const bool hasPlayerId = h.has("id");
+    const bool hasClubId   = h.has("clubid");
+
     // For CM/FM exports: resolve each engine skill to a column once and detect
-    // the value scale. Some databases store skills 0-100, others 1-20; a few
+    // the value scale.
     // rows contain corrupt outliers, so detection ignores values above 100
     // (otherwise a single bad cell would crush every player's ratings).
     constexpr int kSkillMax = 100;  // largest plausible raw skill value
@@ -263,6 +274,10 @@ bool Database::loadPlayers(const std::string& path) {
     std::unordered_map<std::string, size_t> nameToIdx;
     for (size_t i = 0; i < teams.size(); ++i) nameToIdx[lower(teams[i].name)] = i;
 
+    // Build ID -> index map for fast club-id lookup
+    std::unordered_map<int, size_t> idToIdx;
+    for (size_t i = 0; i < teams.size(); ++i) idToIdx[teams[i].id] = i;
+
     // When a clubs file has already been loaded, only attach players to those
     // known clubs; otherwise synthesise teams from the players' Club column.
     const bool haveClubs = !teams.empty();
@@ -276,6 +291,7 @@ bool Database::loadPlayers(const std::string& path) {
         t.name = clubName.empty() ? ("Club " + std::to_string(t.id)) : clubName;
         t.league = "League";
         size_t idx = teams.size();
+        idToIdx[t.id] = idx;
         teams.push_back(std::move(t));
         nameToIdx[key] = idx;
         return idx;
@@ -320,7 +336,9 @@ bool Database::loadPlayers(const std::string& path) {
         std::string name = Csv::trim(fn + " " + sn);
         if (name.empty()) name = h.get(r, {"fullname", "name", "playername"});
         if (name.empty()) continue;
-        p.id = autoId++;
+        // Use explicit player ID if present, otherwise auto-assign
+        p.id = hasPlayerId ? h.getInt(r, {"id"}) : autoId++;
+        if (p.id <= 0) p.id = autoId++;
         p.name = asciiFold(name);
 
         // Load bio information if available
@@ -502,51 +520,40 @@ bool Database::loadPlayers(const std::string& path) {
         else
             p.attr.set("Goalkeeping", clampStat(std::max(1, abil20 / 4)));
 
-        std::string clubName = asciiFold(h.get(r, {"club", "team", "clubname"}));
-        // Skip free agents / unattached players so they don't form junk teams.
-        if (clubName.empty() || isNonClub(clubName)) continue;
-        size_t idx = ensureIdx(clubName);
-        if (idx == kNoTeam) continue;  // unknown club and clubs file present
+        // Attach player to a team.
+        // Prefer numeric ClubID when available; fall back to name matching.
+        size_t idx = kNoTeam;
+        if (hasClubId) {
+            int cid = h.getInt(r, {"clubid"});
+            if (cid > 0) {
+                auto it = idToIdx.find(cid);
+                if (it != idToIdx.end()) idx = it->second;
+            }
+        }
+        if (idx == kNoTeam) {
+            std::string clubName = asciiFold(h.get(r, {"club", "team", "clubname"}));
+            if (clubName.empty() || isNonClub(clubName)) continue;
+            idx = ensureIdx(clubName);
+        }
+        if (idx == kNoTeam) continue;
         teams[idx].squad.push_back(std::move(p));
     }
 
     // Apply jersey number mappings from ClubsDB, then fill in any missing numbers.
     for (auto& t : teams) {
-        auto jit = jerseyMap_.find(lower(t.name));
+        auto jit = jerseyMap_.find(t.id);
         if (jit != jerseyMap_.end()) {
-            const std::map<int, std::string>& jmap = jit->second;
-            // Build a lookup from normalised player name -> player index
-            std::unordered_map<std::string, size_t> nameIdx;
-            for (size_t pi = 0; pi < t.squad.size(); ++pi) {
-                std::string key = lower(t.squad[pi].name);
-                nameIdx[key] = pi;
-            }
-            // Also index by last name only for loose matching
-            std::unordered_map<std::string, size_t> lastNameIdx;
-            for (size_t pi = 0; pi < t.squad.size(); ++pi) {
-                std::string n = lower(t.squad[pi].name);
-                size_t sp = n.rfind(' ');
-                if (sp != std::string::npos) {
-                    std::string last = n.substr(sp + 1);
-                    if (lastNameIdx.find(last) == lastNameIdx.end())
-                        lastNameIdx[last] = pi;
-                }
-            }
+            const std::map<int, int>& jmap = jit->second;
+            // Build a lookup from player ID -> squad index
+            std::unordered_map<int, size_t> pidIdx;
+            for (size_t pi = 0; pi < t.squad.size(); ++pi)
+                pidIdx[t.squad[pi].id] = pi;
             for (const auto& kv : jmap) {
                 int num = kv.first;
-                std::string pname = lower(kv.second);
-                // Full name match first
-                auto it = nameIdx.find(pname);
-                if (it != nameIdx.end()) {
+                int pid = kv.second;
+                auto it = pidIdx.find(pid);
+                if (it != pidIdx.end())
                     t.squad[it->second].shirtNumber = num;
-                    continue;
-                }
-                // Fallback: last name only
-                size_t sp = pname.rfind(' ');
-                std::string last = (sp != std::string::npos) ? pname.substr(sp + 1) : pname;
-                auto lt = lastNameIdx.find(last);
-                if (lt != lastNameIdx.end())
-                    t.squad[lt->second].shirtNumber = num;
             }
         }
 

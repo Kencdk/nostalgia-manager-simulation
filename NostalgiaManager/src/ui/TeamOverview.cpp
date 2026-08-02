@@ -150,17 +150,17 @@ void TeamOverviewScreen::render(App* app) {
     ImGui::PushStyleColor(ImGuiCol_Text, gold);
     ImGui::Columns(6, "squad_header", true);
     ImGui::SetColumnWidth(0, 60);   // Shirt #
-    ImGui::SetColumnWidth(1, 240);  // Pos
-    ImGui::SetColumnWidth(2, fullW * 0.35f);  // Name
+    ImGui::SetColumnWidth(1, fullW * 0.35f);  // Name
+    ImGui::SetColumnWidth(2, 200);  // Pos
     ImGui::SetColumnWidth(3, 70);   // OVR
     ImGui::SetColumnWidth(4, 70);   // Age
     ImGui::SetColumnWidth(5, fullW * 0.2f);   // Actions
 
     ImGui::Text("#");
     ImGui::NextColumn();
-    ImGui::Text("Pos");
-    ImGui::NextColumn();
     ImGui::Text("Name");
+    ImGui::NextColumn();
+    ImGui::Text("Pos");
     ImGui::NextColumn();
     ImGui::Text("OVR");
     ImGui::NextColumn();
@@ -176,8 +176,8 @@ void TeamOverviewScreen::render(App* app) {
     for (const Player* p : sortedSquad) {
         ImGui::Columns(6, "squad_row", true);
         ImGui::SetColumnWidth(0, 60);
-        ImGui::SetColumnWidth(1, 240);
-        ImGui::SetColumnWidth(2, fullW * 0.35f);
+        ImGui::SetColumnWidth(1, fullW * 0.35f);
+        ImGui::SetColumnWidth(2, 200);
         ImGui::SetColumnWidth(3, 70);
         ImGui::SetColumnWidth(4, 70);
         ImGui::SetColumnWidth(5, fullW * 0.2f);
@@ -186,16 +186,16 @@ void TeamOverviewScreen::render(App* app) {
         ImGui::Text("%2d", p->shirtNumber);
         ImGui::NextColumn();
 
+        // Name - clickable
+        if (ImGui::Selectable(p->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
+            app->openPlayerDetail(p, App::Screen::TeamOverview);
+        }
+        ImGui::NextColumn();
+
         // Position
         ImGui::Text("%s", cmPositionFormat(*p).c_str());
         if (ImGui::IsItemHovered()) {
             positionTooltip(*p);
-        }
-        ImGui::NextColumn();
-
-        // Name - clickable
-        if (ImGui::Selectable(p->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
-            app->openPlayerDetail(p, App::Screen::TeamOverview);
         }
         ImGui::NextColumn();
 

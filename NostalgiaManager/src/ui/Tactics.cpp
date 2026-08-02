@@ -71,14 +71,50 @@ void TacticsScreen::render(App* app) {
     panelHeader("Squad");
     ImGui::TextColored(gold, "Starting XI");
 
-    for (size_t i = 0; i < t->startingXI.size(); ++i) {
+    // Sort Starting XI by formation position: GK -> D -> DM -> M -> AM -> F, then R -> C -> L
+    auto positionSortKey = [](Position pos) -> int {
+        // Role rank (0-5)
+        int roleRank = 0;
+        switch (pos) {
+            case Position::GK:                          roleRank = 0; break;
+            case Position::DR: case Position::DC: case Position::DL:
+            case Position::WBR: case Position::WBL:     roleRank = 1; break;
+            case Position::DM:                          roleRank = 2; break;
+            case Position::MR: case Position::MC: case Position::ML: roleRank = 3; break;
+            case Position::AMR: case Position::AMC: case Position::AML: roleRank = 4; break;
+            case Position::FR: case Position::FC: case Position::FL: roleRank = 5; break;
+        }
+        // Side rank within role: Right=0, Centre=1, Left=2
+        int sideRank = 1;
+        switch (pos) {
+            case Position::DR: case Position::WBR: case Position::MR:
+            case Position::AMR: case Position::FR: sideRank = 0; break;
+            case Position::DC: case Position::DM: case Position::MC:
+            case Position::AMC: case Position::FC: case Position::GK: sideRank = 1; break;
+            case Position::DL: case Position::WBL: case Position::ML:
+            case Position::AML: case Position::FL: sideRank = 2; break;
+        }
+        return roleRank * 10 + sideRank;
+    };
+
+    // Build sorted index list for Starting XI display
+    std::vector<size_t> xiOrder(t->startingXI.size());
+    for (size_t i = 0; i < xiOrder.size(); ++i) xiOrder[i] = i;
+    std::sort(xiOrder.begin(), xiOrder.end(), [&](size_t a, size_t b) {
+        Position posA = a < t->assignedPositions.size() ? t->assignedPositions[a] : Position::MC;
+        Position posB = b < t->assignedPositions.size() ? t->assignedPositions[b] : Position::MC;
+        return positionSortKey(posA) < positionSortKey(posB);
+    });
+
+    for (size_t si = 0; si < xiOrder.size(); ++si) {
+        size_t i = xiOrder[si];
         Player* p = t->findPlayer(t->startingXI[i]);
         if (!p) continue;
         Position assignedPos = i < t->assignedPositions.size() ? t->assignedPositions[i] : p->primaryPos;
         char lbl[160];
-        std::string posStr = cmPositionFormat(*p);
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", p->shirtNumber,
-                      posStr.c_str(), shortName(p->name).c_str());
+        std::string posStr = PosName(assignedPos);
+        std::snprintf(lbl, sizeof(lbl), "%2d  %-18s %s", p->shirtNumber,
+                      shortName(p->name).c_str(), posStr.c_str());
 
         ImGui::PushID(static_cast<int>(i));
         if (ImGui::Selectable(lbl, app->tacticsPlayerSel_ == p->id)) {
@@ -127,8 +163,8 @@ void TacticsScreen::render(App* app) {
         shownSubs++;
         char lbl[160];
         std::string posStr = cmPositionFormat(pl);
-        std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", pl.shirtNumber,
-                      posStr.c_str(), shortName(pl.name).c_str());
+        std::snprintf(lbl, sizeof(lbl), "%2d  %-18s %s", pl.shirtNumber,
+                      shortName(pl.name).c_str(), posStr.c_str());
 
         ImGui::PushID(100 + subIdx);
         if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {
@@ -185,8 +221,8 @@ void TacticsScreen::render(App* app) {
 
             char lbl[160];
             std::string posStr = cmPositionFormat(pl);
-            std::snprintf(lbl, sizeof(lbl), "%2d  %-8s %s", pl.shirtNumber,
-                          posStr.c_str(), shortName(pl.name).c_str());
+            std::snprintf(lbl, sizeof(lbl), "%2d  %-18s %s", pl.shirtNumber,
+                          shortName(pl.name).c_str(), posStr.c_str());
 
             ImGui::PushID(200 + restIdx);
             if (ImGui::Selectable(lbl, app->tacticsXiSel_ == pl.id)) {

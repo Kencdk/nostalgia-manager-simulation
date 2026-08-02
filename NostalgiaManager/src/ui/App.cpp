@@ -947,18 +947,22 @@ void App::startMatch(Team* home, Team* away) {
 
             if (h > hg) {
                 homeScorers_.emplace_back(f.minute, line);
-                if (shirtNum >= 0) {
+                if (shirtNum >= 0 && homePlayerStats_.count(shirtNum)) {
                     homePlayerStats_[shirtNum].goals++;
+                    homePlayerStats_[shirtNum].shots++;
                     homePlayerStats_[shirtNum].shotsOnTarget++;
                 }
-                if (assistShirtNum >= 0) homePlayerStats_[assistShirtNum].assists++;
+                if (assistShirtNum >= 0 && homePlayerStats_.count(assistShirtNum))
+                    homePlayerStats_[assistShirtNum].assists++;
             } else if (a > ag) {
                 awayScorers_.emplace_back(f.minute, line);
-                if (shirtNum >= 0) {
+                if (shirtNum >= 0 && awayPlayerStats_.count(shirtNum)) {
                     awayPlayerStats_[shirtNum].goals++;
+                    awayPlayerStats_[shirtNum].shots++;
                     awayPlayerStats_[shirtNum].shotsOnTarget++;
                 }
-                if (assistShirtNum >= 0) awayPlayerStats_[assistShirtNum].assists++;
+                if (assistShirtNum >= 0 && awayPlayerStats_.count(assistShirtNum))
+                    awayPlayerStats_[assistShirtNum].assists++;
             }
             hg = h;
             ag = a;
@@ -977,13 +981,15 @@ void App::startMatch(Team* home, Team* away) {
                     int shirtNum = std::stoi(text.substr(hashPos + 1, numEnd - hashPos - 1));
                     if (homePlayerStats_.find(shirtNum) != homePlayerStats_.end()) {
                         homePlayerStats_[shirtNum].shots++;
-                        if (text.find("on target") != std::string::npos || 
+                        if (text.find("on target") != std::string::npos ||
+                            text.find("SAVED") != std::string::npos ||
                             text.find("saved") != std::string::npos) {
                             homePlayerStats_[shirtNum].shotsOnTarget++;
                         }
                     } else if (awayPlayerStats_.find(shirtNum) != awayPlayerStats_.end()) {
                         awayPlayerStats_[shirtNum].shots++;
-                        if (text.find("on target") != std::string::npos || 
+                        if (text.find("on target") != std::string::npos ||
+                            text.find("SAVED") != std::string::npos ||
                             text.find("saved") != std::string::npos) {
                             awayPlayerStats_[shirtNum].shotsOnTarget++;
                         }

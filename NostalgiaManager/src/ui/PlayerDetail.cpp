@@ -217,104 +217,142 @@ void PlayerDetailScreen::render(App* app) {
     panelHeader("Position & Role");
     ImGui::Spacing();
 
-    ImGui::Text("Primary Role: %s", [p]() {
-        switch (p->role) {
-            case Role::GK: return "Goalkeeper";
-            case Role::D: return "Defender";
-            case Role::DM: return "Defensive Midfielder";
-            case Role::M: return "Midfielder";
-            case Role::AM: return "Attacking Midfielder";
-            case Role::F: return "Forward";
-            default: return "Unknown";
-        }
-    }());
-
-    ImGui::Spacing();
-    ImGui::Text("Playable Positions:");
-    ImGui::TextWrapped("%s", playablePosStr(*p).c_str());
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Pitch visualization (horizontal: FC on right, GK on left)
+    // Pitch visualization: all positions with rating > 0, colour-graded
     float availW = ImGui::GetContentRegionAvail().x;
     float availH = ImGui::GetContentRegionAvail().y;
 
-    // Smaller pitch dimensions to avoid scrolling
-    const float pitchW = availW * 0.75f;
-    const float pitchH = pitchW * 0.58f;  // Reduced aspect ratio
+    const float pitchW = availW * 0.92f;
+    const float pitchH = pitchW * 0.62f;
 
-    // Center the pitch
     float offsetX = (availW - pitchW) * 0.5f;
-    float offsetY = (availH - pitchH) * 0.3f;  // Positioned higher
-
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offsetY);
 
     ImVec2 pitchPos = ImGui::GetCursorScreenPos();
     ImDrawList* draw = ImGui::GetWindowDrawList();
 
-    // Draw pitch background
-    draw->AddRectFilled(pitchPos, ImVec2(pitchPos.x + pitchW, pitchPos.y + pitchH), 
+    // ---- Pitch background and markings ----
+    draw->AddRectFilled(pitchPos, ImVec2(pitchPos.x + pitchW, pitchPos.y + pitchH),
                         IM_COL32(34, 139, 34, 255));
-    draw->AddRect(pitchPos, ImVec2(pitchPos.x + pitchW, pitchPos.y + pitchH), 
-                  IM_COL32(255, 255, 255, 255), 0.0f, 0, 2.0f);
-
-    // Draw center line (vertical down the middle)
+    // Stripes
+    const int stripes = 6;
+    for (int i = 0; i < stripes; ++i) {
+        float x0 = pitchPos.x + pitchW * i / stripes;
+        float x1 = pitchPos.x + pitchW * (i + 1) / stripes;
+        if (i % 2 == 1)
+            draw->AddRectFilled(ImVec2(x0, pitchPos.y), ImVec2(x1, pitchPos.y + pitchH),
+                                IM_COL32(30, 128, 30, 255));
+    }
+    draw->AddRect(pitchPos, ImVec2(pitchPos.x + pitchW, pitchPos.y + pitchH),
+                  IM_COL32(255, 255, 255, 200), 0.0f, 0, 1.5f);
+    // Halfway line
     draw->AddLine(ImVec2(pitchPos.x + pitchW * 0.5f, pitchPos.y),
                   ImVec2(pitchPos.x + pitchW * 0.5f, pitchPos.y + pitchH),
-                  IM_COL32(255, 255, 255, 255), 2.0f);
+                  IM_COL32(255, 255, 255, 120), 1.0f);
+    // Penalty boxes
+    float pbW = pitchW * 0.14f, pbH = pitchH * 0.55f, pbOY = (pitchH - pbH) * 0.5f;
+    draw->AddRect(ImVec2(pitchPos.x, pitchPos.y + pbOY),
+                  ImVec2(pitchPos.x + pbW, pitchPos.y + pbOY + pbH),
+                  IM_COL32(255, 255, 255, 120), 0.0f, 0, 1.0f);
+    draw->AddRect(ImVec2(pitchPos.x + pitchW - pbW, pitchPos.y + pbOY),
+                  ImVec2(pitchPos.x + pitchW, pitchPos.y + pbOY + pbH),
+                  IM_COL32(255, 255, 255, 120), 0.0f, 0, 1.0f);
 
-    // Draw center circle
-    float centerX = pitchPos.x + pitchW * 0.5f;
-    float centerY = pitchPos.y + pitchH * 0.5f;
-    draw->AddCircle(ImVec2(centerX, centerY), pitchH * 0.2f, 
-                    IM_COL32(255, 255, 255, 255), 32, 2.0f);
+    // ---- Position layout: X = role column (0-5), Y = side row (R/C/L) ----
+    // X fractions across the pitch (GK left, FC right)
+    struct PosLayout { Position pos; float xf; float yf; };
+    const PosLayout layout[] = {
+        { Position::GK,  0.07f, 0.50f },
+        { Position::DR,  0.22f, 0.80f }, { Position::DC,  0.22f, 0.50f }, { Position::DL,  0.22f, 0.20f },
+        { Position::WBR, 0.30f, 0.88f }, { Position::WBL, 0.30f, 0.12f },
+        { Position::DM,  0.38f, 0.50f },
+        { Position::MR,  0.50f, 0.80f }, { Position::MC,  0.50f, 0.50f }, { Position::ML,  0.50f, 0.20f },
+        { Position::AMR, 0.62f, 0.80f }, { Position::AMC, 0.62f, 0.50f }, { Position::AML, 0.62f, 0.20f },
+        { Position::FR,  0.78f, 0.80f }, { Position::FC,  0.78f, 0.50f }, { Position::FL,  0.78f, 0.20f },
+    };
 
-    // Draw left penalty box (GK side)
-    float penaltyW = pitchW * 0.18f;
-    float penaltyH = pitchH * 0.6f;
-    float penaltyOffsetY = (pitchH - penaltyH) * 0.5f;
-    draw->AddRect(ImVec2(pitchPos.x, pitchPos.y + penaltyOffsetY),
-                  ImVec2(pitchPos.x + penaltyW, pitchPos.y + penaltyOffsetY + penaltyH),
-                  IM_COL32(255, 255, 255, 255), 0.0f, 0, 2.0f);
+    // Find max rating for graduation thresholds
+    int maxRating = 1;
+    for (const auto& kv : p->positionRatings)
+        if (kv.second > maxRating) maxRating = kv.second;
 
-    // Draw right penalty box (FC side)
-    draw->AddRect(ImVec2(pitchPos.x + pitchW - penaltyW, pitchPos.y + penaltyOffsetY),
-                  ImVec2(pitchPos.x + pitchW, pitchPos.y + penaltyOffsetY + penaltyH),
-                  IM_COL32(255, 255, 255, 255), 0.0f, 0, 2.0f);
+    const float dotR = 9.0f;
+    const float fontSize = ImGui::GetFontSize() * 0.75f;
 
-    // Draw player position indicator based on role (horizontal: GK left, FC right)
-    float playerX = centerX;
-    float playerY = centerY;
+    for (const auto& pl : layout) {
+        auto it = p->positionRatings.find(pl.pos);
+        if (it == p->positionRatings.end() || it->second <= 0) continue;
 
-    switch (p->role) {
-        case Role::GK:
-            playerX = pitchPos.x + pitchW * 0.08f;
-            break;
-        case Role::D:
-            playerX = pitchPos.x + pitchW * 0.25f;
-            break;
-        case Role::DM:
-            playerX = pitchPos.x + pitchW * 0.4f;
-            break;
-        case Role::M:
-            playerX = pitchPos.x + pitchW * 0.5f;
-            break;
-        case Role::AM:
-            playerX = pitchPos.x + pitchW * 0.65f;
-            break;
-        case Role::F:
-            playerX = pitchPos.x + pitchW * 0.92f;
-            break;
+        int rating = it->second;
+        float frac = static_cast<float>(rating) / static_cast<float>(maxRating);
+
+        // Grade thresholds (relative to player's own best)
+        ImU32 dotCol, borderCol;
+        const char* grade;
+        if (frac >= 0.90f) {
+            // Preferred – gold
+            dotCol    = IM_COL32(255, 210, 30,  255);
+            borderCol = IM_COL32(255, 255, 255, 255);
+            grade     = "P";
+        } else if (frac >= 0.70f) {
+            // Natural – bright green
+            dotCol    = IM_COL32(60,  220, 90,  255);
+            borderCol = IM_COL32(200, 255, 200, 255);
+            grade     = "N";
+        } else if (frac >= 0.45f) {
+            // Competent – blue
+            dotCol    = IM_COL32(80,  150, 230, 255);
+            borderCol = IM_COL32(180, 200, 255, 255);
+            grade     = "C";
+        } else {
+            // Unsuitable – dark grey
+            dotCol    = IM_COL32(100, 100, 100, 200);
+            borderCol = IM_COL32(160, 160, 160, 200);
+            grade     = "U";
+        }
+
+        float cx = pitchPos.x + pl.xf * pitchW;
+        float cy = pitchPos.y + pl.yf * pitchH;
+
+        draw->AddCircleFilled(ImVec2(cx, cy), dotR, dotCol);
+        draw->AddCircle(ImVec2(cx, cy), dotR, borderCol, 0, 1.5f);
+
+        // Position label above dot
+        std::string posLabel = PosName(pl.pos);
+        ImVec2 labelSz = ImGui::CalcTextSize(posLabel.c_str());
+        draw->AddText(ImGui::GetFont(), fontSize,
+                      ImVec2(cx - labelSz.x * 0.5f * (fontSize / ImGui::GetFontSize()),
+                             cy - dotR - fontSize - 1),
+                      IM_COL32(255, 255, 255, 230), posLabel.c_str());
+        // Rating below dot
+        char ratingStr[8];
+        std::snprintf(ratingStr, sizeof(ratingStr), "%d", rating);
+        ImVec2 rSz = ImGui::CalcTextSize(ratingStr);
+        draw->AddText(ImGui::GetFont(), fontSize,
+                      ImVec2(cx - rSz.x * 0.5f * (fontSize / ImGui::GetFontSize()),
+                             cy + dotR + 1),
+                      dotCol, ratingStr);
     }
 
-    // Draw player circle
-    draw->AddCircleFilled(ImVec2(playerX, playerY), 10.0f, IM_COL32(120, 160, 200, 255));
-    draw->AddCircle(ImVec2(playerX, playerY), 10.0f, IM_COL32(255, 255, 255, 255), 0, 2.0f);
-
     ImGui::Dummy(ImVec2(pitchW, pitchH));
+
+    ImGui::Spacing();
+
+    // ---- Legend ----
+    const struct { ImU32 col; const char* label; } legend[] = {
+        { IM_COL32(255, 210, 30,  255), "Preferred" },
+        { IM_COL32(60,  220, 90,  255), "Natural"   },
+        { IM_COL32(80,  150, 230, 255), "Competent" },
+        { IM_COL32(100, 100, 100, 200), "Unsuitable"},
+    };
+    for (const auto& lg : legend) {
+        ImVec2 cp = ImGui::GetCursorScreenPos();
+        draw->AddCircleFilled(ImVec2(cp.x + 7, cp.y + 7), 6.0f, lg.col);
+        ImGui::Dummy(ImVec2(16, 14));
+        ImGui::SameLine(0, 4);
+        ImGui::TextUnformatted(lg.label);
+        ImGui::SameLine(0, 16);
+    }
+    ImGui::NewLine();
 
     ImGui::EndChild();
 
