@@ -145,7 +145,7 @@ MatchResult MatchEngine::simulate(Team& home, Team& away, bool verbose,
 void MatchEngine::runHalf(int half) {
     half_ = half;
     // 45 minutes, 6 action rounds per minute.
-    for (int minute = 0; minute < 45; ++minute) {
+    for (int minute = 0; minute < 46; ++minute) {
         for (int round = 0; round < 6; ++round) {
             // First half: minutes 1-45, Second half: minutes 46-90
             clock_ = (half - 1) * 45.0 + minute + 1.0 + round / 6.0;
