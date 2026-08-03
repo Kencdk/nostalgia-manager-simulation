@@ -1145,6 +1145,9 @@ void App::renderMatch() {
 
     int hg = f ? f->hg : 0, ag = f ? f->ag : 0;
     int minute = f ? f->minute : 0;
+    // When halftime is paused, always show 45' on the scoreboard clock
+    if (halftimePause_ || (playIdx_ == halftimeIdx_ && halftimeIdx_ > 0))
+        minute = 45;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos);

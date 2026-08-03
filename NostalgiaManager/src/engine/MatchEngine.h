@@ -112,6 +112,7 @@ private:
     Cell ball_ = CentreSpot();  // Grid cell (for action logic)
     int carrierSide_ = 0;
     Player* carrier_ = nullptr;
+    Player* lastPasser_[2] = {nullptr, nullptr};  // last successful passer per side (for assists)
     bool aerial_ = false;
     int score_[2] = {0, 0};
     int shots_[2] = {0, 0};

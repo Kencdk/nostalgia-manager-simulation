@@ -60,6 +60,8 @@ void MatchEngine::setup(Team& home, Team& away) {
 }
 
 void MatchEngine::kickoff(int controllingSide) {
+    lastPasser_[0] = nullptr;
+    lastPasser_[1] = nullptr;
     // Reset everyone to defensive (home) positions, ball on centre spot.
     for (int s = 0; s < 2; ++s)
         for (Player* p : sidePlayers_[s]) {
@@ -145,7 +147,7 @@ MatchResult MatchEngine::simulate(Team& home, Team& away, bool verbose,
 void MatchEngine::runHalf(int half) {
     half_ = half;
     // 45 minutes, 6 action rounds per minute.
-    for (int minute = 0; minute < 46; ++minute) {
+    for (int minute = 0; minute < 45; ++minute) {
         for (int round = 0; round < 6; ++round) {
             // First half: minutes 1-45, Second half: minutes 46-90
             clock_ = (half - 1) * 45.0 + minute + 1.0 + round / 6.0;
@@ -508,6 +510,7 @@ void MatchEngine::resolveBallAction() {
                 }
                 logEvent(shirt(p) + (isLong ? " plays a long ball to " : " passes to ") +
                          shirt(*target));
+                lastPasser_[side] = &p;  // record assister candidate
                 aerial_ = isLong;  // long balls arrive in the air
 
                 // Check if defenders can deflect the aerial ball
@@ -792,8 +795,14 @@ void MatchEngine::onShot(Action a, double finalScore, double thr) {
                            : (header ? shirt(*shooter) + " heads home! "
                            : (powerfulStrike ? shirt(*shooter) + " with a superb strike! "
                            : shirt(*shooter) + " slots it in! "));
-        std::string line = std::string(goalIntros[idx]) + action +
+        // Append assist tag if a same-team passer preceded the goal
+        std::string assistTag;
+        if (lastPasser_[side] && lastPasser_[side] != shooter) {
+            assistTag = " (assist:" + shirt(*lastPasser_[side]) + ")";
+        }
+        std::string line = std::string(goalIntros[idx]) + action + assistTag +
                            "(" + std::to_string(score_[0]) + "-" + std::to_string(score_[1]) + ")";
+        lastPasser_[side] = nullptr;  // reset after goal
         logEvent(line, true);
         kickoff(defendingSide);
     }
@@ -1304,6 +1313,7 @@ void MatchEngine::giveBall(Player* p, int side) {
 }
 
 void MatchEngine::turnover(const std::string& reason) {
+    lastPasser_[carrierSide_] = nullptr;  // clear passer — possession changed
     (void)reason;  // reason is reflected in the preceding narrated event
     int oldSide = carrierSide_;
     int newSide = 1 - carrierSide_;
