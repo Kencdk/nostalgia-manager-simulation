@@ -44,7 +44,7 @@ class MatchDayScreen;
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, MatchDay, Data, About, PlayerDetail, TeamOverview };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, MatchDay, Data, About, PlayerDetail, TeamOverview, CareerFixtures };
 
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
@@ -72,6 +72,7 @@ public:
     friend class TeamOverviewScreen;
     friend class CareerModeBaseScreen;
     friend class MatchDayScreen;
+    friend class CareerFixturesScreen;
 
 private:
 
@@ -121,6 +122,7 @@ private:
     void renderCareerSetup();
     void renderCareerModeBase();
     void renderMatchDay();
+    void renderCareerFixtures();
     void renderData();
     void renderAbout();
     void renderPlayerDetail();
@@ -211,7 +213,15 @@ private:
     char careerFilter_[64] = "";
     char managerName_[128] = "";  // Manager's name for career mode
     std::string careerLeagueName_;
+    std::string careerNation_;                          // nation of managed team
+    std::vector<XmlCompetition> careerCompetitions_;    // all competitions for country
+
+    struct RoundDate { int year = 0, month = 0, day = 0; };
+    std::vector<RoundDate> careerRoundDates_;           // computed date per round
+
+    struct FixtureResult { bool played = false; int hg = 0, ag = 0; };
     std::vector<std::pair<int, int>> fixtures_;  // flattened home,away pairs
+    std::vector<FixtureResult> fixtureResults_;  // parallel results per fixture
     std::vector<size_t> roundStart_;             // index into fixtures_ per round
     int careerRound_ = 0;
     std::unordered_map<int, Standing> table_;

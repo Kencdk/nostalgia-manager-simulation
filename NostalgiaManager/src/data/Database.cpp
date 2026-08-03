@@ -663,6 +663,9 @@ bool Database::load(const std::string& dataDir) {
     // Load tactic templates (optional)
     loadTactics(dataDir + "/Tactics.csv");
 
+    // Load country competition rules from XML files (optional)
+    xmlRules.load(dataDir + "/Competetions");
+
     // Re-select XI for all teams using Tactics.csv positions now that templates are loaded
     for (auto& t : teams) {
         const TacticTemplate* tmpl = findTactic(t.formation);
@@ -707,6 +710,14 @@ std::vector<Team*> Database::teamsInLeague(const std::string& league) {
     std::vector<Team*> out;
     for (auto& t : teams)
         if (t.league == league) out.push_back(&t);
+    return out;
+}
+
+std::vector<Team*> Database::teamsInNationLeague(const std::string& nation,
+                                                  const std::string& league) {
+    std::vector<Team*> out;
+    for (auto& t : teams)
+        if (t.nation == nation && t.league == league) out.push_back(&t);
     return out;
 }
 

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FootballCountryDatabase version="1.0">
+  <Metadata>
+    <Country>Denmark</Country>
+    <Association>DBU</Association>
+    <SupportsHistoricalRules>true</SupportsHistoricalRules>
+  </Metadata>
+  <HistoricalRuleTimeline>
+    <Rule id="THREE_POINTS_WIN"><Status>AssumedInternationalFootballTimeline</Status><Period from="1889" to="1980"><PointsForWin>2</PointsForWin></Period><Period from="1981" to="9999"><PointsForWin>3</PointsForWin></Period></Rule>
+    <Rule id="SUBSTITUTIONS"><Status>UnverifiedCountrySpecificTimeline</Status><UsesInternationalLaws>true</UsesInternationalLaws><Period from="1965" to="1986"><MaximumSubs>1</MaximumSubs><Verified>false</Verified></Period><Period from="1987" to="1993"><MaximumSubs>2</MaximumSubs><Verified>false</Verified></Period><Period from="1994" to="2019"><MaximumSubs>3</MaximumSubs><Verified>false</Verified></Period><Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs><Verified>false</Verified></Period></Rule>
+    <Rule id="BENCH_SIZE"><Status>UnverifiedCountrySpecificTimeline</Status><UsesInternationalLaws>true</UsesInternationalLaws><Period from="1987" to="2008"><NamedSubstitutes>5</NamedSubstitutes><Verified>false</Verified></Period><Period from="2009" to="2020"><NamedSubstitutes>7</NamedSubstitutes><Verified>false</Verified></Period><Period from="2021" to="9999"><NamedSubstitutes>9</NamedSubstitutes><Verified>false</Verified></Period></Rule>
+    <Rule id="TRANSFER_WINDOWS"><Period from="1889" to="2001"><Enabled>false</Enabled></Period><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
+    <Rule id="VAR"><Period from="1889" to="2019"><Enabled>false</Enabled></Period><Period from="2020" to="9999"><Enabled>true</Enabled></Period></Rule>
+  </HistoricalRuleTimeline>
+  <CalendarRules><SeasonStartMonth>July</SeasonStartMonth><SeasonEndMonth>May</SeasonEndMonth><WinterBreak><Enabled>true</Enabled></WinterBreak><SpecialFixtureRules><Rule id="BOXING_DAY"><Enabled>false</Enabled></Rule><Rule id="NEW_YEAR"><Enabled>false</Enabled></Rule><Rule id="ASCENSION_DAY_CUP_FINAL"><Enabled>true</Enabled></Rule></SpecialFixtureRules></CalendarRules>
+  <LeagueStructure>
+    <League id="L1"><Name>Superliga</Name><Tier>1</Tier></League>
+    <League id="L2"><Name>1st Division</Name><Tier>2</Tier></League>
+    <League id="L3"><Name>2nd Division</Name><Tier>3</Tier></League>
+    <League id="L4"><Name>3rd Division</Name><Tier>4</Tier></League>
+  </LeagueStructure>
+  <CupCompetitions>
+    <Cup id="DBU_POKALEN"><Name>DBU Pokalen</Name><Founded>1954</Founded><CompetitionStartYear>1955</CompetitionStartYear><SemiFinalLegs>2</SemiFinalLegs><FinalLegs>1</FinalLegs><TraditionalDate>AscensionDay</TraditionalDate></Cup>
+    <Cup id="DANISH_SUPER_CUP"><Period from="1994" to="2004"><Legs>1</Legs></Period></Cup>
+  </CupCompetitions>
+</FootballCountryDatabase>

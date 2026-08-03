@@ -15,6 +15,7 @@
 #include "TeamOverview.h"
 #include "CareerModeBase.h"
 #include "MatchDay.h"
+#include "CareerFixtures.h"
 #include "Tactics.h"
 
 namespace nm {
@@ -601,6 +602,7 @@ void App::render() {
         case Screen::About: renderAbout(); break;
         case Screen::PlayerDetail: renderPlayerDetail(); break;
         case Screen::TeamOverview: renderTeamOverview(); break;
+        case Screen::CareerFixtures: renderCareerFixtures(); break;
     }
 }
 
@@ -1510,6 +1512,7 @@ void App::renderMatch() {
                 Team* home = matchHomeTeam_;
                 Team* away = matchAwayTeam_;
                 if (home && away) {
+                    fixtureResults_[careerPlayerMatchIdx_] = {true, finalHG_, finalAG_};
                     Standing& sh = table_[home->id];
                     Standing& sa = table_[away->id];
                     sh.p++; sa.p++;
@@ -1935,13 +1938,15 @@ void App::careerStart(int teamId) {
     Team* t = teamById(teamId);
     if (!t) return;
     careerTeam_ = teamId;
-    careerLeagueName_ = t->league;
+    careerNation_ = t->nation;
     careerActive_ = true;
     careerRound_ = 0;
     table_.clear();
     careerLog_.clear();
     fixtures_.clear();
+    fixtureResults_.clear();
     roundStart_.clear();
+    careerCompetitions_.clear();
 
     // Initialize calendar (start of season: August 1997)
     currentYear_ = 1997;
@@ -1950,7 +1955,27 @@ void App::careerStart(int teamId) {
     calendarViewYear_ = currentYear_;
     calendarViewMonth_ = currentMonth_;
 
-    std::vector<Team*> teams = db_.teamsInLeague(careerLeagueName_);
+    // --- Resolve competition rules from XML files ---
+    // Teams are always filtered by nation first to avoid cross-country
+    // collisions (e.g. both England and Scotland have "Premier League").
+    // We never rename team.league globally.
+    const CountryRules* rules = db_.xmlRules.findCountry(t->nation);
+    if (rules && !rules->competitions.empty()) {
+        careerCompetitions_ = rules->competitions;
+        const XmlCompetition* top = rules->topFlight();
+        careerLeagueName_ = (top && !top->name.empty()) ? top->name : t->league;
+    } else {
+        careerLeagueName_ = t->league;
+        XmlCompetition dummy;
+        dummy.name = careerLeagueName_;
+        dummy.tier = 1;
+        dummy.type = "League";
+        careerCompetitions_.push_back(dummy);
+    }
+
+    // Always filter by nation + league so Scottish/other-nation teams with
+    // an identical league string are excluded.
+    std::vector<Team*> teams = db_.teamsInNationLeague(t->nation, t->league);
     std::vector<int> ids;
     for (Team* tm : teams)
         if (tm->squad.size() >= 7) ids.push_back(tm->id);
@@ -1965,30 +1990,106 @@ void App::careerStart(int teamId) {
         status_ = "Not enough playable teams in " + careerLeagueName_;
         return;
     }
+    // Determine schedule type from XML: 1 = single round-robin, 2 = home+away.
+    int matchesPerOpponent = 1;
+    if (rules) {
+        const XmlCompetition* top = rules->topFlight();
+        if (top) matchesPerOpponent = top->matchesPerOpponent;
+    }
+
     // Round-robin (circle method). Add a bye if odd.
     bool bye = ids.size() % 2 != 0;
     if (bye) ids.push_back(-1);
     int n = static_cast<int>(ids.size());
-    int rounds = n - 1;
-    std::vector<int> arr = ids;
-    for (int r = 0; r < rounds; ++r) {
-        roundStart_.push_back(fixtures_.size());
-        for (int i = 0; i < n / 2; ++i) {
-            int a = arr[i];
-            int b = arr[n - 1 - i];
-            if (a != -1 && b != -1) {
-                if (r % 2 == 0)
-                    fixtures_.emplace_back(a, b);
-                else
-                    fixtures_.emplace_back(b, a);
+    int singleRounds = n - 1;
+
+    // Build first leg (or single leg)
+    auto buildLeg = [&](bool reversed) {
+        std::vector<int> arr = ids;
+        for (int r = 0; r < singleRounds; ++r) {
+            roundStart_.push_back(fixtures_.size());
+            for (int i = 0; i < n / 2; ++i) {
+                int a = arr[i];
+                int b = arr[n - 1 - i];
+                if (a != -1 && b != -1) {
+                    bool homeFirst = (!reversed) ? (r % 2 == 0) : (r % 2 != 0);
+                    if (homeFirst)
+                        fixtures_.emplace_back(a, b);
+                    else
+                        fixtures_.emplace_back(b, a);
+                }
+            }
+            int last = arr[n - 1];
+            for (int i = n - 1; i > 1; --i) arr[i] = arr[i - 1];
+            arr[1] = last;
+        }
+    };
+
+    buildLeg(false);
+    if (matchesPerOpponent >= 2)
+        buildLeg(true);  // second leg: venues swapped
+
+    roundStart_.push_back(fixtures_.size());
+    fixtureResults_.resize(fixtures_.size());
+
+    // --- Compute a real calendar date for each round ---
+    // Days-in-month helper (ignores leap year for simplicity).
+    auto daysInMonth = [](int m) -> int {
+        static const int d[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+        return (m >= 1 && m <= 12) ? d[m] : 30;
+    };
+    // Advance a date by `days` days.
+    auto advDate = [&](int& y, int& mo, int& dy, int days) {
+        dy += days;
+        while (dy > daysInMonth(mo)) { dy -= daysInMonth(mo); mo++; if (mo > 12) { mo = 1; y++; } }
+    };
+
+    // Gather special rules from XML if available.
+    const SpecialFixtureRule* boxingDay = nullptr;
+    const SpecialFixtureRule* newYear   = nullptr;
+    if (rules) {
+        boxingDay = rules->findSpecial("BOXING_DAY");
+        newYear   = rules->findSpecial("NEW_YEAR");
+    }
+
+    // Walk round by round, each 7 days apart, snapping to special dates.
+    careerRoundDates_.clear();
+    int ry = currentYear_, rm = currentMonth_, rd = currentDay_;
+    int totalRounds = static_cast<int>(roundStart_.size()) - 1;
+    for (int r = 0; r < totalRounds; ++r) {
+        // Snap: if we land inside the NEW_YEAR blackout, push past it.
+        if (newYear) {
+            // NEW_YEAR window: startMonth/startDay ? endMonth/endDay (may wrap Jan).
+            auto inRange = [&](int m, int d) -> bool {
+                int sm = newYear->startMonth, sd = newYear->startDay;
+                int em = newYear->endMonth,   ed = newYear->endDay;
+                // Encode as day-of-year offset for comparison (approximate).
+                int cur   = m * 100 + d;
+                int start = sm * 100 + sd;
+                int end   = em * 100 + ed;
+                if (start <= end) return cur >= start && cur <= end;
+                // Wraps year boundary (e.g. Dec 30 ? Jan 3)
+                return cur >= start || cur <= end;
+            };
+            int safety = 0;
+            while (inRange(rm, rd) && safety++ < 14)
+                advDate(ry, rm, rd, 1);
+        }
+
+        // Snap: if we land on Boxing Day (and rule is enabled), use that date.
+        if (boxingDay && rm == 12) {
+            // If this round would fall within a day of Boxing Day, snap to it.
+            int bd = boxingDay->day;   // 26
+            int bm = boxingDay->month; // 12
+            if (rm == bm && std::abs(rd - bd) <= 3) {
+                rd = bd; rm = bm;
             }
         }
-        // rotate (keep first fixed)
-        int last = arr[n - 1];
-        for (int i = n - 1; i > 1; --i) arr[i] = arr[i - 1];
-        arr[1] = last;
+
+        careerRoundDates_.push_back({ry, rm, rd});
+        advDate(ry, rm, rd, 7);
     }
-    roundStart_.push_back(fixtures_.size());
+
     screen_ = Screen::Career;
 }
 
@@ -2003,6 +2104,7 @@ void App::careerAdvance() {
         if (!h || !a) continue;
         MatchEngine engine(cfg_, 5000u + static_cast<unsigned>(i) + careerRound_ * 131u);
         MatchResult r = engine.simulate(*h, *a);
+        fixtureResults_[i] = {true, r.homeGoals, r.awayGoals};
         Standing& sh = table_[h->id];
         Standing& sa = table_[a->id];
         sh.p++; sa.p++;
@@ -2019,6 +2121,15 @@ void App::careerAdvance() {
         }
     }
     careerRound_++;
+    // Advance the current date to this round's date.
+    if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
+        const auto& rd = careerRoundDates_[careerRound_];
+        currentYear_  = rd.year;
+        currentMonth_ = rd.month;
+        currentDay_   = rd.day;
+        calendarViewYear_  = currentYear_;
+        calendarViewMonth_ = currentMonth_;
+    }
 }
 
 void App::careerAdvanceToPlayerMatch() {
@@ -2078,6 +2189,7 @@ void App::careerFinishRound() {
         // Simulate this match
         MatchEngine engine(cfg_, 5000u + static_cast<unsigned>(i) + careerRound_ * 131u);
         MatchResult r = engine.simulate(*h, *a);
+        fixtureResults_[i] = {true, r.homeGoals, r.awayGoals};
         Standing& sh = table_[h->id];
         Standing& sa = table_[a->id];
         sh.p++; sa.p++;
@@ -2098,6 +2210,14 @@ void App::careerFinishRound() {
 
     careerRound_++;
     careerMatchPending_ = false;
+    if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
+        const auto& rd = careerRoundDates_[careerRound_];
+        currentYear_  = rd.year;
+        currentMonth_ = rd.month;
+        currentDay_   = rd.day;
+        calendarViewYear_  = currentYear_;
+        calendarViewMonth_ = currentMonth_;
+    }
     screen_ = Screen::CareerModeBase;
 }
 
@@ -2227,6 +2347,10 @@ void App::renderCareerSetup() {
 
 void App::renderCareerModeBase() {
     CareerModeBaseScreen::render(this);
+}
+
+void App::renderCareerFixtures() {
+    CareerFixturesScreen::render(this);
 }
 
 void App::renderMatchDay() {

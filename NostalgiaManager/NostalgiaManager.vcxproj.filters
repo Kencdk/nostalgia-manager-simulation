@@ -73,6 +73,7 @@
     <ClCompile Include="src\resources\PlayerDetailBg.cpp" />
     <ClCompile Include="src\ui\CareerModeBase.cpp" />
     <ClCompile Include="src\ui\MatchDay.cpp" />
+    <ClCompile Include="src\data\XmlRules.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Attributes.h">
@@ -117,6 +118,7 @@
     <ClInclude Include="src\ui\TeamOverview.h" />
     <ClInclude Include="src\ui\CareerModeBase.h" />
     <ClInclude Include="src\ui\MatchDay.h" />
+    <ClInclude Include="src\data\XmlRules.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\DATABASE_SETUP.md" />

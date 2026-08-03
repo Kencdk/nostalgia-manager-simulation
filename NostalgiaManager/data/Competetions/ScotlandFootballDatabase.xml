@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FootballCountryDatabase version="1.0">
+  <Metadata>
+    <Country>Scotland</Country>
+    <Association>Scottish FA</Association>
+    <SupportsHistoricalRules>true</SupportsHistoricalRules>
+  </Metadata>
+  <HistoricalRuleTimeline>
+    <Rule id="SUBSTITUTIONS">
+      <Status>PartiallyVerified</Status>
+      <Period from="1890" to="2019"><Verified>false</Verified></Period>
+      <Period from="2020" to="2020"><MaximumSubs>5</MaximumSubs><NamedSubstitutes>9</NamedSubstitutes><Verified>true</Verified></Period>
+      <Period from="2022" to="9999"><MaximumSubs>5</MaximumSubs><NamedSubstitutes>9</NamedSubstitutes><Verified>true</Verified></Period>
+    </Rule>
+    <Rule id="TRANSFER_WINDOWS"><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
+  </HistoricalRuleTimeline>
+  <CalendarRules>
+    <SeasonStartMonth>August</SeasonStartMonth>
+    <SeasonEndMonth>May</SeasonEndMonth>
+  </CalendarRules>
+  <LeagueStructure>
+    <League id="L1"><Name>Scottish Premiership</Name><Tier>1</Tier><Teams>12</Teams></League>
+    <League id="L2"><Name>Scottish Championship</Name><Tier>2</Tier></League>
+    <League id="L3"><Name>Scottish League One</Name><Tier>3</Tier></League>
+    <League id="L4"><Name>Scottish League Two</Name><Tier>4</Tier></League>
+  </LeagueStructure>
+  <PromotionRelegationRules>
+    <Status>PartiallyVerified</Status>
+    <ScottishPremiership><RelegationTo>Scottish Championship</RelegationTo></ScottishPremiership>
+    <ScottishChampionship><PromotionTo>Scottish Premiership</PromotionTo></ScottishChampionship>
+  </PromotionRelegationRules>
+  <CupCompetitions>
+    <Cup id="SCOTTISH_CUP"><Name>Scottish Cup</Name></Cup>
+    <Cup id="SCOTTISH_LEAGUE_CUP"><Founded>1946</Founded><GroupStage>true</GroupStage></Cup>
+    <Cup id="SCOTTISH_CHALLENGE_CUP"><Founded>1990</Founded><Legs>1</Legs></Cup>
+  </CupCompetitions>
+  <DataQuality>
+    <VerifiedSections>
+      <Item>12-team Premiership split era</Item>
+      <Item>League Cup modern format</Item>
+      <Item>Challenge Cup founded 1990</Item>
+      <Item>2020 and 2022 substitution milestones</Item>
+    </VerifiedSections>
+  </DataQuality>
+</FootballCountryDatabase>

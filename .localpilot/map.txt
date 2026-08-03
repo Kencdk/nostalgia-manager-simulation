@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-01T22:07:41.7008816+02:00
+# Generated: 2026-08-03T21:04:17.4658495+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 90 relevant source files
+  Scale: 98 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -17,6 +17,8 @@ Architecture:
   Preview: "# Championship Manager Position Format - Visual Examples ## Player Detail Screen ### Before ``` ??????????????????????????????????????????????????? ? ..."
 - File: CM_POSITION_FORMAT.md
   Preview: "# Championship Manager Position Format ## Overview Players' positions are now displayed in Championship Manager style, showing their versatility in a ..."
+- File: COMPETITION_DATABASE_INTEGRATION.md
+  Preview: "# Competition Database Integration ## Overview The Competitions.csv database has been successfully integrated into the Nostalgia Manager system. This ..."
 - File: PLAYER_DETAIL_IMPROVEMENTS.md
   Preview: "# Player Detail Screen Improvements ## Overview The player detail screen has been significantly enhanced to provide more comprehensive player informat..."
 - File: POSITION_MAPPING_FIX.md
@@ -38,12 +40,10 @@ Architecture:
 - File: test_cm_format.cpp
   Preview: "#include <iostream> #include <vector> #include <string> #include 'NostalgiaManager/src/core/Player.h' #include 'NostalgiaManager/src/ui/UIHelpers.h' /..."
 - File: Models\Player.cs
-  Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
 - File: NostalgiaManager\resource.h
   Preview: "//{{NO_DEPENDENCIES}} // Microsoft Visual C++ generated include file. // Used by NostalgiaManager.rc // Next default values for new objects // #ifdef ..."
 - File: tools\embed_image.py
-  Symbols: [embed_image]
   Preview: "#!/usr/bin/env python3 ''' Convert an image file to a C++ byte array for embedding. Usage: python embed_image.py input.png output.cpp ''' import sys i..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
@@ -53,12 +53,16 @@ Architecture:
   Preview: "# Best Position Display from PlayersDB.CSV ## Changes Implemented ? The system now reads and displays the **best position** from column 12 (index 11) ..."
 - File: NostalgiaManager\data\DATABASE_SETUP.md
   Preview: "# Database Configuration ## Your Custom Databases Are Now Active! ? The game is configured to use your custom CSV databases: ### Current Configuration..."
+- File: NostalgiaManager\data\fix_kit_colors.ps1
+  Preview: "# Correct kit colours: shirt and shorts must never be the same colour. # Format: Club = @(HomeShirt, HomeShorts, AwayShirt, AwayShorts) $kitColors = @..."
 - File: NostalgiaManager\data\HALFTIME_SWITCH_IMPLEMENTATION.md
   Preview: "# Half-Time Team Switching Implementation ## ? Teams Now Switch Ends at Half-Time The match engine now properly swaps team ends at half-time, just lik..."
 - File: NostalgiaManager\data\PLAYER_DATA_SOURCE_VERIFICATION.md
   Preview: "# Player Data Source Verification ## ? All Player Data Uses PlayersDB.CSV Database I've verified that **all player data throughout the application is ..."
 - File: NostalgiaManager\data\SCREENSHOTS_QUICKSTART.md
   Preview: "# Background Images - Quick Start ## What This Feature Does Displays full-screen auto-cycling background images behind **all screens** in the applicat..."
+- File: NostalgiaManager\data\set_kit_colors.ps1
+  Preview: "$kitColors = @{} $kitColors['Man Utd']     = @('Red','White','White','Black') $kitColors['Liverpool']    = @('Red','Red','White','White') $kitColors['..."
 - File: NostalgiaManager\data\TEAM_COLORS.md
   Preview: "# Team Colors Feature Guide ## Overview Teams now display their official colors during matches. Colors are loaded from the `TeamsDB.csv` file and are ..."
 - File: NostalgiaManager\data\TEAM_COLORS_EXAMPLES.md
@@ -95,6 +99,12 @@ Architecture:
   Preview: "The MIT License (MIT) Copyright (c) 2014-2024 Omar Cornut Permission is hereby granted, free of charge, to any person obtaining a copy of this softwar..."
 - File: third_party\stb\stb_image.h
   Preview: "/* stb_image - v2.30 - public domain image loader - http://nothings.org/stb                  no warranty implied; use at your own risk   Do this:    #..."
+- File: NostalgiaManager\data\Competetions\Deafult.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <EnglandFootballDatabase version='2.0'>  <Metadata>   <Country>England</Country>   <SupportsHistoricalRules>tru..."
+- File: NostalgiaManager\data\Competetions\Denmark.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <DenmarkFootballDatabase version='1.0'>  <Metadata>   <Country>Denmark</Country>   <Association>DBU</Associatio..."
+- File: NostalgiaManager\data\Competetions\England.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <EnglandFootballDatabase version='2.0'>  <Metadata>   <Country>England</Country>   <SupportsHistoricalRules>tru..."
 - File: NostalgiaManager\src\core\Attributes.h
   Preview: "#pragma once #include <array> #include <string> #include <unordered_map> namespace nm { // The canonical list of player attributes (1-20 scale) used b..."
 - File: NostalgiaManager\src\core\Formation.h
@@ -106,15 +116,19 @@ Architecture:
 - File: NostalgiaManager\src\core\TacticalSettings.h
   Preview: "#pragma once #include <string> #include <vector> namespace nm { // Forward run instructions (how far players advance) enum class ForwardRun {   None, ..."
 - File: NostalgiaManager\src\core\Team.cpp
-  Preview: "#include 'Team.h' #include <algorithm> #include <cctype> #include <unordered_set> #include <vector> namespace nm { // Returns the specific positions f..."
+  Preview: "#include 'Team.h' #include <algorithm> #include <cctype> #include <unordered_set> #include <vector> namespace nm { // Normalise a formation string so ..."
 - File: NostalgiaManager\src\core\Team.h
   Preview: "#pragma once #include <string> #include <vector> #include 'Player.h' #include 'TacticalSettings.h' namespace nm { enum class Mentality { Defensive, St..."
 - File: NostalgiaManager\src\data\Csv.h
   Preview: "#pragma once #include <fstream> #include <sstream> #include <string> #include <vector> namespace nm { // Minimal CSV reader. Handles quoted fields and..."
 - File: NostalgiaManager\src\data\Database.cpp
-  Preview: "#include 'Database.h' #include <algorithm> #include <cctype> #include <cmath> #include <fstream> #include <unordered_map> #include 'Csv.h' namespace n..."
+  Preview: "#include 'Database.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstdio> #include <fstream> #include <set> #include <unordered_..."
 - File: NostalgiaManager\src\data\Database.h
-  Preview: "#pragma once #include <string> #include <vector> #include <map> #include '../core/Team.h' namespace nm { // Competition configuration for leagues and ..."
+  Preview: "#pragma once #include <string> #include <unordered_map> #include <vector> #include <map> #include '../core/Team.h' #include 'XmlRules.h' namespace nm ..."
+- File: NostalgiaManager\src\data\XmlRules.cpp
+  Preview: "#include 'XmlRules.h' #include <algorithm> #include <cctype> #include <filesystem> #include <fstream> #include <sstream> namespace nm { // -----------..."
+- File: NostalgiaManager\src\data\XmlRules.h
+  Preview: "#pragma once #include <map> #include <string> #include <vector> namespace nm { // Describes one competition defined inside a country XML file. struct ..."
 - File: NostalgiaManager\src\engine\Config.cpp
   Preview: "#include 'Config.h' #include <algorithm> #include <fstream> #include <sstream> #include <utility> #include <vector> namespace nm { void Config::loadDe..."
 - File: NostalgiaManager\src\engine\Config.h
@@ -156,7 +170,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\PlayerDetail.h
   Preview: "#pragma once #include 'App.h' namespace nm { class PlayerDetailScreen { public:   static void render(App* app);   static void openPlayerDetail(App* ap..."
 - File: NostalgiaManager\src\ui\Tactics.cpp
-  Preview: "#include 'Tactics.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void TacticsScreen::openTactics(App* app, Team* team, App::Screen retu..."
+  Preview: "#include 'Tactics.h' #include 'UIHelpers.h' #include <algorithm> #include <set> namespace nm { void TacticsScreen::openTactics(App* app, Team* team, A..."
 - File: NostalgiaManager\src\ui\Tactics.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TacticsScreen { public:   static void render(App* app);   static void openTactics(App* app, Team* t..."
 - File: NostalgiaManager\src\ui\TeamOverview.cpp

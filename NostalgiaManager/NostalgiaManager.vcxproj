@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -74,6 +74,7 @@
   <ItemGroup>
     <ClCompile Include="src\core\Team.cpp" />
     <ClCompile Include="src\data\Database.cpp" />
+    <ClCompile Include="src\data\XmlRules.cpp" />
     <ClCompile Include="src\engine\Config.cpp" />
     <ClCompile Include="src\engine\MatchEngine.cpp" />
     <ClCompile Include="src\ui\App.cpp" />
@@ -84,6 +85,7 @@
     <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="..\third_party\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="src\ui\CareerFixtures.cpp" />
     <ClCompile Include="src\ui\CareerModeBase.cpp" />
     <ClCompile Include="src\ui\MatchDay.cpp" />
     <ClCompile Include="src\ui\Tactics.cpp" />
@@ -101,9 +103,11 @@
     <ClInclude Include="src\core\Formation.h" />
     <ClInclude Include="src\data\Csv.h" />
     <ClInclude Include="src\data\Database.h" />
+    <ClInclude Include="src\data\XmlRules.h" />
     <ClInclude Include="src\engine\Rng.h" />
     <ClInclude Include="src\engine\Config.h" />
     <ClInclude Include="src\engine\MatchEngine.h" />
+    <ClInclude Include="src\ui\CareerFixtures.h" />
     <ClInclude Include="src\ui\CareerModeBase.h" />
     <ClInclude Include="src\ui\Console.h" />
     <ClInclude Include="src\ui\Game.h" />

@@ -5,6 +5,7 @@
 #include <map>
 
 #include "../core/Team.h"
+#include "XmlRules.h"
 
 namespace nm {
 
@@ -78,6 +79,7 @@ public:
     std::vector<Team> teams;
     std::map<std::string, Competition> competitions;  // League name -> Competition config
     std::map<std::string, TacticTemplate> tactics;    // Formation name -> TacticTemplate
+    XmlRulesLoader xmlRules;                          // Country competition rules from XML files
 
     // Loads using paths from data/datasources.cfg if present, else the bundled
     // TeamsDB.csv / PlayersDB.csv inside dataDir.
@@ -98,6 +100,7 @@ public:
     const TacticTemplate* findTactic(const std::string& formation) const;
     std::vector<std::string> leagues() const;
     std::vector<Team*> teamsInLeague(const std::string& league);
+    std::vector<Team*> teamsInNationLeague(const std::string& nation, const std::string& league);
 
     // Used by the "Edit database" screen.
     void searchPlayers(const std::string& query,

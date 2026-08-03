@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FootballCountryDatabase version="1.0">
+  <Metadata><Country>Netherlands</Country><Association>KNVB</Association><SupportsHistoricalRules>true</SupportsHistoricalRules></Metadata>
+  <HistoricalRuleTimeline>
+    <Rule id="THREE_POINTS_WIN"><Status>AssumedInternationalFootballTimeline</Status></Rule>
+    <Rule id="SUBSTITUTIONS"><Status>PartiallyVerified</Status><Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs><Verified>true</Verified></Period></Rule>
+    <Rule id="BENCH_SIZE"><Status>UnverifiedCountrySpecificTimeline</Status></Rule>
+    <Rule id="TRANSFER_WINDOWS"><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
+  </HistoricalRuleTimeline>
+  <CalendarRules><SeasonStartMonth>August</SeasonStartMonth><SeasonEndMonth>May</SeasonEndMonth><WinterBreak><Enabled>true</Enabled></WinterBreak></CalendarRules>
+  <LeagueStructure>
+    <League id="L1"><Name>Eredivisie</Name><Tier>1</Tier><Teams>18</Teams></League>
+    <League id="L2"><Name>Eerste Divisie</Name><Tier>2</Tier></League>
+  </LeagueStructure>
+  <PromotionRelegationRules>
+    <Eredivisie><AutomaticRelegation>2</AutomaticRelegation><PlayoffPosition>16</PlayoffPosition></Eredivisie>
+    <EersteDivisie><AutomaticPromotion>2</AutomaticPromotion><PlayoffParticipants>6</PlayoffParticipants></EersteDivisie>
+  </PromotionRelegationRules>
+  <CupCompetitions>
+    <Cup id="KNVB_CUP"><Name>KNVB Cup</Name><Type>Knockout</Type></Cup>
+    <Cup id="JOHAN_CRUYFF_SHIELD"><Teams>2</Teams><Legs>1</Legs></Cup>
+  </CupCompetitions>
+</FootballCountryDatabase>

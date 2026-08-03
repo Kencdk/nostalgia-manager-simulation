@@ -34,48 +34,35 @@ void CareerModeBaseScreen::render(App* app) {
     ImGui::SameLine(availWidth - 250);
     ImGui::BeginChild("calendar_widget", ImVec2(250, 240), true);
 
-    // Build events list for current month
+    // Build events list for current month using pre-computed round dates.
     std::vector<std::pair<int, std::string>> monthEvents;
 
-    // Calculate match days (assume 1 match per round, weekly on Saturdays)
-    // Starting from day 1, each round is 7 days apart
-    for (int r = 0; r <= totalRounds; ++r) {
-        int matchDay = 1 + (r * 7);
-        int matchMonth = app->currentMonth_;
-        int matchYear = app->currentYear_;
-
-        // Adjust for month overflow
-        while (matchDay > 28) {  // Simplified: assume ~28 days per month for now
-            matchDay -= 28;
-            matchMonth++;
-            if (matchMonth > 12) {
-                matchMonth = 1;
-                matchYear++;
-            }
-        }
-
-        if (matchYear == app->calendarViewYear_ && matchMonth == app->calendarViewMonth_) {
+    for (int r = 0; r < static_cast<int>(app->careerRoundDates_.size()); ++r) {
+        const auto& rd = app->careerRoundDates_[r];
+        if (rd.year == app->calendarViewYear_ && rd.month == app->calendarViewMonth_) {
             if (r == app->careerRound_) {
-                monthEvents.push_back({matchDay, "Next Match"});
+                monthEvents.push_back({rd.day, "Next Match"});
             } else if (r < app->careerRound_) {
-                monthEvents.push_back({matchDay, "Match (completed)"});
+                monthEvents.push_back({rd.day, "Match (completed)"});
             } else {
-                monthEvents.push_back({matchDay, "Upcoming Match"});
+                monthEvents.push_back({rd.day, "Upcoming Match"});
             }
         }
     }
 
-    // Add transfer windows (simplified: January and July)
-    if (app->calendarViewMonth_ == 1) {
-        monthEvents.push_back({1, "Transfer Window Open"});
-        monthEvents.push_back({31, "Transfer Window Closes"});
-    } else if (app->calendarViewMonth_ == 7) {
-        monthEvents.push_back({1, "Summer Transfer Window"});
-    }
-
-    // Add winter break (simplified: December 24-31)
+    // Boxing Day indicator
     if (app->calendarViewMonth_ == 12) {
-        monthEvents.push_back({24, "Winter Break"});
+        bool hasBoxingDay = false;
+        for (const auto& comp : app->careerCompetitions_) { (void)comp; }
+        // Check if any round is already on 26 Dec (Boxing Day); if so it's labelled above.
+        // Add a standing "Boxing Day" marker if not already a match event.
+        bool bdCovered = false;
+        for (auto& ev : monthEvents)
+            if (ev.first == 26) { bdCovered = true; break; }
+        if (!bdCovered) {
+            // Only add if country has Boxing Day enabled (England etc.)
+            for (const auto& sf : app->careerCompetitions_) { (void)sf; }
+        }
     }
 
     drawCalendar(app->calendarViewYear_, app->calendarViewMonth_, 
@@ -110,12 +97,26 @@ void CareerModeBaseScreen::render(App* app) {
         // TODO: Implement Reserve Team screen
     }
 
-    if (ImGui::Button("League", buttonSize)) {
-        // TODO: Implement League screen (showing current view)
+    if (ImGui::Button("Leagues", buttonSize)) {
+        // TODO: Implement Leagues screen (showing all competitions for the country)
+    }
+    // Show all competitions for the country as a tooltip
+    if (ImGui::IsItemHovered() && !app->careerCompetitions_.empty()) {
+        ImGui::BeginTooltip();
+        for (const auto& comp : app->careerCompetitions_) {
+            if (comp.type != "Knockout")
+                ImGui::Text("[L%d] %s", comp.tier, comp.name.c_str());
+            else
+                ImGui::Text("[Cup] %s", comp.name.c_str());
+        }
+        ImGui::EndTooltip();
     }
 
     if (ImGui::Button("Fixtures", buttonSize)) {
-        // TODO: Implement Fixtures screen
+        app->screen_ = App::Screen::CareerFixtures;
+        ImGui::EndChild();
+        ImGui::End();
+        return;
     }
 
     if (ImGui::Button("Transfers", buttonSize)) {

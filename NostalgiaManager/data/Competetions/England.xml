@@ -1,34 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<EnglandFootballDatabase version="1.0">
-  <Metadata><Country>England</Country><SupportsHistoricalRules>true</SupportsHistoricalRules></Metadata>
+<FootballCountryDatabase version="1.0">
+  <Metadata>
+    <Country>England</Country>
+    <Association>The Football Association</Association>
+    <SupportsHistoricalRules>true</SupportsHistoricalRules>
+  </Metadata>
   <HistoricalRuleTimeline>
     <Rule id="THREE_POINTS_WIN"><Period from="1888" to="1980"><PointsForWin>2</PointsForWin></Period><Period from="1981" to="9999"><PointsForWin>3</PointsForWin></Period></Rule>
     <Rule id="BACKPASS"><Period from="1888" to="1991"><Enabled>false</Enabled></Period><Period from="1992" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="SUBSTITUTIONS"><Period from="1888" to="1964"><MaximumSubs>0</MaximumSubs></Period><Period from="1965" to="1986"><MaximumSubs>1</MaximumSubs></Period><Period from="1987" to="1993"><MaximumSubs>2</MaximumSubs></Period><Period from="1994" to="2019"><MaximumSubs>3</MaximumSubs></Period><Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs></Period></Rule>
+    <Rule id="SUBSTITUTIONS"><Period from="1965" to="1986"><MaximumSubs>1</MaximumSubs></Period><Period from="1987" to="1993"><MaximumSubs>2</MaximumSubs></Period><Period from="1994" to="2019"><MaximumSubs>3</MaximumSubs></Period><Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs></Period></Rule>
+    <Rule id="BENCH_SIZE"><Period from="1987" to="2008"><NamedSubstitutes>5</NamedSubstitutes></Period><Period from="2009" to="2020"><NamedSubstitutes>7</NamedSubstitutes></Period><Period from="2021" to="9999"><NamedSubstitutes>9</NamedSubstitutes></Period></Rule>
     <Rule id="TRANSFER_WINDOWS"><Period from="1888" to="2001"><Enabled>false</Enabled></Period><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
     <Rule id="VAR"><Period from="1888" to="2018"><Enabled>false</Enabled></Period><Period from="2019" to="9999"><Enabled>true</Enabled></Period></Rule>
+    <Rule id="GOAL_LINE_TECHNOLOGY"><Period from="1888" to="2012"><Enabled>false</Enabled></Period><Period from="2013" to="9999"><Enabled>true</Enabled></Period></Rule>
   </HistoricalRuleTimeline>
   <CalendarRules>
     <SeasonStartMonth>August</SeasonStartMonth>
     <SeasonEndMonth>May</SeasonEndMonth>
-    <BoxingDay enabled="true" date="26-12" />
-    <NewYearFixtures enabled="true" />
-    <EasterFixtures enabled="true" />
-    <PrimaryLeagueDay>Saturday</PrimaryLeagueDay>
-    <MidweekDays><Day>Tuesday</Day><Day>Wednesday</Day></MidweekDays>
+    <WinterBreak><Enabled>false</Enabled></WinterBreak>
+    <SpecialFixtureRules>
+      <Rule id="BOXING_DAY"><Enabled>true</Enabled><Date>26-12</Date></Rule>
+      <Rule id="NEW_YEAR"><Enabled>true</Enabled><StartDate>30-12</StartDate><EndDate>03-01</EndDate></Rule>
+      <Rule id="EASTER"><Enabled>true</Enabled></Rule>
+    </SpecialFixtureRules>
   </CalendarRules>
-  <Competitions>
-    <Competition id="PL" tier="1"><Name>Premier League</Name><Teams>20</Teams><Relegation>3</Relegation></Competition>
-    <Competition id="D1" tier="2"><Name>Football League First Division</Name><Teams>24</Teams></Competition>
-    <Competition id="D2" tier="3"><Name>Football League Second Division</Name><Teams>24</Teams></Competition>
-    <Competition id="D3" tier="4"><Name>Football League Third Division</Name><Teams>24</Teams></Competition>
-    <Competition id="FACUP"><Name>FA Cup</Name><Replays>true</Replays></Competition>
-    <Competition id="LC"><Name>League Cup</Name></Competition>
-    <Competition id="CS"><Name>FA Charity Shield</Name></Competition>
-    <Competition id="FLT"><Name>Football League Trophy</Name></Competition>
-  </Competitions>
-  <SeasonOverride year="1997">
-    <GlobalRules><Offside>true</Offside><BenchPlayers>5</BenchPlayers><MaximumSubs>3</MaximumSubs><VAR>false</VAR></GlobalRules>
-    <Champions><PremierLeague>Arsenal</PremierLeague><FirstDivision>Nottingham Forest</FirstDivision><SecondDivision>Watford</SecondDivision><ThirdDivision>Notts County</ThirdDivision></Champions>
-  </SeasonOverride>
-</EnglandFootballDatabase>
+  <LeagueStructure>
+    <League id="L1"><Name>Premier League</Name><Tier>1</Tier><Teams>20</Teams><Relegation>3</Relegation></League> <Rounds>38</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
+    <League id="L2"><Name>Championship</Name><Tier>2</Tier><Teams>24</Teams><AutomaticPromotion>2</AutomaticPromotion><PlayoffPromotion>1</PlayoffPromotion></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
+    <League id="L3"><Name>League One</Name><Tier>3</Tier><Teams>24</Teams></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
+    <League id="L4"><Name>League Two</Name><Tier>4</Tier><Teams>24</Teams></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
+  </LeagueStructure>
+  <CupCompetitions>
+    <Cup id="FA_CUP"><ReplayRules enabled="true"/><SemiFinalLegs>1</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
+    <Cup id="LEAGUE_CUP"><SemiFinalLegs>2</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
+    <Cup id="FOOTBALL_LEAGUE_TROPHY"><SemiFinalLegs>2</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
+    <Cup id="COMMUNITY_SHIELD"><Legs>1</Legs><PenaltyShootoutIfDraw>true</PenaltyShootoutIfDraw></Cup>
+  </CupCompetitions>
+</FootballCountryDatabase>

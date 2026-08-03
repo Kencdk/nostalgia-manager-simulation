@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<FootballCountryDatabase version="1.0">
+
+  <Metadata>
+    <Country>Italy</Country>
+    <Association>FIGC</Association>
+    <SupportsHistoricalRules>true</SupportsHistoricalRules>
+  </Metadata>
+
+  <HistoricalRuleTimeline>
+
+    <Rule id="THREE_POINTS_WIN">
+
+      <Status>AssumedInternationalFootballTimeline</Status>
+
+      <Period from="1898" to="1993">
+        <PointsForWin>2</PointsForWin>
+      </Period>
+
+      <Period from="1994" to="9999">
+        <PointsForWin>3</PointsForWin>
+      </Period>
+
+    </Rule>
+
+    <Rule id="SUBSTITUTIONS">
+
+      <Status>PartiallyVerified</Status>
+
+      <Period from="1965" to="2019">
+        <UsesInternationalLaws>true</UsesInternationalLaws>
+        <Verified>false</Verified>
+      </Period>
+
+      <Period from="2020" to="9999">
+        <MaximumSubs>5</MaximumSubs>
+        <SubstitutionWindows>3</SubstitutionWindows>
+        <Verified>true</Verified>
+      </Period>
+
+    </Rule>
+
+    <Rule id="BENCH_SIZE">
+
+      <Status>PartiallyVerified</Status>
+
+      <Period from="1898" to="2011">
+        <Verified>false</Verified>
+      </Period>
+
+      <Period from="2012" to="9999">
+        <NamedSubstitutes>12</NamedSubstitutes>
+        <Verified>true</Verified>
+      </Period>
+
+    </Rule>
+
+    <Rule id="TRANSFER_WINDOWS">
+
+      <Period from="1898" to="2001">
+        <Enabled>false</Enabled>
+      </Period>
+
+      <Period from="2002" to="9999">
+        <Enabled>true</Enabled>
+      </Period>
+
+    </Rule>
+
+    <Rule id="VAR">
+
+      <Period from="1898" to="2017">
+        <Enabled>false</Enabled>
+      </Period>
+
+      <Period from="2018" to="9999">
+        <Enabled>true</Enabled>
+      </Period>
+
+    </Rule>
+
+  </HistoricalRuleTimeline>
+
+  <CalendarRules>
+
+    <SeasonStartMonth>August</SeasonStartMonth>
+
+    <SeasonEndMonth>May</SeasonEndMonth>
+
+    <WinterBreak>
+      <Enabled>true</Enabled>
+    </WinterBreak>
+
+    <SpecialFixtureRules>
+
+      <Rule id="BOXING_DAY">
+        <Enabled>false</Enabled>
+      </Rule>
+
+      <Rule id="NEW_YEAR">
+        <Enabled>false</Enabled>
+      </Rule>
+
+      <Rule id="WINTER_BREAK">
+        <Enabled>true</Enabled>
+      </Rule>
+
+    </SpecialFixtureRules>
+
+  </CalendarRules>
+
+  <LeagueStructure>
+
+    <League id="L1">
+
+      <Name>Serie A</Name>
+
+      <Tier>1</Tier>
+
+      <Timeline>
+
+        <Period from="1929" to="2003">
+          <Status>HistoricalLeagueSizesVary</Status>
+        </Period>
+
+        <Period from="2004" to="9999">
+          <Teams>20</Teams>
+          <MatchesPerTeam>38</MatchesPerTeam>
+          <AutomaticRelegation>3</AutomaticRelegation>
+        </Period>
+
+      </Timeline>
+
+    </League>
+
+    <League id="L2">
+
+      <Name>Serie B</Name>
+
+      <Tier>2</Tier>
+
+      <PromotionTo>L1</PromotionTo>
+
+      <RelegationTo>L3</RelegationTo>
+
+    </League>
+
+    <League id="L3">
+
+      <Name>Serie C</Name>
+
+      <Tier>3</Tier>
+
+      <PromotionTo>L2</PromotionTo>
+
+    </League>
+
+  </LeagueStructure>
+
+  <PromotionRelegationRules>
+
+    <Period from="2004" to="9999">
+
+      <SerieA>
+        <AutomaticRelegation>3</AutomaticRelegation>
+      </SerieA>
+
+      <SerieB>
+        <AutomaticPromotion>2</AutomaticPromotion>
+        <Status>PlayoffDetailsRequireFurtherResearch</Status>
+      </SerieB>
+
+    </Period>
+
+  </PromotionRelegationRules>
+
+  <CupCompetitions>
+
+    <Cup id="COPPA_ITALIA">
+
+      <Name>Coppa Italia</Name>
+
+      <Type>Knockout</Type>
+
+      <Status>HistoricalRoundFormatsRequireFurtherResearch</Status>
+
+      <Final>
+        <Legs>1</Legs>
+      </Final>
+
+    </Cup>
+
+    <Cup id="SUPERCOPPA_ITALIANA">
+
+      <Name>Supercoppa Italiana</Name>
+
+      <Founded>1988</Founded>
+
+      <Timeline>
+
+        <Period from="1988" to="2022">
+
+          <Participants>
+            <SerieAChampion/>
+            <CoppaItaliaWinner/>
+          </Participants>
+
+          <Legs>1</Legs>
+
+        </Period>
+
+        <Period from="2023" to="2026">
+
+          <Teams>4</Teams>
+
+          <SemiFinals>
+            <Legs>1</Legs>
+          </SemiFinals>
+
+          <Final>
+            <Legs>1</Legs>
+          </Final>
+
+        </Period>
+
+        <Period from="2026" to="9999">
+
+          <Participants>
+            <SerieAChampion/>
+            <CoppaItaliaWinner/>
+          </Participants>
+
+          <Legs>1</Legs>
+
+        </Period>
+
+      </Timeline>
+
+    </Cup>
+
+  </CupCompetitions>
+
+  <PenaltyShootoutRules>
+
+    <InitialKicksPerTeam>5</InitialKicksPerTeam>
+
+    <SuddenDeath>true</SuddenDeath>
+
+  </PenaltyShootoutRules>
+
+  <ExtraTimeRules>
+
+    <Periods>2</Periods>
+
+    <MinutesPerPeriod>15</MinutesPerPeriod>
+
+  </ExtraTimeRules>
+
+  <DataQuality>
+
+    <VerifiedSections>
+
+      <Item>Serie A national format from 1929</Item>
+      <Item>20-team Serie A era</Item>
+      <Item>Supercoppa Italiana timeline</Item>
+      <Item>VAR era</Item>
+      <Item>2020 five-substitution rule</Item>
+      <Item>2012 twelve-player bench rule</Item>
+
+    </VerifiedSections>
+
+    <PartiallyVerifiedSections>
+
+      <Item>Substitution timeline before 2020</Item>
+      <Item>Bench-size timeline before 2012</Item>
+      <Item>Coppa Italia historical round structure</Item>
+      <Item>Historic Serie B playoff formats</Item>
+
+    </PartiallyVerifiedSections>
+
+  </DataQuality>
+
+</FootballCountryDatabase>
