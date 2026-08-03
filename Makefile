@@ -14,9 +14,14 @@ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
 SRCDIR    = NostalgiaManager/src
 BUILDDIR  = build
 
-# Shared engine / data / core sources (no main()).
-CORE = $(SRCDIR)/core/Team.cpp $(SRCDIR)/data/Database.cpp \
-       $(SRCDIR)/engine/Config.cpp $(SRCDIR)/engine/MatchEngine.cpp
+# Shared engine / data / core sources (no main()). Lives in its own tree
+# (NostalgiaManager.Core/) so it's compiled once and shared with the MSVC
+# solution's NostalgiaManager.Core project - see NostalgiaManager.sln.
+CORE_DIR = NostalgiaManager.Core/src
+CORE_INC = -I$(CORE_DIR)
+CORE = $(CORE_DIR)/core/Team.cpp $(CORE_DIR)/core/PositionFormat.cpp \
+       $(CORE_DIR)/data/Database.cpp \
+       $(CORE_DIR)/engine/Config.cpp $(CORE_DIR)/engine/MatchEngine.cpp
 
 # Console build (the original text front-end + dev utilities).
 CONSOLE_SRC = $(CORE) $(SRCDIR)/ui/Game.cpp $(SRCDIR)/main.cpp
@@ -31,7 +36,7 @@ IMGUI_SRC = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp \
 GUI_SRC = $(CORE) $(SRCDIR)/ui/App.cpp $(SRCDIR)/platform/main_glfw.cpp $(IMGUI_SRC)
 GUI_BIN = $(BUILDDIR)/nm-gui
 STB_DIR = third_party/stb
-GUI_INC = -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(STB_DIR)
+GUI_INC = -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(STB_DIR) $(CORE_INC)
 GUI_LIBS = -lglfw -lGL -ldl -lpthread
 
 .PHONY: all console gui run clean
@@ -41,7 +46,7 @@ all: console gui
 console: $(CONSOLE_BIN)
 $(CONSOLE_BIN): $(CONSOLE_SRC)
 	@mkdir -p $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(CONSOLE_SRC) -o $(CONSOLE_BIN)
+	$(CXX) $(CXXFLAGS) $(CORE_INC) $(CONSOLE_SRC) -o $(CONSOLE_BIN)
 
 gui: $(GUI_BIN)
 $(GUI_BIN): $(GUI_SRC)

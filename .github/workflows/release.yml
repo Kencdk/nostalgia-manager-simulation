@@ -1,0 +1,82 @@
+name: Build and Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  # Bump these by hand for a deliberate major/minor release.
+  # Patch is derived automatically from the workflow run number below.
+  MAJOR_VERSION: 0
+  MINOR_VERSION: 1
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require main branch
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_name }}" -ne "main") {
+            throw "Releases can only be cut from main (workflow was dispatched on '${{ github.ref_name }}')."
+          }
+
+      - name: Compute next version
+        id: version
+        shell: pwsh
+        run: |
+          # github.run_number starts at 1 and increments by 1 every run of
+          # this workflow file, so the very first run yields patch 0.
+          $patch = ${{ github.run_number }} - 1
+          $version = "$env:MAJOR_VERSION.$env:MINOR_VERSION.$patch"
+          $tag = "v$version"
+          Write-Host "Next version: $version (tag $tag)"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build (Release|x64)
+        run: msbuild NostalgiaManager.sln /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Run unit tests
+        shell: pwsh
+        run: |
+          & "x64/Release/NostalgiaManager.Tests.exe" "NostalgiaManager/data"
+          if ($LASTEXITCODE -ne 0) { throw "NostalgiaManager.Tests failed" }
+
+      - name: Stage release folder
+        shell: pwsh
+        run: |
+          # The vcxproj's post-build step already populated x64/Release/data
+          # with everything the game reads at runtime - just pick out the exe
+          # and that data folder (leaving NostalgiaManager.Tests.exe, .pdb,
+          # .ilk etc. behind).
+          $stage = "release/NostalgiaManager"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "x64/Release/NostalgiaManager.exe" -Destination $stage
+          Copy-Item "x64/Release/data" -Destination "$stage/data" -Recurse
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          $zipName = "NostalgiaManager-${{ steps.version.outputs.version }}-win64.zip"
+          Compress-Archive -Path "release/NostalgiaManager/*" -DestinationPath $zipName
+          "zipName=$zipName" >> $env:GITHUB_OUTPUT
+        id: zip
+
+      - name: Tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" `
+            "${{ steps.zip.outputs.zipName }}" `
+            --title "${{ steps.version.outputs.tag }}" `
+            --target "${{ github.sha }}" `
+            --generate-notes

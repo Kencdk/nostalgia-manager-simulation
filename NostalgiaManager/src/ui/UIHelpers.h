@@ -3,8 +3,9 @@
 #include <map>
 #include <string>
 #include "imgui.h"
-#include "../core/Player.h"
-#include "../core/Team.h"
+#include "core/Player.h"
+#include "core/PositionFormat.h"
+#include "core/Team.h"
 #include "App.h"
 
 namespace nm {
@@ -19,7 +20,6 @@ double playerOverall(const Player& p);
 std::string shortName(const std::string& full);
 std::string playablePosStr(const Player& p);
 std::string playablePosByProficiency(const Player& p);  // Categorized by proficiency
-std::string cmPositionFormat(const Player& p);  // Championship Manager style format (e.g., "M C/R", "M/AM R/L, F C/R/L")
 void positionTooltip(const Player& p);
 
 // Color and visual utilities

@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "../data/Database.h"
-#include "../engine/Config.h"
-#include "../engine/MatchEngine.h"
+#include "data/Database.h"
+#include "engine/Config.h"
+#include "engine/MatchEngine.h"
 
 namespace nm {
 

@@ -14,69 +14,36 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{C81D8800-8477-4681-8120-3B856DFCA337}</ProjectGuid>
     <RootNamespace>NostalgiaManager</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>NostalgiaManager</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <PropertyGroup>
-    <LanguageStandard>stdcpp17</LanguageStandard>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup>
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\third_party\imgui;..\third_party\imgui\backends;..\third_party\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\third_party\imgui;..\third_party\imgui\backends;..\third_party\stb;..\NostalgiaManager.Core\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
       <AdditionalDependencies>d3d11.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\third_party\imgui;..\third_party\imgui\backends;..\third_party\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
-      <AdditionalDependencies>d3d11.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)data" mkdir "$(OutDir)data"
+copy /y "$(ProjectDir)data\*.csv" "$(OutDir)data\" &gt;nul || exit /b 1
+copy /y "$(ProjectDir)data\*.cfg" "$(OutDir)data\" &gt;nul || exit /b 1
+robocopy "$(ProjectDir)data\images" "$(OutDir)data\images" /E /XF *.md &gt;nul
+if %ERRORLEVEL% GEQ 8 exit /b 1
+exit /b 0</Command>
+      <Message>Copying runtime data files next to the built exe</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\core\Team.cpp" />
-    <ClCompile Include="src\data\Database.cpp" />
-    <ClCompile Include="src\data\XmlRules.cpp" />
-    <ClCompile Include="src\engine\Config.cpp" />
-    <ClCompile Include="src\engine\MatchEngine.cpp" />
     <ClCompile Include="src\ui\App.cpp" />
     <ClCompile Include="src\platform\main_win32.cpp" />
     <ClCompile Include="..\third_party\imgui\imgui.cpp" />
@@ -95,18 +62,6 @@
     <ClCompile Include="src\resources\PlayerDetailBg.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\core\Attributes.h" />
-    <ClInclude Include="src\core\Pitch.h" />
-    <ClInclude Include="src\core\Player.h" />
-    <ClInclude Include="src\core\TacticalSettings.h" />
-    <ClInclude Include="src\core\Team.h" />
-    <ClInclude Include="src\core\Formation.h" />
-    <ClInclude Include="src\data\Csv.h" />
-    <ClInclude Include="src\data\Database.h" />
-    <ClInclude Include="src\data\XmlRules.h" />
-    <ClInclude Include="src\engine\Rng.h" />
-    <ClInclude Include="src\engine\Config.h" />
-    <ClInclude Include="src\engine\MatchEngine.h" />
     <ClInclude Include="src\ui\CareerFixtures.h" />
     <ClInclude Include="src\ui\CareerModeBase.h" />
     <ClInclude Include="src\ui\Console.h" />
@@ -119,12 +74,6 @@
   <ItemGroup>
     <None Include="data\BEST_POSITION_SETUP.md" />
     <None Include="data\DATABASE_SETUP.md" />
-    <CopyFileToFolders Include="data\TeamsDB.csv">
-      <FileType>Document</FileType>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="data\PlayersDB.csv">
-      <FileType>Document</FileType>
-    </CopyFileToFolders>
     <None Include="data\fix_kit_colors.ps1" />
     <None Include="data\HALFTIME_SWITCH_IMPLEMENTATION.md" />
     <None Include="data\images\teams\README.md" />
@@ -135,6 +84,11 @@
     <None Include="data\TEAM_COLORS_EXAMPLES.md" />
     <None Include="data\TEAM_SCREENSHOTS.md" />
     <None Include="docs\POWER_RANKING_SYSTEM.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NostalgiaManager.Core\NostalgiaManager.Core.vcxproj">
+      <Project>{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

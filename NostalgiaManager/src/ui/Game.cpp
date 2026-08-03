@@ -8,7 +8,7 @@
 #include <map>
 #include <sstream>
 
-#include "../core/Formation.h"
+#include "core/Formation.h"
 #include "Console.h"
 
 namespace nm {
