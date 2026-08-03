@@ -5,6 +5,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NostalgiaManager", "NostalgiaManager\NostalgiaManager.vcxproj", "{C81D8800-8477-4681-8120-3B856DFCA337}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NostalgiaManager.Tests", "NostalgiaManager.Tests\NostalgiaManager.Tests.vcxproj", "{7B6A0A1E-3E7B-4B2E-9A3E-2C6C9F8B4D2A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NostalgiaManager.Core", "NostalgiaManager.Core\NostalgiaManager.Core.vcxproj", "{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +19,14 @@ Global
 		{C81D8800-8477-4681-8120-3B856DFCA337}.Debug|x64.Build.0 = Debug|x64
 		{C81D8800-8477-4681-8120-3B856DFCA337}.Release|x64.ActiveCfg = Release|x64
 		{C81D8800-8477-4681-8120-3B856DFCA337}.Release|x64.Build.0 = Release|x64
+		{7B6A0A1E-3E7B-4B2E-9A3E-2C6C9F8B4D2A}.Debug|x64.ActiveCfg = Debug|x64
+		{7B6A0A1E-3E7B-4B2E-9A3E-2C6C9F8B4D2A}.Debug|x64.Build.0 = Debug|x64
+		{7B6A0A1E-3E7B-4B2E-9A3E-2C6C9F8B4D2A}.Release|x64.ActiveCfg = Release|x64
+		{7B6A0A1E-3E7B-4B2E-9A3E-2C6C9F8B4D2A}.Release|x64.Build.0 = Release|x64
+		{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}.Debug|x64.ActiveCfg = Debug|x64
+		{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}.Debug|x64.Build.0 = Debug|x64
+		{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}.Release|x64.ActiveCfg = Release|x64
+		{9E2C7A44-5B1D-4F6E-8A2F-3D7B1C6E9A08}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

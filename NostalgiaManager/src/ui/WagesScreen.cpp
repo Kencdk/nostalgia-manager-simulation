@@ -1,5 +1,4 @@
 #include "WagesScreen.h"
-#include "../core/Team.h"
 #include <algorithm>
 #include <cstdio>
 
