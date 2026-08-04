@@ -1,103 +1,373 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<EnglandFootballDatabase version="2.0">
+
+<FootballCountryDatabase version="2.0">
+
   <Metadata>
-    <Country>England</Country>
-    <SupportsHistoricalRules>true</SupportsHistoricalRules>
+
+    <Country>Default</Country>
+
+    <Association>Generic Football Association</Association>
+
+    <SupportsHistoricalRules>false</SupportsHistoricalRules>
+
   </Metadata>
 
   <HistoricalRuleTimeline>
-    <Rule id="THREE_POINTS_WIN"><Period from="1888" to="1980"><PointsForWin>2</PointsForWin></Period><Period from="1981" to="9999"><PointsForWin>3</PointsForWin></Period></Rule>
-    <Rule id="BACKPASS"><Period from="1888" to="1991"><Enabled>false</Enabled></Period><Period from="1992" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="SUBSTITUTIONS">
-      <Period from="1888" to="1964"><MaximumSubs>0</MaximumSubs><NamedSubstitutes>0</NamedSubstitutes></Period>
-      <Period from="1965" to="1986"><MaximumSubs>1</MaximumSubs><NamedSubstitutes>1</NamedSubstitutes></Period>
-      <Period from="1987" to="1993"><MaximumSubs>2</MaximumSubs><NamedSubstitutes>2</NamedSubstitutes></Period>
-      <Period from="1994" to="2008"><MaximumSubs>3</MaximumSubs><NamedSubstitutes>5</NamedSubstitutes></Period>
-      <Period from="2009" to="2019"><MaximumSubs>3</MaximumSubs><NamedSubstitutes>7</NamedSubstitutes></Period>
-      <Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs><NamedSubstitutes>9</NamedSubstitutes><SubstitutionWindows>3</SubstitutionWindows></Period>
+
+    <Rule id="THREE_POINTS_WIN">
+
+      <Period from="1900" to="9999">
+
+        <PointsForWin>3</PointsForWin>
+
+      </Period>
+
     </Rule>
-    <Rule id="TRANSFER_WINDOWS"><Period from="1888" to="2001"><Enabled>false</Enabled></Period><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="VAR"><Period from="1888" to="2018"><Enabled>false</Enabled></Period><Period from="2019" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="GOAL_LINE_TECHNOLOGY"><Period from="1888" to="2012"><Enabled>false</Enabled></Period><Period from="2013" to="9999"><Enabled>true</Enabled></Period></Rule>
+
+    <Rule id="SUBSTITUTIONS">
+
+      <Period from="1900" to="9999">
+
+        <MaximumSubs>5</MaximumSubs>
+
+        <SubstitutionWindows>3</SubstitutionWindows>
+
+      </Period>
+
+    </Rule>
+
+    <Rule id="BENCH_SIZE">
+
+      <Period from="1900" to="9999">
+
+        <NamedSubstitutes>9</NamedSubstitutes>
+
+      </Period>
+
+    </Rule>
+
+    <Rule id="TRANSFER_WINDOWS">
+
+      <Period from="1900" to="9999">
+
+        <Enabled>true</Enabled>
+
+      </Period>
+
+    </Rule>
+
+    <Rule id="VAR">
+
+      <Period from="1900" to="9999">
+
+        <Enabled>true</Enabled>
+
+      </Period>
+
+    </Rule>
+
   </HistoricalRuleTimeline>
 
   <CalendarRules>
+
     <SeasonStartMonth>August</SeasonStartMonth>
+
     <SeasonEndMonth>May</SeasonEndMonth>
-    <PrimaryLeagueDay>Saturday</PrimaryLeagueDay>
-    <MidweekDays><Day>Tuesday</Day><Day>Wednesday</Day></MidweekDays>
-    <BoxingDayProgramme><Enabled>true</Enabled><Date>26-12</Date><GenerateFullLeagueRound>true</GenerateFullLeagueRound></BoxingDayProgramme>
-    <NewYearProgramme><Enabled>true</Enabled><StartDate>30-12</StartDate><EndDate>03-01</EndDate><GenerateLeagueRound>true</GenerateLeagueRound></NewYearProgramme>
-    <EasterProgramme><Enabled>true</Enabled><GoodFridayFixtures>true</GoodFridayFixtures><EasterMondayFixtures>true</EasterMondayFixtures></EasterProgramme>
+
+    <WinterBreak>
+
+      <Enabled>false</Enabled>
+
+    </WinterBreak>
+
   </CalendarRules>
 
-  <TransferRules>
-    <Period from="2002" to="9999">
-      <SummerWindow><Start>01-07</Start><End>31-08</End></SummerWindow>
-      <WinterWindow><Start>01-01</Start><End>31-01</End></WinterWindow>
-    </Period>
-  </TransferRules>
+  <LeagueStructure>
 
-  <Competitions>
-    <Competition id="PL" tier="1"><Name>Premier League</Name><Teams>20</Teams><MatchesPerTeam>38</MatchesPerTeam><Relegation>3</Relegation></Competition>
-    <Competition id="D1" tier="2"><Name>Football League First Division</Name><Teams>24</Teams><MatchesPerTeam>46</MatchesPerTeam><AutomaticPromotion>2</AutomaticPromotion><PlayoffPromotion>1</PlayoffPromotion><Relegation>3</Relegation></Competition>
-    <Competition id="D2" tier="3"><Name>Football League Second Division</Name><Teams>24</Teams><MatchesPerTeam>46</MatchesPerTeam><AutomaticPromotion>2</AutomaticPromotion><PlayoffPromotion>1</PlayoffPromotion><Relegation>4</Relegation></Competition>
-    <Competition id="D3" tier="4"><Name>Football League Third Division</Name><Teams>24</Teams><MatchesPerTeam>46</MatchesPerTeam><AutomaticPromotion>3</AutomaticPromotion><PlayoffPromotion>1</PlayoffPromotion><RelegationToConference>1</RelegationToConference></Competition>
-  </Competitions>
+    <League id="L1">
+
+      <Name>Premier Division</Name>
+
+      <Tier>1</Tier>
+
+      <Teams>20</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>38</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticRelegation>3</AutomaticRelegation>
+
+    </League>
+
+    <League id="L2">
+
+      <Name>First Division</Name>
+
+      <Tier>2</Tier>
+
+      <Teams>20</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>38</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+      <AutomaticRelegation>3</AutomaticRelegation>
+
+    </League>
+
+    <League id="L3">
+
+      <Name>Second Division</Name>
+
+      <Tier>3</Tier>
+
+      <Teams>20</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>38</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+      <AutomaticRelegation>4</AutomaticRelegation>
+
+    </League>
+
+    <League id="L4">
+
+      <Name>Third Division</Name>
+
+      <Tier>4</Tier>
+
+      <Teams>20</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>38</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>3</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </League>
+
+  </LeagueStructure>
 
   <PromotionRelegationRules>
-    <PremierLeague><AutomaticRelegation>3</AutomaticRelegation></PremierLeague>
-    <FirstDivision><AutomaticPromotion>2</AutomaticPromotion><PlayoffPlaces>3-6</PlayoffPlaces><AutomaticRelegation>3</AutomaticRelegation></FirstDivision>
-    <SecondDivision><AutomaticPromotion>2</AutomaticPromotion><PlayoffPlaces>3-6</PlayoffPlaces><AutomaticRelegation>4</AutomaticRelegation></SecondDivision>
-    <ThirdDivision><AutomaticPromotion>3</AutomaticPromotion><PlayoffPlaces>4-7</PlayoffPlaces><AutomaticRelegation>1</AutomaticRelegation></ThirdDivision>
+
+    <PremierDivision>
+
+      <AutomaticRelegation>3</AutomaticRelegation>
+
+    </PremierDivision>
+
+    <FirstDivision>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </FirstDivision>
+
+    <SecondDivision>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </SecondDivision>
+
+    <ThirdDivision>
+
+      <AutomaticPromotion>3</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </ThirdDivision>
+
   </PromotionRelegationRules>
 
-  <CupFormats>
-    <FACup>
-      <Round id="Q1" legs="1" replay="true"/>
-      <Round id="Q2" legs="1" replay="true"/>
-      <Round id="Q3" legs="1" replay="true"/>
-      <Round id="Q4" legs="1" replay="true"/>
-      <Round id="R1" legs="1" replay="true"/>
-      <Round id="R2" legs="1" replay="true"/>
-      <Round id="R3" legs="1" replay="true" premierLeagueEntry="true"/>
-      <Round id="R4" legs="1" replay="true"/>
-      <Round id="R5" legs="1" replay="true"/>
-      <Round id="R6" legs="1" replay="true"/>
-      <Round id="SF" legs="1" neutralVenue="true"/>
-      <Round id="FINAL" legs="1" venue="Wembley"/>
-    </FACup>
-    <LeagueCup>
-      <Round id="R1" legs="2"/>
-      <Round id="R2" legs="2"/>
-      <Round id="R3" legs="1"/>
-      <Round id="R4" legs="1"/>
-      <Round id="QF" legs="1"/>
-      <Round id="SF" legs="2"/>
-      <Round id="FINAL" legs="1" venue="Wembley"/>
-    </LeagueCup>
-    <FootballLeagueTrophy>
-      <Round id="R1" legs="1"/>
-      <Round id="R2" legs="1"/>
-      <Round id="QF" legs="1"/>
-      <Round id="SF" legs="2"/>
-      <Round id="FINAL" legs="1" venue="Wembley"/>
-    </FootballLeagueTrophy>
-    <CharityShield>
-      <Legs>1</Legs><PenaltyShootoutIfDraw>true</PenaltyShootoutIfDraw><NamedSubstitutes>7</NamedSubstitutes><MaximumSubstitutions>3</MaximumSubstitutions>
-    </CharityShield>
-  </CupFormats>
+  <CupCompetitions>
 
-  <CupMatchRules>
-    <FACup><ReplaysEnabled>true</ReplaysEnabled><ExtraTimeAfterReplay>true</ExtraTimeAfterReplay><PenaltyShootoutAfterReplay>true</PenaltyShootoutAfterReplay></FACup>
-    <LeagueCup><ExtraTime>true</ExtraTime><PenaltyShootout>true</PenaltyShootout></LeagueCup>
-  </CupMatchRules>
+    <Cup id="NATIONAL_CUP">
 
-  <PenaltyShootoutRules><InitialKicksPerTeam>5</InitialKicksPerTeam><SuddenDeath>true</SuddenDeath></PenaltyShootoutRules>
-  <ExtraTimeRules><PeriodMinutes>15</PeriodMinutes><Periods>2</Periods></ExtraTimeRules>
+      <Name>National Cup</Name>
 
-  <SeasonOverride year="1997">
-    <GlobalRules><Offside>true</Offside><BenchPlayers>5</BenchPlayers><MaximumSubs>3</MaximumSubs><VAR>false</VAR></GlobalRules>
-    <Champions><PremierLeague>Arsenal</PremierLeague><FirstDivision>Nottingham Forest</FirstDivision><SecondDivision>Watford</SecondDivision><ThirdDivision>Notts County</ThirdDivision></Champions>
-  </SeasonOverride>
-</EnglandFootballDatabase>
+      <ShortName>Cup</ShortName>
+
+      <Type>Knockout</Type>
+
+      <Structure>
+
+        <Round id="ROUND_1">
+
+          <Entrants>
+
+            <League>Second Division</League>
+
+            <League>Third Division</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_2">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>First Division</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_3">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>Premier Division</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_OF_16"/>
+
+        <Round id="QUARTER_FINAL"/>
+
+        <Round id="SEMI_FINAL">
+
+          <Legs>1</Legs>
+
+        </Round>
+
+        <Round id="FINAL">
+
+          <Legs>1</Legs>
+
+        </Round>
+
+      </Structure>
+
+      <MatchRules>
+
+        <ExtraTime>true</ExtraTime>
+
+        <PenaltyShootout>true</PenaltyShootout>
+
+      </MatchRules>
+
+    </Cup>
+
+    <Cup id="SUPER_CUP">
+
+      <Name>Super Cup</Name>
+
+      <ShortName>Super Cup</ShortName>
+
+      <Type>SuperCup</Type>
+
+      <Teams>2</Teams>
+
+      <Participants>
+
+        <LeagueChampion/>
+
+        <CupWinner/>
+
+      </Participants>
+
+      <DoubleWinnerRule>
+
+        <Opponent>LeagueRunnerUp</Opponent>
+
+      </DoubleWinnerRule>
+
+      <MatchRules>
+
+        <ExtraTime>false</ExtraTime>
+
+        <PenaltyShootout>true</PenaltyShootout>
+
+      </MatchRules>
+
+      <Legs>1</Legs>
+
+    </Cup>
+
+  </CupCompetitions>
+
+  <ExtraTimeRules>
+
+    <Periods>2</Periods>
+
+    <MinutesPerPeriod>15</MinutesPerPeriod>
+
+  </ExtraTimeRules>
+
+  <PenaltyShootoutRules>
+
+    <InitialKicksPerTeam>5</InitialKicksPerTeam>
+
+    <SuddenDeath>true</SuddenDeath>
+
+  </PenaltyShootoutRules>
+
+  <DataQuality>
+
+    <Status>GenericFallbackDatabase</Status>
+
+    <Notes>
+
+      <Note>
+        Used when no country-specific database exists.
+      </Note>
+
+      <Note>
+        Super Cup uses League Runner-up when one club wins both league and cup.
+      </Note>
+
+      <Note>
+        Intended as a safe simulation fallback rather than a real-world league structure.
+      </Note>
+
+    </Notes>
+
+  </DataQuality>
+
+</FootballCountryDatabase>

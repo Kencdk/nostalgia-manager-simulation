@@ -4,9 +4,11 @@
 
   <Metadata>
 
-    <Country>Denmark</Country>
+    <Country>Spain</Country>
 
-    <Association>DBU</Association>
+    <Association>RFEF</Association>
+
+    <Founded>1929</Founded>
 
     <SupportsHistoricalRules>true</SupportsHistoricalRules>
 
@@ -16,11 +18,11 @@
 
     <Rule id="THREE_POINTS_WIN">
 
-      <Period from="1889" to="1980">
+      <Period from="1929" to="1994">
         <PointsForWin>2</PointsForWin>
       </Period>
 
-      <Period from="1981" to="9999">
+      <Period from="1995" to="9999">
         <PointsForWin>3</PointsForWin>
       </Period>
 
@@ -31,13 +33,21 @@
       <Status>PartiallyVerified</Status>
 
       <Period from="1965" to="2019">
+
         <UsesInternationalLaws>true</UsesInternationalLaws>
+
         <Verified>false</Verified>
+
       </Period>
 
       <Period from="2020" to="9999">
+
         <MaximumSubs>5</MaximumSubs>
-        <Verified>false</Verified>
+
+        <SubstitutionWindows>3</SubstitutionWindows>
+
+        <Verified>true</Verified>
+
       </Period>
 
     </Rule>
@@ -46,15 +56,27 @@
 
       <Status>PartiallyVerified</Status>
 
-      <Period from="1889" to="9999">
+      <Period from="1929" to="2019">
+
         <Verified>false</Verified>
+
+      </Period>
+
+      <Period from="2020" to="9999">
+
+        <MatchdaySquadSize>23</MatchdaySquadSize>
+
+        <NamedSubstitutes>12</NamedSubstitutes>
+
+        <Verified>true</Verified>
+
       </Period>
 
     </Rule>
 
     <Rule id="TRANSFER_WINDOWS">
 
-      <Period from="1889" to="2001">
+      <Period from="1929" to="2001">
         <Enabled>false</Enabled>
       </Period>
 
@@ -66,11 +88,11 @@
 
     <Rule id="VAR">
 
-      <Period from="1889" to="2019">
+      <Period from="1929" to="2017">
         <Enabled>false</Enabled>
       </Period>
 
-      <Period from="2020" to="9999">
+      <Period from="2018" to="9999">
         <Enabled>true</Enabled>
       </Period>
 
@@ -80,7 +102,7 @@
 
   <CalendarRules>
 
-    <SeasonStartMonth>July</SeasonStartMonth>
+    <SeasonStartMonth>August</SeasonStartMonth>
 
     <SeasonEndMonth>May</SeasonEndMonth>
 
@@ -96,31 +118,21 @@
 
     <League id="L1">
 
-      <Name>Superliga</Name>
+      <Name>La Liga</Name>
 
       <Tier>1</Tier>
 
       <Timeline>
 
-        <Period from="1995" to="2015">
+        <Period from="1929" to="1996">
 
-          <Teams>12</Teams>
-
-          <LeagueFormat>
-
-            <Rounds>3</Rounds>
-
-            <MatchesPerOpponent>3</MatchesPerOpponent>
-
-            <MatchesPerTeam>33</MatchesPerTeam>
-
-          </LeagueFormat>
+          <Status>HistoricalLeagueSizesVary</Status>
 
         </Period>
 
-        <Period from="2016" to="9999">
+        <Period from="1997" to="9999">
 
-          <Teams>12</Teams>
+          <Teams>20</Teams>
 
           <LeagueFormat>
 
@@ -128,25 +140,11 @@
 
             <MatchesPerOpponent>2</MatchesPerOpponent>
 
-            <MatchesPerTeamBeforeSplit>22</MatchesPerTeamBeforeSplit>
-
-            <MatchesPerTeam>32</MatchesPerTeam>
+            <MatchesPerTeam>38</MatchesPerTeam>
 
           </LeagueFormat>
 
-          <Split>
-
-            <Enabled>true</Enabled>
-
-            <SplitAfterMatches>22</SplitAfterMatches>
-
-            <TopGroupTeams>6</TopGroupTeams>
-
-            <BottomGroupTeams>6</BottomGroupTeams>
-
-            <AdditionalMatches>10</AdditionalMatches>
-
-          </Split>
+          <AutomaticRelegation>3</AutomaticRelegation>
 
         </Period>
 
@@ -156,61 +154,53 @@
 
     <League id="L2">
 
-      <Name>1st Division</Name>
+      <Name>Segunda Division</Name>
 
       <Tier>2</Tier>
 
-      <Teams>12</Teams>
+      <Teams>22</Teams>
 
       <LeagueFormat>
 
-        <Rounds>3</Rounds>
+        <Rounds>2</Rounds>
 
-        <MatchesPerOpponent>3</MatchesPerOpponent>
+        <MatchesPerOpponent>2</MatchesPerOpponent>
 
-        <MatchesPerTeam>33</MatchesPerTeam>
+        <MatchesPerTeam>42</MatchesPerTeam>
 
       </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
 
     </League>
 
     <League id="L3">
 
-      <Name>2nd Division</Name>
+      <Name>Primera Federacion</Name>
 
       <Tier>3</Tier>
 
-      <Teams>12</Teams>
+      <Notes>
 
-      <LeagueFormat>
+        <Note>League consists of multiple groups.</Note>
 
-        <Rounds>2</Rounds>
-
-        <MatchesPerOpponent>2</MatchesPerOpponent>
-
-        <MatchesPerTeam>22</MatchesPerTeam>
-
-      </LeagueFormat>
+      </Notes>
 
     </League>
 
     <League id="L4">
 
-      <Name>3rd Division</Name>
+      <Name>Segunda Federacion</Name>
 
       <Tier>4</Tier>
 
-      <Teams>12</Teams>
+      <Notes>
 
-      <LeagueFormat>
+        <Note>League consists of multiple groups.</Note>
 
-        <Rounds>2</Rounds>
-
-        <MatchesPerOpponent>2</MatchesPerOpponent>
-
-        <MatchesPerTeam>22</MatchesPerTeam>
-
-      </LeagueFormat>
+      </Notes>
 
     </League>
 
@@ -218,31 +208,31 @@
 
   <PromotionRelegationRules>
 
-    <Status>PartiallyVerified</Status>
+    <LaLiga>
 
-    <Superliga>
+      <AutomaticRelegation>3</AutomaticRelegation>
 
-      <AutomaticRelegation>2</AutomaticRelegation>
+    </LaLiga>
 
-    </Superliga>
-
-    <FirstDivision>
+    <SegundaDivision>
 
       <AutomaticPromotion>2</AutomaticPromotion>
 
-    </FirstDivision>
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </SegundaDivision>
 
   </PromotionRelegationRules>
 
   <CupCompetitions>
 
-    <Cup id="DBU_POKALEN">
+    <Cup id="COPA_DEL_REY">
 
-      <Name>DBU Pokalen</Name>
+      <Name>Copa del Rey</Name>
 
-      <Founded>1954</Founded>
+      <ShortName>Copa del Rey</ShortName>
 
-      <Organizer>DBU</Organizer>
+      <Organizer>RFEF</Organizer>
 
       <Type>Knockout</Type>
 
@@ -252,9 +242,9 @@
 
           <Entrants>
 
-            <League>2nd Division</League>
+            <League>Primera Federacion</League>
 
-            <League>3rd Division</League>
+            <League>Segunda Federacion</League>
 
           </Entrants>
 
@@ -266,7 +256,7 @@
 
             <PreviousRoundWinners/>
 
-            <League>1st Division</League>
+            <League>Segunda Division</League>
 
           </Entrants>
 
@@ -278,29 +268,19 @@
 
             <PreviousRoundWinners/>
 
-            <League>Superliga</League>
+            <League>La Liga</League>
 
           </Entrants>
 
         </Round>
 
-        <Round id="ROUND_4">
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-        </Round>
+        <Round id="ROUND_4"/>
 
-        <Round id="QUARTER_FINAL">
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-        </Round>
+        <Round id="ROUND_OF_16"/>
+
+        <Round id="QUARTER_FINAL"/>
 
         <Round id="SEMI_FINAL">
-
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
 
           <Legs>2</Legs>
 
@@ -308,11 +288,9 @@
 
         <Round id="FINAL">
 
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-
           <Legs>1</Legs>
+
+          <Venue>Neutral Venue</Venue>
 
         </Round>
 
@@ -328,31 +306,73 @@
 
     </Cup>
 
-    <Cup id="DANISH_SUPER_CUP">
+    <Cup id="SUPERCOPA_DE_ESPANA">
 
-      <Name>Danish Super Cup</Name>
+      <Name>Supercopa de España</Name>
 
-      <Founded>1994</Founded>
+      <ShortName>Supercopa</ShortName>
 
-      <Abolished>2004</Abolished>
+      <Founded>1982</Founded>
+
+      <Organizer>RFEF</Organizer>
 
       <Type>SuperCup</Type>
 
-      <Teams>2</Teams>
+      <Timeline>
 
-      <Participants>
+        <Period from="1982" to="2018">
 
-        <LeagueChampion/>
+          <Teams>2</Teams>
 
-        <CupWinner/>
+          <Participants>
 
-      </Participants>
+            <LeagueChampion/>
 
-      <DoubleWinnerRule>
+            <CupWinner/>
 
-        <Opponent>CupRunnerUp</Opponent>
+          </Participants>
 
-      </DoubleWinnerRule>
+          <DoubleWinnerRule>
+
+            <Opponent>CupRunnerUp</Opponent>
+
+          </DoubleWinnerRule>
+
+          <Legs>1</Legs>
+
+        </Period>
+
+        <Period from="2019" to="9999">
+
+          <Teams>4</Teams>
+
+          <Participants>
+
+            <LeagueChampion/>
+
+            <LeagueRunnerUp/>
+
+            <CupWinner/>
+
+            <CupRunnerUp/>
+
+          </Participants>
+
+          <SemiFinals>
+
+            <Legs>1</Legs>
+
+          </SemiFinals>
+
+          <Final>
+
+            <Legs>1</Legs>
+
+          </Final>
+
+        </Period>
+
+      </Timeline>
 
       <MatchRules>
 
@@ -361,8 +381,6 @@
         <PenaltyShootout>true</PenaltyShootout>
 
       </MatchRules>
-
-      <Legs>1</Legs>
 
     </Cup>
 
@@ -391,19 +409,19 @@
     <Notes>
 
       <Note>
-        DBU Pokalen simplified for four-tier database.
+        Official competition names are used.
       </Note>
 
       <Note>
-        Danish regional leagues omitted.
+        Copa del Rey structure simplified for a four-tier database.
       </Note>
 
       <Note>
-        Historical Denmark-specific substitution and bench-size timelines require further research.
+        Historical substitution and bench-size timelines before 2020 require further research.
       </Note>
 
       <Note>
-        Danish Super Cup retained for historical database support.
+        Supercopa four-team era begins in 2019.
       </Note>
 
     </Notes>

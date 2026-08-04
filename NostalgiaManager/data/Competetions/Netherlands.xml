@@ -4,9 +4,11 @@
 
   <Metadata>
 
-    <Country>Denmark</Country>
+    <Country>Netherlands</Country>
 
-    <Association>DBU</Association>
+    <Association>KNVB</Association>
+
+    <Founded>1956</Founded>
 
     <SupportsHistoricalRules>true</SupportsHistoricalRules>
 
@@ -16,11 +18,11 @@
 
     <Rule id="THREE_POINTS_WIN">
 
-      <Period from="1889" to="1980">
+      <Period from="1956" to="1994">
         <PointsForWin>2</PointsForWin>
       </Period>
 
-      <Period from="1981" to="9999">
+      <Period from="1995" to="9999">
         <PointsForWin>3</PointsForWin>
       </Period>
 
@@ -30,48 +32,50 @@
 
       <Status>PartiallyVerified</Status>
 
-      <Period from="1965" to="2019">
+      <Period from="1956" to="2019">
+
         <UsesInternationalLaws>true</UsesInternationalLaws>
+
         <Verified>false</Verified>
+
       </Period>
 
       <Period from="2020" to="9999">
+
         <MaximumSubs>5</MaximumSubs>
-        <Verified>false</Verified>
+
+        <SubstitutionWindows>3</SubstitutionWindows>
+
+        <Verified>true</Verified>
+
       </Period>
 
     </Rule>
 
     <Rule id="BENCH_SIZE">
 
-      <Status>PartiallyVerified</Status>
+      <Status>UnverifiedCountrySpecificTimeline</Status>
 
-      <Period from="1889" to="9999">
+      <Period from="1956" to="9999">
+
         <Verified>false</Verified>
+
       </Period>
 
     </Rule>
 
     <Rule id="TRANSFER_WINDOWS">
 
-      <Period from="1889" to="2001">
+      <Period from="1956" to="2001">
+
         <Enabled>false</Enabled>
+
       </Period>
 
       <Period from="2002" to="9999">
+
         <Enabled>true</Enabled>
-      </Period>
 
-    </Rule>
-
-    <Rule id="VAR">
-
-      <Period from="1889" to="2019">
-        <Enabled>false</Enabled>
-      </Period>
-
-      <Period from="2020" to="9999">
-        <Enabled>true</Enabled>
       </Period>
 
     </Rule>
@@ -80,7 +84,7 @@
 
   <CalendarRules>
 
-    <SeasonStartMonth>July</SeasonStartMonth>
+    <SeasonStartMonth>August</SeasonStartMonth>
 
     <SeasonEndMonth>May</SeasonEndMonth>
 
@@ -96,31 +100,21 @@
 
     <League id="L1">
 
-      <Name>Superliga</Name>
+      <Name>Eredivisie</Name>
 
       <Tier>1</Tier>
 
       <Timeline>
 
-        <Period from="1995" to="2015">
+        <Period from="1956" to="1965">
 
-          <Teams>12</Teams>
-
-          <LeagueFormat>
-
-            <Rounds>3</Rounds>
-
-            <MatchesPerOpponent>3</MatchesPerOpponent>
-
-            <MatchesPerTeam>33</MatchesPerTeam>
-
-          </LeagueFormat>
+          <Status>HistoricalLeagueSizesVary</Status>
 
         </Period>
 
-        <Period from="2016" to="9999">
+        <Period from="1966" to="9999">
 
-          <Teams>12</Teams>
+          <Teams>18</Teams>
 
           <LeagueFormat>
 
@@ -128,25 +122,13 @@
 
             <MatchesPerOpponent>2</MatchesPerOpponent>
 
-            <MatchesPerTeamBeforeSplit>22</MatchesPerTeamBeforeSplit>
-
-            <MatchesPerTeam>32</MatchesPerTeam>
+            <MatchesPerTeam>34</MatchesPerTeam>
 
           </LeagueFormat>
 
-          <Split>
+          <AutomaticRelegation>2</AutomaticRelegation>
 
-            <Enabled>true</Enabled>
-
-            <SplitAfterMatches>22</SplitAfterMatches>
-
-            <TopGroupTeams>6</TopGroupTeams>
-
-            <BottomGroupTeams>6</BottomGroupTeams>
-
-            <AdditionalMatches>10</AdditionalMatches>
-
-          </Split>
+          <RelegationPlayoffPosition>16</RelegationPlayoffPosition>
 
         </Period>
 
@@ -156,61 +138,39 @@
 
     <League id="L2">
 
-      <Name>1st Division</Name>
+      <Name>Eerste Divisie</Name>
 
       <Tier>2</Tier>
 
-      <Teams>12</Teams>
+      <Teams>20</Teams>
 
       <LeagueFormat>
 
-        <Rounds>3</Rounds>
+        <Rounds>2</Rounds>
 
-        <MatchesPerOpponent>3</MatchesPerOpponent>
-
-        <MatchesPerTeam>33</MatchesPerTeam>
+        <MatchesPerOpponent>2</MatchesPerOpponent>
 
       </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PromotionPlayoff>true</PromotionPlayoff>
 
     </League>
 
     <League id="L3">
 
-      <Name>2nd Division</Name>
+      <Name>Tweede Divisie</Name>
 
       <Tier>3</Tier>
-
-      <Teams>12</Teams>
-
-      <LeagueFormat>
-
-        <Rounds>2</Rounds>
-
-        <MatchesPerOpponent>2</MatchesPerOpponent>
-
-        <MatchesPerTeam>22</MatchesPerTeam>
-
-      </LeagueFormat>
 
     </League>
 
     <League id="L4">
 
-      <Name>3rd Division</Name>
+      <Name>Derde Divisie</Name>
 
       <Tier>4</Tier>
-
-      <Teams>12</Teams>
-
-      <LeagueFormat>
-
-        <Rounds>2</Rounds>
-
-        <MatchesPerOpponent>2</MatchesPerOpponent>
-
-        <MatchesPerTeam>22</MatchesPerTeam>
-
-      </LeagueFormat>
 
     </League>
 
@@ -220,29 +180,33 @@
 
     <Status>PartiallyVerified</Status>
 
-    <Superliga>
+    <Eredivisie>
 
       <AutomaticRelegation>2</AutomaticRelegation>
 
-    </Superliga>
+      <RelegationPlayoffPosition>16</RelegationPlayoffPosition>
 
-    <FirstDivision>
+    </Eredivisie>
+
+    <EersteDivisie>
 
       <AutomaticPromotion>2</AutomaticPromotion>
 
-    </FirstDivision>
+      <PromotionPlayoff>true</PromotionPlayoff>
+
+    </EersteDivisie>
 
   </PromotionRelegationRules>
 
   <CupCompetitions>
 
-    <Cup id="DBU_POKALEN">
+    <Cup id="KNVB_CUP">
 
-      <Name>DBU Pokalen</Name>
+      <Name>KNVB Cup</Name>
 
-      <Founded>1954</Founded>
+      <ShortName>KNVB Cup</ShortName>
 
-      <Organizer>DBU</Organizer>
+      <Organizer>KNVB</Organizer>
 
       <Type>Knockout</Type>
 
@@ -252,9 +216,9 @@
 
           <Entrants>
 
-            <League>2nd Division</League>
+            <League>Tweede Divisie</League>
 
-            <League>3rd Division</League>
+            <League>Derde Divisie</League>
 
           </Entrants>
 
@@ -266,7 +230,7 @@
 
             <PreviousRoundWinners/>
 
-            <League>1st Division</League>
+            <League>Eerste Divisie</League>
 
           </Entrants>
 
@@ -278,41 +242,27 @@
 
             <PreviousRoundWinners/>
 
-            <League>Superliga</League>
+            <League>Eredivisie</League>
 
           </Entrants>
 
         </Round>
 
-        <Round id="ROUND_4">
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-        </Round>
+        <Round id="ROUND_OF_16"/>
 
-        <Round id="QUARTER_FINAL">
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-        </Round>
+        <Round id="QUARTER_FINAL"/>
 
         <Round id="SEMI_FINAL">
 
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-
-          <Legs>2</Legs>
+          <Legs>1</Legs>
 
         </Round>
 
         <Round id="FINAL">
 
-          <Entrants>
-            <PreviousRoundWinners/>
-          </Entrants>
-
           <Legs>1</Legs>
+
+          <Venue>Neutral Venue</Venue>
 
         </Round>
 
@@ -328,13 +278,15 @@
 
     </Cup>
 
-    <Cup id="DANISH_SUPER_CUP">
+    <Cup id="JOHAN_CRUYFF_SHIELD">
 
-      <Name>Danish Super Cup</Name>
+      <Name>Johan Cruyff Shield</Name>
 
-      <Founded>1994</Founded>
+      <ShortName>Cruyff Shield</ShortName>
 
-      <Abolished>2004</Abolished>
+      <Founded>1991</Founded>
+
+      <Organizer>KNVB</Organizer>
 
       <Type>SuperCup</Type>
 
@@ -350,13 +302,13 @@
 
       <DoubleWinnerRule>
 
-        <Opponent>CupRunnerUp</Opponent>
+        <Opponent>LeagueRunnerUp</Opponent>
 
       </DoubleWinnerRule>
 
       <MatchRules>
 
-        <ExtraTime>true</ExtraTime>
+        <ExtraTime>false</ExtraTime>
 
         <PenaltyShootout>true</PenaltyShootout>
 
@@ -391,19 +343,23 @@
     <Notes>
 
       <Note>
-        DBU Pokalen simplified for four-tier database.
+        Official competition names are used.
       </Note>
 
       <Note>
-        Danish regional leagues omitted.
+        KNVB Cup structure simplified for a four-tier database.
       </Note>
 
       <Note>
-        Historical Denmark-specific substitution and bench-size timelines require further research.
+        Historical Eredivisie league sizes before 1966 require additional research.
       </Note>
 
       <Note>
-        Danish Super Cup retained for historical database support.
+        Historical Netherlands-specific substitution and bench-size timelines require further research.
+      </Note>
+
+      <Note>
+        Johan Cruyff Shield uses League Runner-up when the same club wins both Eredivisie and KNVB Cup.
       </Note>
 
     </Notes>

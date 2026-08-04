@@ -1,39 +1,488 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<FootballCountryDatabase version="1.0">
+
+<FootballCountryDatabase version="2.0">
+
   <Metadata>
+
     <Country>England</Country>
+
     <Association>The Football Association</Association>
+
+    <Founded>1863</Founded>
+
     <SupportsHistoricalRules>true</SupportsHistoricalRules>
+
   </Metadata>
+
   <HistoricalRuleTimeline>
-    <Rule id="THREE_POINTS_WIN"><Period from="1888" to="1980"><PointsForWin>2</PointsForWin></Period><Period from="1981" to="9999"><PointsForWin>3</PointsForWin></Period></Rule>
-    <Rule id="BACKPASS"><Period from="1888" to="1991"><Enabled>false</Enabled></Period><Period from="1992" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="SUBSTITUTIONS"><Period from="1965" to="1986"><MaximumSubs>1</MaximumSubs></Period><Period from="1987" to="1993"><MaximumSubs>2</MaximumSubs></Period><Period from="1994" to="2019"><MaximumSubs>3</MaximumSubs></Period><Period from="2020" to="9999"><MaximumSubs>5</MaximumSubs></Period></Rule>
-    <Rule id="BENCH_SIZE"><Period from="1987" to="2008"><NamedSubstitutes>5</NamedSubstitutes></Period><Period from="2009" to="2020"><NamedSubstitutes>7</NamedSubstitutes></Period><Period from="2021" to="9999"><NamedSubstitutes>9</NamedSubstitutes></Period></Rule>
-    <Rule id="TRANSFER_WINDOWS"><Period from="1888" to="2001"><Enabled>false</Enabled></Period><Period from="2002" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="VAR"><Period from="1888" to="2018"><Enabled>false</Enabled></Period><Period from="2019" to="9999"><Enabled>true</Enabled></Period></Rule>
-    <Rule id="GOAL_LINE_TECHNOLOGY"><Period from="1888" to="2012"><Enabled>false</Enabled></Period><Period from="2013" to="9999"><Enabled>true</Enabled></Period></Rule>
+
+    <Rule id="THREE_POINTS_WIN">
+
+      <Period from="1888" to="1980">
+        <PointsForWin>2</PointsForWin>
+      </Period>
+
+      <Period from="1981" to="9999">
+        <PointsForWin>3</PointsForWin>
+      </Period>
+
+    </Rule>
+
+    <Rule id="BACKPASS">
+
+      <Period from="1888" to="1991">
+        <Enabled>false</Enabled>
+      </Period>
+
+      <Period from="1992" to="9999">
+        <Enabled>true</Enabled>
+      </Period>
+
+    </Rule>
+
+    <Rule id="SUBSTITUTIONS">
+
+      <Period from="1965" to="1986">
+        <MaximumSubs>1</MaximumSubs>
+      </Period>
+
+      <Period from="1987" to="1993">
+        <MaximumSubs>2</MaximumSubs>
+      </Period>
+
+      <Period from="1994" to="2019">
+        <MaximumSubs>3</MaximumSubs>
+      </Period>
+
+      <Period from="2020" to="9999">
+        <MaximumSubs>5</MaximumSubs>
+      </Period>
+
+    </Rule>
+
+    <Rule id="BENCH_SIZE">
+
+      <Period from="1987" to="2008">
+        <NamedSubstitutes>5</NamedSubstitutes>
+      </Period>
+
+      <Period from="2009" to="2020">
+        <NamedSubstitutes>7</NamedSubstitutes>
+      </Period>
+
+      <Period from="2021" to="9999">
+        <NamedSubstitutes>9</NamedSubstitutes>
+      </Period>
+
+    </Rule>
+
+    <Rule id="TRANSFER_WINDOWS">
+
+      <Period from="1888" to="2001">
+        <Enabled>false</Enabled>
+      </Period>
+
+      <Period from="2002" to="9999">
+        <Enabled>true</Enabled>
+      </Period>
+
+    </Rule>
+
+    <Rule id="VAR">
+
+      <Period from="1888" to="2018">
+        <Enabled>false</Enabled>
+      </Period>
+
+      <Period from="2019" to="9999">
+        <Enabled>true</Enabled>
+      </Period>
+
+    </Rule>
+
   </HistoricalRuleTimeline>
+
   <CalendarRules>
+
     <SeasonStartMonth>August</SeasonStartMonth>
+
     <SeasonEndMonth>May</SeasonEndMonth>
-    <WinterBreak><Enabled>false</Enabled></WinterBreak>
+
+    <WinterBreak>
+
+      <Enabled>false</Enabled>
+
+    </WinterBreak>
+
     <SpecialFixtureRules>
-      <Rule id="BOXING_DAY"><Enabled>true</Enabled><Date>26-12</Date></Rule>
-      <Rule id="NEW_YEAR"><Enabled>true</Enabled><StartDate>30-12</StartDate><EndDate>03-01</EndDate></Rule>
-      <Rule id="EASTER"><Enabled>true</Enabled></Rule>
+
+      <Rule id="BOXING_DAY">
+
+        <Enabled>true</Enabled>
+
+        <Date>26-12</Date>
+
+      </Rule>
+
+      <Rule id="NEW_YEAR">
+
+        <Enabled>true</Enabled>
+
+      </Rule>
+
     </SpecialFixtureRules>
+
   </CalendarRules>
+
   <LeagueStructure>
-    <League id="L1"><Name>Premier League</Name><Tier>1</Tier><Teams>20</Teams><Relegation>3</Relegation></League> <Rounds>38</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
-    <League id="L2"><Name>Championship</Name><Tier>2</Tier><Teams>24</Teams><AutomaticPromotion>2</AutomaticPromotion><PlayoffPromotion>1</PlayoffPromotion></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
-    <League id="L3"><Name>League One</Name><Tier>3</Tier><Teams>24</Teams></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
-    <League id="L4"><Name>League Two</Name><Tier>4</Tier><Teams>24</Teams></League> <Rounds>46</Rounds> <MatchesPerOpponent>2</MatchesPerOpponent>
+
+    <League id="L1">
+
+      <Name>Premier League</Name>
+
+      <Tier>1</Tier>
+
+      <Teams>20</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>38</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <Promotion>0</Promotion>
+
+      <Relegation>3</Relegation>
+
+    </League>
+
+    <League id="L2">
+
+      <Name>Championship</Name>
+
+      <Tier>2</Tier>
+
+      <Teams>24</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>46</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PlayoffPromotion>1</PlayoffPromotion>
+
+      <Relegation>3</Relegation>
+
+    </League>
+
+    <League id="L3">
+
+      <Name>League One</Name>
+
+      <Tier>3</Tier>
+
+      <Teams>24</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>46</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>2</AutomaticPromotion>
+
+      <PlayoffPromotion>1</PlayoffPromotion>
+
+      <Relegation>4</Relegation>
+
+    </League>
+
+    <League id="L4">
+
+      <Name>League Two</Name>
+
+      <Tier>4</Tier>
+
+      <Teams>24</Teams>
+
+      <LeagueFormat>
+
+        <Rounds>2</Rounds>
+
+        <MatchesPerOpponent>2</MatchesPerOpponent>
+
+        <MatchesPerTeam>46</MatchesPerTeam>
+
+      </LeagueFormat>
+
+      <AutomaticPromotion>3</AutomaticPromotion>
+
+      <PlayoffPromotion>1</PlayoffPromotion>
+
+      <Relegation>2</Relegation>
+
+    </League>
+
   </LeagueStructure>
+
   <CupCompetitions>
-    <Cup id="FA_CUP"><ReplayRules enabled="true"/><SemiFinalLegs>1</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
-    <Cup id="LEAGUE_CUP"><SemiFinalLegs>2</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
-    <Cup id="FOOTBALL_LEAGUE_TROPHY"><SemiFinalLegs>2</SemiFinalLegs><FinalLegs>1</FinalLegs></Cup>
-    <Cup id="COMMUNITY_SHIELD"><Legs>1</Legs><PenaltyShootoutIfDraw>true</PenaltyShootoutIfDraw></Cup>
+
+    <Cup id="FA_CUP">
+
+      <Name>The Football Association Challenge Cup</Name>
+
+      <ShortName>FA Cup</ShortName>
+
+      <Founded>1871</Founded>
+
+      <Organizer>The Football Association</Organizer>
+
+      <Type>Knockout</Type>
+
+      <Structure>
+
+        <Round id="ROUND_1">
+
+          <Entrants>
+
+            <League>League One</League>
+
+            <League>League Two</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_2">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>Championship</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_3">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>Premier League</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_4"/>
+        <Round id="ROUND_5"/>
+
+        <Round id="QUARTER_FINAL"/>
+
+        <Round id="SEMI_FINAL">
+
+          <Legs>1</Legs>
+
+          <Venue>Wembley Stadium</Venue>
+
+        </Round>
+
+        <Round id="FINAL">
+
+          <Legs>1</Legs>
+
+          <Venue>Wembley Stadium</Venue>
+
+        </Round>
+
+      </Structure>
+
+      <MatchRules>
+
+        <ExtraTime>true</ExtraTime>
+
+        <PenaltyShootout>true</PenaltyShootout>
+
+      </MatchRules>
+
+    </Cup>
+
+    <Cup id="LEAGUE_CUP">
+
+      <Name>English Football League Cup</Name>
+
+      <ShortName>EFL Cup</ShortName>
+
+      <Founded>1960</Founded>
+
+      <Organizer>English Football League</Organizer>
+
+      <Type>Knockout</Type>
+
+      <Structure>
+
+        <Round id="ROUND_1">
+
+          <Entrants>
+
+            <League>League One</League>
+
+            <League>League Two</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_2">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>Championship</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_3">
+
+          <Entrants>
+
+            <PreviousRoundWinners/>
+
+            <League>Premier League</League>
+
+          </Entrants>
+
+        </Round>
+
+        <Round id="ROUND_4"/>
+
+        <Round id="QUARTER_FINAL"/>
+
+        <Round id="SEMI_FINAL">
+
+          <Legs>2</Legs>
+
+        </Round>
+
+        <Round id="FINAL">
+
+          <Legs>1</Legs>
+
+          <Venue>Wembley Stadium</Venue>
+
+        </Round>
+
+      </Structure>
+
+      <MatchRules>
+
+        <ExtraTime>true</ExtraTime>
+
+        <PenaltyShootout>true</PenaltyShootout>
+
+      </MatchRules>
+
+    </Cup>
+
+    <Cup id="COMMUNITY_SHIELD">
+
+      <Name>The FA Community Shield</Name>
+
+      <ShortName>Community Shield</ShortName>
+
+      <Founded>1908</Founded>
+
+      <Organizer>The Football Association</Organizer>
+
+      <Type>SuperCup</Type>
+
+      <Teams>2</Teams>
+
+      <Participants>
+
+        <LeagueChampion/>
+
+        <FACupWinner/>
+
+      </Participants>
+
+      <DoubleWinnerRule>
+
+        <Opponent>LeagueRunnerUp</Opponent>
+
+      </DoubleWinnerRule>
+
+      <MatchRules>
+
+        <ExtraTime>false</ExtraTime>
+
+        <PenaltyShootout>true</PenaltyShootout>
+
+      </MatchRules>
+
+      <Venue>Wembley Stadium</Venue>
+
+    </Cup>
+
   </CupCompetitions>
+
+  <ExtraTimeRules>
+
+    <Periods>2</Periods>
+
+    <MinutesPerPeriod>15</MinutesPerPeriod>
+
+  </ExtraTimeRules>
+
+  <PenaltyShootoutRules>
+
+    <InitialKicksPerTeam>5</InitialKicksPerTeam>
+
+    <SuddenDeath>true</SuddenDeath>
+
+  </PenaltyShootoutRules>
+
+  <DataQuality>
+
+    <Status>SimulationOptimized</Status>
+
+    <Notes>
+
+      <Note>
+        FA Cup structure simplified for a four-tier database.
+      </Note>
+
+      <Note>
+        Non-league qualifying rounds omitted.
+      </Note>
+
+      <Note>
+        Official competition names included alongside short names.
+      </Note>
+
+    </Notes>
+
+  </DataQuality>
+
 </FootballCountryDatabase>

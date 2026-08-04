@@ -163,25 +163,13 @@ bool XmlRulesLoader::parseFile(const std::string& path, CountryRules& out) const
         }
     }
 
-    // --- Leagues from <LeagueStructure> ---
-    // <Rounds> and <MatchesPerOpponent> appear as siblings of <League> inside
-    // <LeagueStructure>, immediately after the closing </League> tag.
-    // We parse them positionally: after each </League> we look for those tags
-    // before the next <League or end of the section.
+    // --- Leagues from <LeagueStructure><League> ---
+    // <LeagueFormat> is now a child of <League> containing <Rounds> and
+    // <MatchesPerOpponent> — read them directly from inside the League block.
     std::string leagueStructure = tagText(xml, "LeagueStructure");
     if (!leagueStructure.empty()) {
-        std::string openTag = "<League";
-        std::string closeTag = "</League>";
-        size_t pos = 0;
-        while (true) {
-            size_t lStart = leagueStructure.find(openTag, pos);
-            if (lStart == std::string::npos) break;
-            size_t lEnd = leagueStructure.find(closeTag, lStart);
-            if (lEnd == std::string::npos) break;
-            lEnd += closeTag.size();
-
-            std::string lb = leagueStructure.substr(lStart, lEnd - lStart);
-
+        auto leagueBlocks = findBlocks(leagueStructure, "League");
+        for (const auto& lb : leagueBlocks) {
             XmlCompetition c;
             c.id   = attrValue(lb, "id");
             c.name = tagText(lb, "Name");
@@ -192,24 +180,24 @@ bool XmlRulesLoader::parseFile(const std::string& path, CountryRules& out) const
             std::string teamsStr = tagText(lb, "Teams");
             if (!teamsStr.empty()) { try { c.teams = std::stoi(teamsStr); } catch (...) {} }
 
-            // Look for <Rounds> and <MatchesPerOpponent> between this </League>
-            // and the next <League (or end of section).
-            size_t nextLeague = leagueStructure.find(openTag, lEnd);
-            size_t sibEnd = (nextLeague != std::string::npos) ? nextLeague : leagueStructure.size();
-            std::string between = leagueStructure.substr(lEnd, sibEnd - lEnd);
-
-            std::string roundsStr = tagText(between, "Rounds");
-            if (!roundsStr.empty()) { try { c.rounds = std::stoi(roundsStr); } catch (...) {} }
-            std::string mpoStr = tagText(between, "MatchesPerOpponent");
-            if (!mpoStr.empty()) { try { c.matchesPerOpponent = std::stoi(mpoStr); } catch (...) {} }
-            // Derive matchesPerOpponent from rounds if not explicit
-            if (c.matchesPerOpponent == 1 && c.rounds > 0 && c.teams > 0) {
-                int singleRR = c.teams - 1;
-                if (c.rounds >= singleRR * 2) c.matchesPerOpponent = 2;
+            // <LeagueFormat> child holds scheduling fields
+            std::string fmt = tagText(lb, "LeagueFormat");
+            if (!fmt.empty()) {
+                std::string roundsStr = tagText(fmt, "Rounds");
+                if (!roundsStr.empty()) { try { c.rounds = std::stoi(roundsStr); } catch (...) {} }
+                std::string mpoStr = tagText(fmt, "MatchesPerOpponent");
+                if (!mpoStr.empty()) { try { c.matchesPerOpponent = std::stoi(mpoStr); } catch (...) {} }
+                // <MatchesPerTeam> can also confirm double RR
+                std::string mptStr = tagText(fmt, "MatchesPerTeam");
+                if (!mptStr.empty() && c.teams > 0) {
+                    int mpt = 0;
+                    try { mpt = std::stoi(mptStr); } catch (...) {}
+                    if (mpt > 0 && c.matchesPerOpponent == 1) {
+                        if (mpt >= (c.teams - 1) * 2) c.matchesPerOpponent = 2;
+                    }
+                }
             }
-
             if (!c.name.empty()) out.competitions.push_back(std::move(c));
-            pos = lEnd;
         }
     }
 
@@ -258,6 +246,7 @@ bool XmlRulesLoader::parseFile(const std::string& path, CountryRules& out) const
                     }
                 }
                 // Range: <StartDate>DD-MM</StartDate> <EndDate>DD-MM</EndDate>
+                // (optional — if absent, apply known defaults for the rule id)
                 auto parseDate = [&](const std::string& tag, int& day, int& month) {
                     std::string s = tagText(rb, tag);
                     if (s.empty()) return;
@@ -268,6 +257,15 @@ bool XmlRulesLoader::parseFile(const std::string& path, CountryRules& out) const
                 };
                 parseDate("StartDate", sr.startDay, sr.startMonth);
                 parseDate("EndDate",   sr.endDay,   sr.endMonth);
+
+                // Apply hardcoded defaults when range fields are absent
+                if (sr.id == "NEW_YEAR" && sr.startDay == 0) {
+                    sr.startDay = 30; sr.startMonth = 12;
+                    sr.endDay   = 3;  sr.endMonth   = 1;
+                }
+                if (sr.id == "BOXING_DAY" && sr.day == 0) {
+                    sr.day = 26; sr.month = 12;
+                }
 
                 out.specialFixtures.push_back(std::move(sr));
             }
