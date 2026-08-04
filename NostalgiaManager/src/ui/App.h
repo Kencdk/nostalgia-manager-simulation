@@ -44,7 +44,7 @@ class MatchDayScreen;
 // the original console build, but presents everything as clickable screens.
 class App {
 public:
-    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, MatchDay, Data, About, PlayerDetail, TeamOverview, CareerFixtures };
+    enum class Screen { Main, Friendly, Tactics, Match, Database, Career, CareerSetup, CareerModeBase, MatchDay, Data, About, PlayerDetail, TeamOverview, CareerFixtures, Wages, TransferPrices };
 
     // Per-player match statistics (for tracking performance)
     struct PlayerMatchStats {
@@ -73,6 +73,8 @@ public:
     friend class CareerModeBaseScreen;
     friend class MatchDayScreen;
     friend class CareerFixturesScreen;
+    friend class WagesScreen;
+    friend class TransferPricesScreen;
 
 private:
 
@@ -127,6 +129,8 @@ private:
     void renderAbout();
     void renderPlayerDetail();
     void renderTeamOverview();
+    void renderWages();
+    void renderTransferPrices();
 
     void teamPicker(const char* id, int& countryIdx, int& leagueIdx, int& teamId, char* filter,
                     size_t filterSz);
@@ -237,6 +241,7 @@ private:
     int currentDay_ = 1;          // Current day
     int calendarViewYear_ = 1997; // Year being viewed in calendar
     int calendarViewMonth_ = 8;   // Month being viewed in calendar
+    int lastFinancialsMonth_ = -1; // Month when financials were last recalculated
 
     // Edit Tactics screen
     int editTacticsLeague_ = 0;

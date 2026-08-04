@@ -95,8 +95,10 @@
     <ClCompile Include="src\ui\Tactics.cpp" />
     <ClCompile Include="src\ui\TeamOverview.cpp" />
     <ClCompile Include="src\ui\PlayerDetail.cpp" />
+    <ClCompile Include="src\ui\TransferPricesScreen.cpp" />
     <ClCompile Include="src\ui\UIHelpers.cpp" />
     <ClCompile Include="src\resources\PlayerDetailBg.cpp" />
+    <ClCompile Include="src\ui\WagesScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Attributes.h" />
@@ -118,7 +120,9 @@
     <ClInclude Include="src\ui\MatchDay.h" />
     <ClInclude Include="src\ui\Tactics.h" />
     <ClInclude Include="src\ui\TeamOverview.h" />
+    <ClInclude Include="src\ui\TransferPricesScreen.h" />
     <ClInclude Include="src\ui\UIHelpers.h" />
+    <ClInclude Include="src\ui\WagesScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\BEST_POSITION_SETUP.md" />

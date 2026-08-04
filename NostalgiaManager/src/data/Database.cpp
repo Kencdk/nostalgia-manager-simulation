@@ -353,6 +353,15 @@ bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& 
                 std::string v = h.get(r, {normKey(an).c_str()});
                 p.attr.set(an, v.empty() ? 10 : clampStat(toInt(v)));
             }
+
+            // Load or calculate financials
+            p.wageDemand   = h.getInt(r, {"wagedemand",   "wage",  "weeklywage"});
+            p.transferValue = h.getInt(r, {"transferprice", "transfervalue", "value"});
+            if (p.wageDemand <= 0)
+                p.wageDemand = CalcWageDemand(PlayerAbility(p) * 10.0, p.age > 0 ? p.age : 25);
+            if (p.transferValue <= 0)
+                p.transferValue = CalcTransferValue(p.wageDemand, p.age > 0 ? p.age : 25);
+
             int teamId = h.getInt(r, {"teamid"});
             Team* t = findTeam(teamId);
             if (!t) continue;
@@ -554,6 +563,18 @@ bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& 
         else
             p.attr.set("Goalkeeping", clampStat(std::max(1, abil20 / 4)));
 
+        // Load or calculate financial data
+        p.wageDemand    = h.getInt(r, {"wagedemand",   "wage",  "weeklywage"});
+        p.transferValue = h.getInt(r, {"transferprice", "transfervalue", "value"});
+        {
+            double ability100 = ability > 0 ? static_cast<double>(ability) : PlayerAbility(p) * 10.0;
+            int calcAge = p.age > 0 ? p.age : 25;
+            if (p.wageDemand <= 0)
+                p.wageDemand = CalcWageDemand(ability100, calcAge);
+            if (p.transferValue <= 0)
+                p.transferValue = CalcTransferValue(p.wageDemand, calcAge);
+        }
+
         // Attach player to a team.
         // Prefer numeric ClubID when available; fall back to name matching.
         size_t idx = kNoTeam;
@@ -672,6 +693,7 @@ bool Database::load(const std::string& dataDir) {
     if (!sqlitePath.empty()) {
         // Single SQLite database: load both clubs and players from it.
         if (!loadFromSqlite(sqlitePath)) return false;
+        sqlitePath_ = sqlitePath;  // remember for later writes
     } else {
         // Clubs are optional: if absent or unreadable, they are created on demand
         // from the players' Club column.

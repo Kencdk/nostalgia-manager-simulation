@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <map>
 #include <string>
 #include <vector>
@@ -159,6 +160,10 @@ struct Player {
     int personality = 0;            // Character/Personality (1-20 scale)
     int injuryProneness = 0;        // Injury Proneness (1-20 scale)
 
+    // Financial data (recalculated every end of month in career mode)
+    int wageDemand = 0;     // Weekly wage demand in currency units
+    int transferValue = 0;  // Estimated transfer value
+
     bool canPlay(Position pos) const {
         for (Position p : playablePositions)
             if (p == pos) return true;
@@ -203,5 +208,29 @@ struct Player {
         return static_cast<int>(1.0 + pace / 10.0);
     }
 };
+
+// Calculate a player's weekly wage demand.
+// BaseWage  = 7000 * 10^((Ability100 - 100) / 100)  where Ability100 = ability on 0-200 scale
+// AgeMultiplier = 1 + (25 - age) * 0.025  (clamped so it never goes below 0.1)
+// WeeklyWage = BaseWage * AgeMultiplier, rounded to nearest 50
+inline int CalcWageDemand(double ability100, int age) {
+    double base = 7000.0 * std::pow(10.0, (ability100 - 100.0) / 100.0);
+    double ageMult = 1.0 + (25.0 - static_cast<double>(age)) * 0.025;
+    if (ageMult < 0.1) ageMult = 0.1;
+    double wage = base * ageMult;
+    // Round to nearest 50
+    return static_cast<int>(std::round(wage / 50.0) * 50.0);
+}
+
+// Calculate a player's transfer value.
+// Base = WageDemand * 52 * 3  (three seasons of wages as a starting point)
+// AgeMultiplier mirrors wage logic but inverted for peak age (28 = prime)
+// TransferValue is rounded to nearest 50,000
+inline int CalcTransferValue(int wageDemand, int age) {
+    double ageFactor = 1.0 - std::abs(28.0 - static_cast<double>(age)) * 0.04;
+    if (ageFactor < 0.1) ageFactor = 0.1;
+    double tv = static_cast<double>(wageDemand) * 52.0 * 3.0 * ageFactor;
+    return static_cast<int>(std::round(tv / 50000.0) * 50000.0);
+}
 
 }  // namespace nm

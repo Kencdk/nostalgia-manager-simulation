@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "../../../third_party/sqlite/sqlite3.h"
+#include "../core/Team.h"
 
 namespace nm {
 namespace {
@@ -85,6 +86,9 @@ static const ColRemap kPlayersRemap[] = {
     {"injprone",   "injuryproneness"},
     {"agression",  "aggression"},   // typo in DB
     {"indfluence", "influence"},    // typo in DB
+    // Financial columns added to PlayersDB
+    {"wagedemand",    "wagedemand"},
+    {"transferprice", "transferprice"},
     {nullptr, nullptr}
 };
 
@@ -174,6 +178,91 @@ bool Database::loadFromSqlite(const std::string& dbPath) {
 
     sqlite3_close(db);
     return ok;
+}
+
+// ---------------------------------------------------------------------------
+// Database::recalcAndPersistFinancials
+// Recalculates wageDemand and transferValue for every player in memory using
+// the current Ability and Age, then writes the new values back to the SQLite
+// database so they are persisted for the next session.
+// ---------------------------------------------------------------------------
+void Database::recalcAndPersistFinancials() {
+    // Recalculate in-memory values for all players.
+    for (auto& team : teams) {
+        for (auto& p : team.squad) {
+            double ability100 = PlayerAbility(p) * 10.0;
+            int age = p.age > 0 ? p.age : 25;
+            p.wageDemand   = CalcWageDemand(ability100, age);
+            p.transferValue = CalcTransferValue(p.wageDemand, age);
+        }
+    }
+
+    // Persist to SQLite if a DB file was loaded.
+    if (sqlitePath_.empty()) return;
+
+    sqlite3* db = nullptr;
+    if (sqlite3_open_v2(sqlitePath_.c_str(), &db,
+                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+                        nullptr) != SQLITE_OK) {
+        if (db) sqlite3_close(db);
+        return;
+    }
+
+    // Try two possible table names.
+    const char* tableNames[] = {
+        "PlayersDB1997 with player ID",
+        "PlayersDB",
+        nullptr
+    };
+
+    // Check which table exists and has the columns we need.
+    const char* tableName = nullptr;
+    for (int i = 0; tableNames[i]; ++i) {
+        std::string sql = "SELECT WageDemand FROM \"";
+        sql += tableNames[i];
+        sql += "\" LIMIT 1;";
+        sqlite3_stmt* s = nullptr;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &s, nullptr) == SQLITE_OK) {
+            sqlite3_finalize(s);
+            tableName = tableNames[i];
+            break;
+        }
+        if (s) sqlite3_finalize(s);
+    }
+
+    if (!tableName) {
+        // Columns don't exist in DB yet — nothing to write.
+        sqlite3_close(db);
+        return;
+    }
+
+    // Build UPDATE statement.
+    std::string updateSql = "UPDATE \"";
+    updateSql += tableName;
+    updateSql += "\" SET WageDemand = ?, TransferPrice = ? WHERE PlayerID = ?;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, updateSql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
+        return;
+    }
+
+    sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
+    for (const auto& team : teams) {
+        for (const auto& p : team.squad) {
+            if (p.id <= 0) continue;
+            sqlite3_reset(stmt);
+            sqlite3_bind_int(stmt, 1, p.wageDemand);
+            sqlite3_bind_int(stmt, 2, p.transferValue);
+            sqlite3_bind_int(stmt, 3, p.id);
+            sqlite3_step(stmt);
+        }
+    }
+
+    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
 }
 
 } // namespace nm

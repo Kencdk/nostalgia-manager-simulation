@@ -123,6 +123,20 @@ void CareerModeBaseScreen::render(App* app) {
         // TODO: Implement Transfers screen
     }
 
+    if (ImGui::Button("Wages", buttonSize)) {
+        app->screen_ = App::Screen::Wages;
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
+
+    if (ImGui::Button("Transfer Prices", buttonSize)) {
+        app->screen_ = App::Screen::TransferPrices;
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
+
     if (ImGui::Button("Search", buttonSize)) {
         // TODO: Implement Search screen
     }

@@ -98,6 +98,10 @@ public:
     // The DB must contain tables "ClubsDB" and "PlayersDB1997 with player ID".
     bool loadFromSqlite(const std::string& dbPath);
 
+    // Recalculate wageDemand and transferValue for every player in memory,
+    // then persist the new values back to the SQLite database (if one was loaded).
+    void recalcAndPersistFinancials();
+
     Team* findTeam(int id);
     Team* findTeamByName(const std::string& name);
     Competition* findCompetition(const std::string& league);
@@ -113,6 +117,7 @@ public:
 
 private:
     int nextTeamId_ = 1;
+    std::string sqlitePath_;  // path to SQLite DB if one was loaded (empty otherwise)
     // jersey# -> player ID, keyed by team ID; populated by loadTeams
     std::unordered_map<int, std::map<int, int>> jerseyMap_;
 

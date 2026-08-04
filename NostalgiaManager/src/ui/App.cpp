@@ -17,6 +17,8 @@
 #include "MatchDay.h"
 #include "CareerFixtures.h"
 #include "Tactics.h"
+#include "WagesScreen.h"
+#include "TransferPricesScreen.h"
 
 namespace nm {
 
@@ -603,6 +605,8 @@ void App::render() {
         case Screen::PlayerDetail: renderPlayerDetail(); break;
         case Screen::TeamOverview: renderTeamOverview(); break;
         case Screen::CareerFixtures: renderCareerFixtures(); break;
+        case Screen::Wages: renderWages(); break;
+        case Screen::TransferPrices: renderTransferPrices(); break;
     }
 }
 
@@ -1897,6 +1901,9 @@ void App::renderDatabase() {
 // --------------------------------------------------------------------------
 // Career
 // --------------------------------------------------------------------------
+void App::renderWages() { WagesScreen::render(this); }
+void App::renderTransferPrices() { TransferPricesScreen::render(this); }
+
 void App::careerStart(int teamId) {
     Team* t = teamById(teamId);
     if (!t) return;
@@ -2087,11 +2094,17 @@ void App::careerAdvance() {
     // Advance the current date to this round's date.
     if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
         const auto& rd = careerRoundDates_[careerRound_];
+        int prevMonth = currentMonth_;
         currentYear_  = rd.year;
         currentMonth_ = rd.month;
         currentDay_   = rd.day;
         calendarViewYear_  = currentYear_;
         calendarViewMonth_ = currentMonth_;
+        // Recalculate and persist player financials at the end of each month
+        if (currentMonth_ != prevMonth && lastFinancialsMonth_ != currentMonth_) {
+            db_.recalcAndPersistFinancials();
+            lastFinancialsMonth_ = currentMonth_;
+        }
     }
 }
 
@@ -2175,11 +2188,17 @@ void App::careerFinishRound() {
     careerMatchPending_ = false;
     if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
         const auto& rd = careerRoundDates_[careerRound_];
+        int prevMonth = currentMonth_;
         currentYear_  = rd.year;
         currentMonth_ = rd.month;
         currentDay_   = rd.day;
         calendarViewYear_  = currentYear_;
         calendarViewMonth_ = currentMonth_;
+        // Recalculate and persist player financials at the end of each month
+        if (currentMonth_ != prevMonth && lastFinancialsMonth_ != currentMonth_) {
+            db_.recalcAndPersistFinancials();
+            lastFinancialsMonth_ = currentMonth_;
+        }
     }
     screen_ = Screen::CareerModeBase;
 }

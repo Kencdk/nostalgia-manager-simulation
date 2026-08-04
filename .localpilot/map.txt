@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-04T17:03:56.0452294+02:00
+# Generated: 2026-08-04T20:34:19.7136805+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 110 relevant source files
+  Scale: 115 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -45,6 +45,8 @@ Architecture:
   Preview: "# Auto Team Selection Power Ranking System ## Overview The auto-selection system for starting XI now uses a sophisticated power ranking system that en..."
 - File: test_cm_format.cpp
   Preview: "#include <iostream> #include <vector> #include <string> #include 'NostalgiaManager/src/core/Player.h' #include 'NostalgiaManager/src/ui/UIHelpers.h' /..."
+- File: write_sqlite.py
+  Preview: " src = r'''// DatabaseSqlite.cpp - SQLite loader for Nostalgia Manager Simulation. // Reads ClubsDB, 'PlayersDB1997 with player ID', and Tactics table..."
 - File: Models\Player.cs
   Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
@@ -132,7 +134,7 @@ Architecture:
 - File: NostalgiaManager\src\core\Pitch.h
   Preview: "#pragma once #include <string> #include <cmath> namespace nm { // Continuous pitch coordinates (in meters) constexpr float kPitchLength = 105.0f; // L..."
 - File: NostalgiaManager\src\core\Player.h
-  Preview: "#pragma once #include <map> #include <string> #include <vector> #include 'Attributes.h' #include 'Pitch.h' namespace nm { // Role on the team sheet. D..."
+  Preview: "#pragma once #include <cmath> #include <map> #include <string> #include <vector> #include 'Attributes.h' #include 'Pitch.h' namespace nm { // Role on ..."
 - File: NostalgiaManager\src\core\TacticalSettings.h
   Preview: "#pragma once #include <string> #include <vector> namespace nm { // Forward run instructions (how far players advance) enum class ForwardRun {   None, ..."
 - File: NostalgiaManager\src\core\Team.cpp
@@ -145,6 +147,8 @@ Architecture:
   Preview: "#include 'Database.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstdio> #include <fstream> #include <set> #include <unordered_..."
 - File: NostalgiaManager\src\data\Database.h
   Preview: "#pragma once #include <string> #include <unordered_map> #include <vector> #include <map> #include '../core/Team.h' #include 'XmlRules.h' namespace nm ..."
+- File: NostalgiaManager\src\data\DatabaseSqlite.cpp
+  Preview: "// DatabaseSqlite.cpp - SQLite loader for Nostalgia Manager Simulation. // Reads ClubsDB, 'PlayersDB1997 with player ID', and Tactics tables from a //..."
 - File: NostalgiaManager\src\data\XmlRules.cpp
   Preview: "#include 'XmlRules.h' #include <algorithm> #include <cctype> #include <filesystem> #include <fstream> #include <sstream> namespace nm { // -----------..."
 - File: NostalgiaManager\src\data\XmlRules.h
@@ -201,10 +205,18 @@ Architecture:
   Preview: "#include 'TeamOverview.h' #include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <map> #include <set> namespace nm { void Team..."
 - File: NostalgiaManager\src\ui\TeamOverview.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TeamOverviewScreen { public:   static void render(App* app);   static void openTeamOverview(App* ap..."
+- File: NostalgiaManager\src\ui\TransferPricesScreen.cpp
+  Preview: "#include 'TransferPricesScreen.h' #include '../core/Team.h' #include <algorithm> #include <cstdio> namespace nm { void TransferPricesScreen::render(Ap..."
+- File: NostalgiaManager\src\ui\TransferPricesScreen.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class TransferPricesScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\UIHelpers.cpp
   Preview: "#include 'UIHelpers.h' #include 'UIHelpers.h' #include <algorithm> #include <cctype> #include <map> #include <set> #include '../core/Player.h' namespa..."
 - File: NostalgiaManager\src\ui\UIHelpers.h
   Preview: "#pragma once #include <functional> #include <map> #include <string> #include 'imgui.h' #include '../core/Player.h' #include '../core/Team.h' #include ..."
+- File: NostalgiaManager\src\ui\WagesScreen.cpp
+  Preview: "#include 'WagesScreen.h' #include '../core/Team.h' #include <algorithm> #include <cstdio> namespace nm { void WagesScreen::render(App* app) {   app->d..."
+- File: NostalgiaManager\src\ui\WagesScreen.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class WagesScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: third_party\imgui\backends\imgui_impl_dx11.cpp
   Preview: "// dear imgui: Renderer Backend for DirectX11 // This needs to be used along with a Platform Backend (e.g. Win32) // Implemented features: // [X] Rend..."
 - File: third_party\imgui\backends\imgui_impl_dx11.h
