@@ -640,13 +640,11 @@ void App::renderMain() {
     const ImU32 barCol   = IM_COL32(70, 90, 120, 255);
     const ImU32 barEdge  = IM_COL32(100, 125, 160, 255);
     const ImU32 textCol  = IM_COL32(230, 235, 245, 255);
-    const ImU32 subCol   = IM_COL32(180, 195, 215, 255);
 
     ImVec2 line1Size = ImGui::CalcTextSize("Nostalgia Manager Simulation");
-    ImVec2 line2Size = ImGui::CalcTextSize("by TBGreenbear");
 
     const float barPadV = 14.0f;
-    float barH = line1Size.y + line2Size.y + barPadV * 2.0f + 8.0f;
+    float barH = line1Size.y + barPadV * 2.0f;
     ImVec2 barMin(pos.x, pos.y);
     ImVec2 barMax(pos.x + size.x, pos.y + barH);
 
@@ -654,17 +652,10 @@ void App::renderMain() {
     bg->AddRect(barMin, barMax, barEdge, 0.0f, 0, 2.0f);
 
     float line1Y = pos.y + barPadV;
-    float line2Y = line1Y + line1Size.y + 6.0f;
 
     bg->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
                 ImVec2(pos.x + (size.x - line1Size.x) * 0.5f, line1Y),
                 textCol, "Nostalgia Manager Simulation");
-
-    ImGui::SetWindowFontScale(1.6f);
-    ImVec2 sub2Size = ImGui::CalcTextSize("by TBGreenbear");
-    bg->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
-                ImVec2(pos.x + (size.x - sub2Size.x) * 0.5f, line2Y),
-                subCol, "by TBGreenbear");
 
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopFont();

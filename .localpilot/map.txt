@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-03T21:04:17.4658495+02:00
+# Generated: 2026-08-04T17:03:56.0452294+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 98 relevant source files
+  Scale: 110 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -11,6 +11,8 @@ Architecture:
 ---
 - File: NostalgiaManager.sln
   Preview: " Microsoft Visual Studio Solution File, Format Version 12.00 # Visual Studio Version 17 VisualStudioVersion = 17.0.31903.59 MinimumVisualStudioVersion..."
+- File: add_sqlite.py
+  Preview: "import sys path = r'D:\DEV\Nostalgia\NostalgiaManager\NostalgiaManager.vcxproj' with open(path, 'r', encoding='utf-8') as f:   txt = f.read() target =..."
 - File: CM_FORMAT_IMPLEMENTATION_SUMMARY.md
   Preview: "# Championship Manager Position Format Implementation Summary ## What Was Changed Implemented Championship Manager style position notation throughout ..."
 - File: CM_FORMAT_VISUAL_EXAMPLES.md
@@ -19,6 +21,10 @@ Architecture:
   Preview: "# Championship Manager Position Format ## Overview Players' positions are now displayed in Championship Manager style, showing their versatility in a ..."
 - File: COMPETITION_DATABASE_INTEGRATION.md
   Preview: "# Competition Database Integration ## Overview The Competitions.csv database has been successfully integrated into the Nostalgia Manager system. This ..."
+- File: fix_vcxproj.py
+  Preview: "path = r'D:\DEV\Nostalgia\NostalgiaManager\NostalgiaManager.vcxproj' with open(path, 'r', encoding='utf-8') as f:   content = f.read() # Fix the ClInc..."
+- File: patch_vcxproj.py
+  Preview: "import sys path = r'D:\DEV\Nostalgia\NostalgiaManager\NostalgiaManager.vcxproj' with open(path, 'r', encoding='utf-8') as f:   content = f.read() # Ad..."
 - File: PLAYER_DETAIL_IMPROVEMENTS.md
   Preview: "# Player Detail Screen Improvements ## Overview The player detail screen has been significantly enhanced to provide more comprehensive player informat..."
 - File: POSITION_MAPPING_FIX.md
@@ -40,10 +46,12 @@ Architecture:
 - File: test_cm_format.cpp
   Preview: "#include <iostream> #include <vector> #include <string> #include 'NostalgiaManager/src/core/Player.h' #include 'NostalgiaManager/src/ui/UIHelpers.h' /..."
 - File: Models\Player.cs
+  Symbols: [Player]
   Preview: "using System; namespace NostalgiaManager.Models {   public class Player   {     public string Name { get; set; }     public DateTime Birthday { get; s..."
 - File: NostalgiaManager\resource.h
   Preview: "//{{NO_DEPENDENCIES}} // Microsoft Visual C++ generated include file. // Used by NostalgiaManager.rc // Next default values for new objects // #ifdef ..."
 - File: tools\embed_image.py
+  Symbols: [embed_image]
   Preview: "#!/usr/bin/env python3 ''' Convert an image file to a C++ byte array for embedding. Usage: python embed_image.py input.png output.cpp ''' import sys i..."
 - File: tools\gen_sample_players.py
   Preview: "#!/usr/bin/env python3 '''Regenerate the bundled sample PlayersDB.csv (legacy format) with realistic, role-flavoured 1-20 attributes so the demo data ..."
@@ -97,14 +105,26 @@ Architecture:
   Preview: "// [DEAR IMGUI] // This is a slightly modified version of stb_truetype.h 1.26. // Mostly fixing for compiler and static analyzer warnings. // Grep for..."
 - File: third_party\imgui\LICENSE.txt
   Preview: "The MIT License (MIT) Copyright (c) 2014-2024 Omar Cornut Permission is hereby granted, free of charge, to any person obtaining a copy of this softwar..."
+- File: third_party\sqlite\sqlite3.h
+  Preview: "/* ** 2001-09-15 ** ** The author disclaims copyright to this source code. In place of ** a legal notice, here is a blessing: ** **  May you do good a..."
+- File: third_party\sqlite\sqlite3ext.h
+  Preview: "/* ** 2006 June 7 ** ** The author disclaims copyright to this source code. In place of ** a legal notice, here is a blessing: ** **  May you do good ..."
 - File: third_party\stb\stb_image.h
   Preview: "/* stb_image - v2.30 - public domain image loader - http://nothings.org/stb                  no warranty implied; use at your own risk   Do this:    #..."
-- File: NostalgiaManager\data\Competetions\Deafult.xml
-  Preview: "<?xml version='1.0' encoding='UTF-8'?> <EnglandFootballDatabase version='2.0'>  <Metadata>   <Country>England</Country>   <SupportsHistoricalRules>tru..."
+- File: NostalgiaManager\data\Competetions\Default.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Default</Country>   <Association>Generic Footbal..."
 - File: NostalgiaManager\data\Competetions\Denmark.xml
-  Preview: "<?xml version='1.0' encoding='UTF-8'?> <DenmarkFootballDatabase version='1.0'>  <Metadata>   <Country>Denmark</Country>   <Association>DBU</Associatio..."
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Denmark</Country>   <Association>DBU</Associatio..."
 - File: NostalgiaManager\data\Competetions\England.xml
-  Preview: "<?xml version='1.0' encoding='UTF-8'?> <EnglandFootballDatabase version='2.0'>  <Metadata>   <Country>England</Country>   <SupportsHistoricalRules>tru..."
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>England</Country>   <Association>The Football As..."
+- File: NostalgiaManager\data\Competetions\Italy.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Italy</Country>   <Association>FIGC</Association..."
+- File: NostalgiaManager\data\Competetions\Netherlands.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Netherlands</Country>   <Association>KNVB</Assoc..."
+- File: NostalgiaManager\data\Competetions\Scotland.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Scotland</Country>   <Association>Scottish Footb..."
+- File: NostalgiaManager\data\Competetions\Spain.xml
+  Preview: "<?xml version='1.0' encoding='UTF-8'?> <FootballCountryDatabase version='2.0'>  <Metadata>   <Country>Spain</Country>   <Association>RFEF</Association..."
 - File: NostalgiaManager\src\core\Attributes.h
   Preview: "#pragma once #include <array> #include <string> #include <unordered_map> namespace nm { // The canonical list of player attributes (1-20 scale) used b..."
 - File: NostalgiaManager\src\core\Formation.h
@@ -151,6 +171,10 @@ Architecture:
   Preview: "#include 'App.h' #include <algorithm> #include <cctype> #include <cmath> #include <cstring> #include <ctime> #include <fstream> #include <functional> ..."
 - File: NostalgiaManager\src\ui\App.h
   Preview: "#pragma once #include <map> #include <string> #include <unordered_map> #include <vector> #include 'imgui.h' #include '../data/Database.h' #include '....."
+- File: NostalgiaManager\src\ui\CareerFixtures.cpp
+  Preview: "#include 'CareerFixtures.h' #include 'UIHelpers.h' #include <algorithm> #include <cstdio> namespace nm { static const char* kMonths[] = {   '', 'Janua..."
+- File: NostalgiaManager\src\ui\CareerFixtures.h
+  Preview: "#pragma once #include 'App.h' namespace nm { class CareerFixturesScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\CareerModeBase.cpp
   Preview: "#include 'CareerModeBase.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void CareerModeBaseScreen::render(App* app) {   // Draw static ..."
 - File: NostalgiaManager\src\ui\CareerModeBase.h

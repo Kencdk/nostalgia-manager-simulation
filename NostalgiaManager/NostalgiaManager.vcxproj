@@ -74,6 +74,10 @@
   <ItemGroup>
     <ClCompile Include="src\core\Team.cpp" />
     <ClCompile Include="src\data\Database.cpp" />
+    <ClCompile Include="src\data\DatabaseSqlite.cpp" />
+    <ClCompile Include="..\third_party\sqlite\sqlite3.c">
+      <PreprocessorDefinitions>SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_THREADSAFE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="src\data\XmlRules.cpp" />
     <ClCompile Include="src\engine\Config.cpp" />
     <ClCompile Include="src\engine\MatchEngine.cpp" />

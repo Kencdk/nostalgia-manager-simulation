@@ -172,7 +172,11 @@ const std::vector<std::pair<const char*, std::vector<const char*>>>& attrMap() {
 bool Database::loadTeams(const std::string& path) {
     std::vector<std::vector<std::string>> rows;
     if (!Csv::read(path, rows) || rows.size() < 2) return false;
+    return loadTeamsFromRows(rows);
+}
 
+bool Database::loadTeamsFromRows(const std::vector<std::vector<std::string>>& rows) {
+    if (rows.size() < 2) return false;
     Header h;
     h.build(rows[0]);
 
@@ -256,6 +260,11 @@ bool Database::loadTeams(const std::string& path) {
 bool Database::loadPlayers(const std::string& path) {
     std::vector<std::vector<std::string>> rows;
     if (!Csv::read(path, rows) || rows.size() < 2) return false;
+    return loadPlayersFromRows(rows);
+}
+
+bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& rows) {
+    if (rows.size() < 2) return false;
 
     Header h;
     h.build(rows[0]);
@@ -617,9 +626,11 @@ bool Database::load(const std::string& dataDir) {
     std::string playersPath = dataDir + "/PlayersDB.csv";
     std::string competitionsPath = dataDir + "/Competetions.csv";
     std::string formationsPath;  // optional secondary file that patches formation columns
+    std::string sqlitePath;      // single SQLite DB (overrides teams+players paths)
 
     // Optional override file lets the user point at their own databases
-    // (e.g. players = D:\DEV\Docs\Players db1 csv.csv).
+    // (e.g. players = D:\DEV\Docs\Players db1 csv.csv, or
+    //        database = D:\DEV\Docs\NMS.DB).
     std::ifstream cfg(dataDir + "/datasources.cfg");
     if (cfg.is_open()) {
         std::string line;
@@ -637,7 +648,9 @@ bool Database::load(const std::string& dataDir) {
                                 (v[0] == '/' || v[0] == '\\' || v[1] == ':');
                 return absolute ? v : (dataDir + "/" + v);
             };
-            if (key == "players" || key == "playersdb") playersPath = resolve(val);
+            if (key == "database" || key == "db" || key == "sqlitedb")
+                sqlitePath = resolve(val);
+            else if (key == "players" || key == "playersdb") playersPath = resolve(val);
             else if (key == "clubs" || key == "teams" || key == "teamsdb")
                 teamsPath = resolve(val);
             else if (key == "competitions" || key == "competitionsdb")
@@ -647,21 +660,36 @@ bool Database::load(const std::string& dataDir) {
         }
     }
 
-    // Clubs are optional: if absent or unreadable, they are created on demand
-    // from the players' Club column.
-    loadTeams(teamsPath);
+    // Auto-detect SQLite from individual path extensions (.db / .sqlite).
+    auto hasSqliteExt = [](const std::string& p) {
+        auto dot = p.rfind('.');
+        if (dot == std::string::npos) return false;
+        std::string ext = lower(p.substr(dot));
+        return ext == ".db" || ext == ".sqlite" || ext == ".sqlite3";
+    };
+    if (sqlitePath.empty() && hasSqliteExt(playersPath)) sqlitePath = playersPath;
 
-    // Patch formation data from a secondary file if provided (e.g. TeamsDB.csv
-    // when ClubsDB.csv is the primary teams file for kit colours / IDs).
-    if (!formationsPath.empty()) patchFormations(formationsPath);
+    if (!sqlitePath.empty()) {
+        // Single SQLite database: load both clubs and players from it.
+        if (!loadFromSqlite(sqlitePath)) return false;
+    } else {
+        // Clubs are optional: if absent or unreadable, they are created on demand
+        // from the players' Club column.
+        loadTeams(teamsPath);
 
-    if (!loadPlayers(playersPath)) return false;
+        // Patch formation data from a secondary file if provided (e.g. TeamsDB.csv
+        // when ClubsDB.csv is the primary teams file for kit colours / IDs).
+        if (!formationsPath.empty()) patchFormations(formationsPath);
+
+        if (!loadPlayers(playersPath)) return false;
+    }
 
     // Load competitions (optional)
     loadCompetitions(competitionsPath);
 
-    // Load tactic templates (optional)
-    loadTactics(dataDir + "/Tactics.csv");
+    // Load tactic templates — skipped when already loaded from SQLite.
+    if (tactics.empty())
+        loadTactics(dataDir + "/Tactics.csv");
 
     // Load country competition rules from XML files (optional)
     xmlRules.load(dataDir + "/Competetions");
@@ -801,6 +829,11 @@ bool Database::loadCompetitions(const std::string& path) {
 bool Database::loadTactics(const std::string& path) {
     std::vector<std::vector<std::string>> rows;
     if (!Csv::read(path, rows) || rows.size() < 2) return false;
+    return loadTacticsFromRows(rows);
+}
+
+bool Database::loadTacticsFromRows(const std::vector<std::vector<std::string>>& rows) {
+    if (rows.size() < 2) return false;
 
     // The position columns sit between "Formation" and the optional trailing
     // "Style" / "Mentality" columns.  Build the header map as usual, but treat

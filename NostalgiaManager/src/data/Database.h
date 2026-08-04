@@ -94,6 +94,10 @@ public:
     // TeamsDB provides the actual formations.
     void patchFormations(const std::string& path);
 
+    // Load teams and players directly from a SQLite database file.
+    // The DB must contain tables "ClubsDB" and "PlayersDB1997 with player ID".
+    bool loadFromSqlite(const std::string& dbPath);
+
     Team* findTeam(int id);
     Team* findTeamByName(const std::string& name);
     Competition* findCompetition(const std::string& league);
@@ -111,6 +115,12 @@ private:
     int nextTeamId_ = 1;
     // jersey# -> player ID, keyed by team ID; populated by loadTeams
     std::unordered_map<int, std::map<int, int>> jerseyMap_;
+
+    // Row-based helpers called by both the CSV and SQLite loaders.
+    // rows[0] must be the header row; subsequent rows are data.
+    bool loadTeamsFromRows(const std::vector<std::vector<std::string>>& rows);
+    bool loadPlayersFromRows(const std::vector<std::vector<std::string>>& rows);
+    bool loadTacticsFromRows(const std::vector<std::vector<std::string>>& rows);
 };
 
 }  // namespace nm
