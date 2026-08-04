@@ -632,34 +632,6 @@ void App::renderMain() {
                                     IM_COL32(10, 20, 14, 255), IM_COL32(10, 20, 14, 255));
     }
 
-    // Title bar — same colour as the buttons
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    const float titleScale = 2.5f;
-    ImGui::SetWindowFontScale(titleScale);
-
-    const ImU32 barCol   = IM_COL32(70, 90, 120, 255);
-    const ImU32 barEdge  = IM_COL32(100, 125, 160, 255);
-    const ImU32 textCol  = IM_COL32(230, 235, 245, 255);
-
-    ImVec2 line1Size = ImGui::CalcTextSize("Nostalgia Manager Simulation");
-
-    const float barPadV = 14.0f;
-    float barH = line1Size.y + barPadV * 2.0f;
-    ImVec2 barMin(pos.x, pos.y);
-    ImVec2 barMax(pos.x + size.x, pos.y + barH);
-
-    bg->AddRectFilled(barMin, barMax, barCol);
-    bg->AddRect(barMin, barMax, barEdge, 0.0f, 0, 2.0f);
-
-    float line1Y = pos.y + barPadV;
-
-    bg->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
-                ImVec2(pos.x + (size.x - line1Size.x) * 0.5f, line1Y),
-                textCol, "Nostalgia Manager Simulation");
-
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopFont();
-
     beginFullscreen("##main", false);
 
     // Centred vertical stack of glossy coloured buttons, as in the mock-up.
