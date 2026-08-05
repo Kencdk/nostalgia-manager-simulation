@@ -205,7 +205,7 @@ void Team::autoSelectXIFromPositions(const std::vector<Position>& formationPos) 
 
     for (int pi = 0; pi < (int)squad.size(); ++pi) {
         const Player& p = squad[pi];
-        double ability = PlayerAbility(p);
+        double ability = (double)p.ability;
         for (int si = 0; si < (int)formationPos.size(); ++si) {
             int rating = p.getPositionRating(formationPos[si]);
             if (rating < 50) continue;
@@ -245,7 +245,7 @@ void Team::autoSelectXIFromPositions(const std::vector<Position>& formationPos) 
             if (usedPlayers.count(p.id)) continue;
             int rating = p.getPositionRating(formationPos[si]);
             if (rating <= 0) continue;
-            double score = PlayerAbility(p) * rating / 100.0;
+            double score = (double)p.ability * rating / 100.0;
             if (score > bestScore) { bestScore = score; best = &p; }
         }
         if (best) {
@@ -277,7 +277,7 @@ void Team::updatePlayerRoles() {
 double Team::averageAbility() const {
     if (squad.empty()) return 0.0;
     double sum = 0.0;
-    for (const auto& p : squad) sum += PlayerAbility(p);
+    for (const auto& p : squad) sum += (double)p.ability;
     return sum / squad.size();
 }
 

@@ -401,6 +401,8 @@ bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& 
         // Overall ability
         // for skills the export left blank (these databases are often sparse).
         int ability = h.getInt(r, {"ability", "currentability", "ca"});
+        p.ability = ability;  // store raw 0-200 value
+        p.potential = h.getInt(r, {"potential", "potentialability", "pa"});
         int abil20 = static_cast<int>(std::lround(ability / 10.0));
         int baseline = ability > 0 ? clampStat(abil20) : 8;
 

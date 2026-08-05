@@ -188,15 +188,15 @@ void TeamOverviewScreen::render(App* app) {
             ImGui::TextUnformatted(cmPositionFormat(*p).c_str());
             if (ImGui::IsItemHovered()) positionTooltip(*p);
 
-            // OVR
+            // OVR — ability from DB (0-200 scale)
             ImGui::TableSetColumnIndex(3);
             {
-                double ovr = playerOverall(*p);
-                ImVec4 c = ovr >= 80 ? ImVec4(0.2f, 1.0f, 0.3f, 1)
-                         : ovr >= 70 ? ImVec4(0.8f, 0.9f, 0.3f, 1)
-                         : ovr >= 60 ? ImVec4(1.0f, 0.8f, 0.2f, 1)
+                int ab = p->ability;
+                ImVec4 c = ab >= 160 ? ImVec4(0.2f, 1.0f, 0.3f, 1)
+                         : ab >= 130 ? ImVec4(0.8f, 0.9f, 0.3f, 1)
+                         : ab >= 100 ? ImVec4(1.0f, 0.8f, 0.2f, 1)
                                      : ImVec4(1.0f, 0.5f, 0.2f, 1);
-                ImGui::TextColored(c, "%.0f", ovr);
+                ImGui::TextColored(c, "%d", ab);
             }
 
             // Age

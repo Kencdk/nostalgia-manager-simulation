@@ -160,6 +160,8 @@ struct Player {
     int personality = 0;            // Character/Personality (1-20 scale)
     int injuryProneness = 0;        // Injury Proneness (1-20 scale)
     int dirtiness = 0;              // Dirtiness/Dirty play tendency (1-20 scale)
+    int ability = 0;                // Current ability (0-200 scale, from DB)
+    int potential = 0;              // Potential ability (0-200 scale, from DB)
 
     // Financial data (recalculated every end of month in career mode)
     int wageDemand = 0;     // Weekly wage demand in currency units

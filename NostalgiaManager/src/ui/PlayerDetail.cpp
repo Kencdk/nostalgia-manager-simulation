@@ -72,7 +72,7 @@ void PlayerDetailScreen::render(App* app) {
     // Left column: Basic info
     ImGui::BeginGroup();
     ImGui::Text("Position: %s", cmPositionFormat(*p).c_str());
-    ImGui::Text("Overall Rating: %.1f", playerOverall(*p));
+    ImGui::Text("Ability:  %d", p->ability);
     if (p->shirtNumber > 0) {
         ImGui::Text("Shirt Number: %d", p->shirtNumber);
     }
