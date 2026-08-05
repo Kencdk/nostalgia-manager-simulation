@@ -159,6 +159,7 @@ struct Player {
     int internationalGoals = 0;     // Number of international goals
     int personality = 0;            // Character/Personality (1-20 scale)
     int injuryProneness = 0;        // Injury Proneness (1-20 scale)
+    int dirtiness = 0;              // Dirtiness/Dirty play tendency (1-20 scale)
 
     // Financial data (recalculated every end of month in career mode)
     int wageDemand = 0;     // Weekly wage demand in currency units
@@ -181,6 +182,7 @@ struct Player {
         int games = 0;
         int goals = 0;
         int assists = 0;
+        int cleanSheets = 0;       // matches where the team conceded 0 (GK & defenders)
         int yellowCards = 0;
         int redCards = 0;
         double totalRating = 0.0;  // sum of per-match ratings
@@ -198,6 +200,9 @@ struct Player {
     Cell homePos = CentreSpot();  // Formation anchor (grid)
     bool hasBall = false;
     int dispossessionCooldown = 0;  // rounds before player can challenge after losing ball
+    // Per-match card state (reset each match)
+    int matchYellowCards = 0;       // yellows in this match (2 = sent off)
+    bool matchRedCard = false;      // direct red received
 
     double norm(const std::string& stat) const { return attr.norm(stat); }
 

@@ -266,12 +266,58 @@ void squadPanel(const char* id, const char* title, const Team* t, const ImVec2& 
                      p->shirtNumber, PosName(assignedPos).c_str(),
                      shortName(p->name).c_str());
 
-        if (onPlayerClick) {
-            if (ImGui::Selectable(nameLabel, false)) {
-                onPlayerClick(p);
+        // Card indicators from live match stats
+        bool hasYellow = false, hasRed = false, hasSecondYellow = false;
+        if (stats) {
+            auto it = stats->find(p->shirtNumber);
+            if (it != stats->end()) {
+                hasYellow      = it->second.yellowCards >= 1;
+                hasSecondYellow= it->second.yellowCards >= 2;
+                hasRed         = it->second.redCards >= 1;
             }
+        }
+        // Also check per-match state on the player itself (set by engine)
+        if (p->matchYellowCards >= 1) hasYellow = true;
+        if (p->matchYellowCards >= 2) hasSecondYellow = true;
+        if (p->matchRedCard)          hasRed = true;
+
+        bool sentOff = hasRed || hasSecondYellow;
+
+        if (onPlayerClick) {
+            if (sentOff)
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.55f, 1));
+            if (ImGui::Selectable(nameLabel, false))
+                onPlayerClick(p);
+            if (sentOff) ImGui::PopStyleColor();
         } else {
-            ImGui::Text("%s", nameLabel);
+            if (sentOff)
+                ImGui::TextColored(ImVec4(0.55f, 0.55f, 0.55f, 1), "%s", nameLabel);
+            else
+                ImGui::Text("%s", nameLabel);
+        }
+        // Draw card squares using the draw list (small coloured rectangles)
+        if (hasYellow || hasRed || hasSecondYellow) {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            ImVec2 cursor = ImGui::GetItemRectMax();
+            float cardW = 8.0f, cardH = 11.0f, gap = 2.0f;
+            float cx = cursor.x + 3.0f;
+            float cy = cursor.y - cardH - 1.0f;
+            if (hasYellow && !hasSecondYellow && !hasRed) {
+                dl->AddRectFilled({cx, cy}, {cx + cardW, cy + cardH},
+                                  IM_COL32(255, 210, 0, 255));
+            }
+            if (hasSecondYellow) {
+                // Two yellow squares offset
+                dl->AddRectFilled({cx, cy},         {cx + cardW, cy + cardH}, IM_COL32(255, 210, 0, 255));
+                dl->AddRectFilled({cx + cardW + gap, cy}, {cx + cardW * 2 + gap, cy + cardH}, IM_COL32(255, 210, 0, 255));
+                // Red card on top
+                dl->AddRectFilled({cx + (cardW + gap) * 0.5f, cy - 2.0f},
+                                  {cx + (cardW + gap) * 0.5f + cardW, cy - 2.0f + cardH},
+                                  IM_COL32(220, 40, 40, 255));
+            } else if (hasRed) {
+                dl->AddRectFilled({cx, cy}, {cx + cardW, cy + cardH},
+                                  IM_COL32(220, 40, 40, 255));
+            }
         }
         ImGui::NextColumn();
 
@@ -1090,6 +1136,25 @@ void App::renderMatch() {
                 }
             }
 
+            // Yellow cards
+            if (text.find("YELLOW CARD") != std::string::npos ||
+                text.find("second yellow") != std::string::npos) {
+                int sn = extractShirt(text);
+                if (sn >= 0) {
+                    if (homePlayerStats_.count(sn)) homePlayerStats_[sn].yellowCards++;
+                    else if (awayPlayerStats_.count(sn)) awayPlayerStats_[sn].yellowCards++;
+                }
+            }
+
+            // Red cards (direct or second yellow)
+            if (text.find("RED CARD") != std::string::npos) {
+                int sn = extractShirt(text);
+                if (sn >= 0) {
+                    if (homePlayerStats_.count(sn)) homePlayerStats_[sn].redCards++;
+                    else if (awayPlayerStats_.count(sn)) awayPlayerStats_[sn].redCards++;
+                }
+            }
+
             ++statsComputedIdx_;
         }
     }
@@ -1904,6 +1969,93 @@ void App::renderDatabase() {
 void App::renderWages() { WagesScreen::render(this); }
 void App::renderTransferPrices() { TransferPricesScreen::render(this); }
 
+// Accumulate per-player stats from the live match (homePlayerStats_ / awayPlayerStats_)
+// into each player's seasonStats. Called after the player's own match completes.
+void App::careerAccumulatePlayerMatchStats() {
+    // Helper: calculate rating from PlayerMatchStats (matches the in-match calculation)
+    auto calcRating = [](const PlayerMatchStats& ps) -> float {
+        if (ps.minutesPlayed < 1) return 0.0f;
+        float r = 6.0f;
+        r += ps.goals * 1.5f;
+        r += ps.assists * 1.0f;
+        if (ps.shots > 0) r += (ps.shots * 0.1f) + ((float)ps.shotsOnTarget / ps.shots * 0.5f);
+        if (ps.passes > 0) r += ((float)ps.passesCompleted / ps.passes - 0.7f) * 2.0f;
+        r += ps.tackles * 0.2f;
+        r += ps.interceptions * 0.2f;
+        r -= ps.fouls * 0.3f;
+        if (r < 1.0f) r = 1.0f;
+        if (r > 10.0f) r = 10.0f;
+        return r;
+    };
+
+    auto applyStats = [&](Team* team, const std::map<int, PlayerMatchStats>& stats, int goalsAgainst) {
+        if (!team) return;
+        bool cleanSheet = (goalsAgainst == 0);
+        for (auto& p : team->squad) {
+            auto it = stats.find(p.shirtNumber);
+            if (it == stats.end() || it->second.minutesPlayed < 1) continue;
+            const PlayerMatchStats& ps = it->second;
+            p.seasonStats.games++;
+            p.seasonStats.goals   += ps.goals;
+            p.seasonStats.assists += ps.assists;
+            p.seasonStats.yellowCards += ps.yellowCards;
+            p.seasonStats.redCards    += ps.redCards;
+            // Clean sheet applies to GK and defenders
+            if (cleanSheet && (p.role == Role::GK || p.role == Role::D || p.role == Role::DM))
+                p.seasonStats.cleanSheets++;
+            float rating = calcRating(ps);
+            p.seasonStats.totalRating += rating;
+            p.seasonStats.ratingGames++;
+        }
+    };
+
+    Team* home = matchHomeTeam_;
+    Team* away = matchAwayTeam_;
+    applyStats(home, homePlayerStats_, finalAG_);
+    applyStats(away, awayPlayerStats_, finalHG_);
+}
+
+// Accumulate season stats for a simulated match (no per-player detail available —
+// credit goals to players based on scorers list from MatchResult events, and
+// games/clean sheets to all starting XI members).
+void App::careerAccumulateSimResult(Team* home, Team* away, int hg, int ag) {
+    auto applyTeam = [](Team* t, int goalsFor, int goalsAgainst) {
+        if (!t) return;
+        bool cleanSheet = (goalsAgainst == 0);
+        // Award a game to every squad member in the starting XI
+        for (auto& p : t->squad) {
+            bool started = std::find(t->startingXI.begin(), t->startingXI.end(), p.id)
+                           != t->startingXI.end();
+            if (!started) continue;
+            p.seasonStats.games++;
+            if (cleanSheet && (p.role == Role::GK || p.role == Role::D || p.role == Role::DM))
+                p.seasonStats.cleanSheets++;
+            // Approximate rating: base 6.5, +0.3 per goal scored by team, -0.3 per conceded
+            float rating = 6.5f + goalsFor * 0.3f - goalsAgainst * 0.3f;
+            if (rating < 4.0f) rating = 4.0f;
+            if (rating > 9.0f) rating = 9.0f;
+            p.seasonStats.totalRating += rating;
+            p.seasonStats.ratingGames++;
+        }
+        // Distribute goals evenly across attacking starters (simple approximation)
+        if (goalsFor > 0) {
+            std::vector<Player*> attackers;
+            for (auto& p : t->squad) {
+                bool started = std::find(t->startingXI.begin(), t->startingXI.end(), p.id)
+                               != t->startingXI.end();
+                if (started && (p.role == Role::F || p.role == Role::AM))
+                    attackers.push_back(&p);
+            }
+            if (!attackers.empty()) {
+                for (int g = 0; g < goalsFor; ++g)
+                    attackers[g % attackers.size()]->seasonStats.goals++;
+            }
+        }
+    };
+    applyTeam(home, hg, ag);
+    applyTeam(away, ag, hg);
+}
+
 void App::careerStart(int teamId) {
     Team* t = teamById(teamId);
     if (!t) return;
@@ -1917,6 +2069,13 @@ void App::careerStart(int teamId) {
     fixtureResults_.clear();
     roundStart_.clear();
     careerCompetitions_.clear();
+
+    // Initialise economy from team DB data
+    careerTransferBudget_ = t->transferBudget;
+    careerWageBudget_     = t->wageBudget;
+    careerIncome_         = 0;
+    careerExpenses_       = 0;
+    lastFinancialsMonth_  = -1;
 
     // Initialize calendar (start of season: August 1997)
     currentYear_ = 1997;
@@ -2075,6 +2234,7 @@ void App::careerAdvance() {
         MatchEngine engine(cfg_, 5000u + static_cast<unsigned>(i) + careerRound_ * 131u);
         MatchResult r = engine.simulate(*h, *a);
         fixtureResults_[i] = {true, r.homeGoals, r.awayGoals};
+        careerAccumulateSimResult(h, a, r.homeGoals, r.awayGoals);
         Standing& sh = table_[h->id];
         Standing& sa = table_[a->id];
         sh.p++; sa.p++;
@@ -2091,6 +2251,18 @@ void App::careerAdvance() {
         }
     }
     careerRound_++;
+
+    // Accrue weekly wage expenses for the player's squad
+    {
+        Team* myTeam = teamById(careerTeam_);
+        if (myTeam) {
+            int weeklyWages = 0;
+            for (const auto& p : myTeam->squad)
+                weeklyWages += p.wageDemand;
+            careerExpenses_ += weeklyWages;
+        }
+    }
+
     // Advance the current date to this round's date.
     if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
         const auto& rd = careerRoundDates_[careerRound_];
@@ -2166,6 +2338,7 @@ void App::careerFinishRound() {
         MatchEngine engine(cfg_, 5000u + static_cast<unsigned>(i) + careerRound_ * 131u);
         MatchResult r = engine.simulate(*h, *a);
         fixtureResults_[i] = {true, r.homeGoals, r.awayGoals};
+        careerAccumulateSimResult(h, a, r.homeGoals, r.awayGoals);
         Standing& sh = table_[h->id];
         Standing& sa = table_[a->id];
         sh.p++; sa.p++;
@@ -2186,6 +2359,19 @@ void App::careerFinishRound() {
 
     careerRound_++;
     careerMatchPending_ = false;
+
+    // Accumulate live player match stats into seasonStats
+    careerAccumulatePlayerMatchStats();
+
+    // Accrue weekly wage expenses for the player's squad
+    Team* myTeam = teamById(careerTeam_);
+    if (myTeam) {
+        int weeklyWages = 0;
+        for (const auto& p : myTeam->squad)
+            weeklyWages += p.wageDemand;
+        careerExpenses_ += weeklyWages;
+    }
+
     if (careerRound_ < static_cast<int>(careerRoundDates_.size())) {
         const auto& rd = careerRoundDates_[careerRound_];
         int prevMonth = currentMonth_;

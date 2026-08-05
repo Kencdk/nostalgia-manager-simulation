@@ -2,6 +2,7 @@
 #include "PlayerDetail.h"
 #include "UIHelpers.h"
 #include <algorithm>
+#include <cstdio>
 
 namespace nm {
 
@@ -64,7 +65,7 @@ void PlayerDetailScreen::render(App* app) {
     float fullH = ImGui::GetContentRegionAvail().y - 60;
 
     // === TOP SECTION: Player Bio Information ===
-    ImGui::BeginChild("player_bio", ImVec2(fullW, fullH * 0.18f), true);
+    ImGui::BeginChild("player_bio", ImVec2(fullW, fullH * 0.22f), true);
     panelHeader("Player Information");
     ImGui::Spacing();
 
@@ -100,6 +101,33 @@ void PlayerDetailScreen::render(App* app) {
             ImGui::SameLine();
             ImGui::Text("| Goals: %d", p->internationalGoals);
         }
+    }
+    ImGui::EndGroup();
+
+    // Financial column: Wage Demand and Transfer Value
+    ImGui::SameLine(fullW * 0.82f);
+    ImGui::BeginGroup();
+    {
+        char wageBuf[48];
+        if (p->wageDemand >= 1000)
+            std::snprintf(wageBuf, sizeof(wageBuf), "\xC2\xA3%dK p/w",
+                          p->wageDemand / 1000);
+        else
+            std::snprintf(wageBuf, sizeof(wageBuf), "\xC2\xA3%d p/w", p->wageDemand);
+        ImGui::TextColored(ImVec4(0.7f, 1.0f, 0.7f, 1), "Wage:  %s", wageBuf);
+    }
+    {
+        char tvBuf[48];
+        int tv = p->transferValue;
+        if (tv >= 1000000)
+            std::snprintf(tvBuf, sizeof(tvBuf), "\xC2\xA3%.2fM",
+                          static_cast<double>(tv) / 1000000.0);
+        else if (tv >= 1000)
+            std::snprintf(tvBuf, sizeof(tvBuf), "\xC2\xA3%.0fK",
+                          static_cast<double>(tv) / 1000.0);
+        else
+            std::snprintf(tvBuf, sizeof(tvBuf), "\xC2\xA3%d", tv);
+        ImGui::TextColored(ImVec4(0.7f, 1.0f, 0.7f, 1), "Value: %s", tvBuf);
     }
     ImGui::EndGroup();
 

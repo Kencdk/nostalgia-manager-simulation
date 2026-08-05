@@ -57,6 +57,8 @@ public:
         int tackles = 0;
         int interceptions = 0;
         int fouls = 0;
+        int yellowCards = 0;
+        int redCards = 0;
         int minutesPlayed = 0;
         bool isSubstitute = false;
     };
@@ -147,6 +149,10 @@ private:
     void careerFinishRound();           // Simulate remaining matches after player's match
     void careerSave();
     void careerLoad();
+    // Accumulate live per-player match stats (homePlayerStats_/awayPlayerStats_) into seasonStats
+    void careerAccumulatePlayerMatchStats();
+    // Accumulate season stats for a team from a simulated MatchResult (goals/games/clean sheets)
+    void careerAccumulateSimResult(Team* home, Team* away, int hg, int ag);
 
     Config cfg_;
     Database db_;
@@ -230,6 +236,12 @@ private:
     int careerRound_ = 0;
     std::unordered_map<int, Standing> table_;
     std::vector<std::string> careerLog_;
+
+    // Career economy tracking
+    int careerTransferBudget_ = 0;   // Remaining transfer budget
+    int careerWageBudget_ = 0;       // Total season wage budget
+    int careerIncome_ = 0;           // Accumulated income this season
+    int careerExpenses_ = 0;         // Accumulated expenses this season (wages etc.)
 
     // Career match flow
     bool careerMatchPending_ = false;  // True when player match needs to be played

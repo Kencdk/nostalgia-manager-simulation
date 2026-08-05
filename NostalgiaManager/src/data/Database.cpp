@@ -218,6 +218,11 @@ bool Database::loadTeamsFromRows(const std::vector<std::vector<std::string>>& ro
         t.awayColor1 = h.get(r, {"awayshirtcolour", "awayshirtcolor", "awaycolour1", "awaycolor1"});
         t.awayColor2 = h.get(r, {"awayshortscolour", "awayshortscolor", "awaycolour2", "awaycolor2"});
 
+        // Load financial data
+        t.transferBudget = h.getInt(r, {"transferbudgetseason", "transferbudget", "budget"});
+        t.wageBudget     = h.getInt(r, {"wagesbudgetseason", "wagebudget", "wagesbudget"});
+        t.financialTier  = h.getInt(r, {"financialtier", "tier"});
+
         // Enforce: shirt and shorts colours must never be identical.
         // Fall back to a contrasting colour when they are.
         auto fixContrast = [](std::string& col1, std::string& col2) {
@@ -348,6 +353,7 @@ bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& 
             p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
             p.personality = h.getInt(r, {"character", "personality", "prof"});
             p.injuryProneness = h.getInt(r, {"injprone", "injuryproneness", "injuryprone", "injpron", "injury"});
+            p.dirtiness = h.getInt(r, {"dirtyness", "dirtiness", "dirty"});
 
             for (const auto& an : AttributeNames()) {
                 std::string v = h.get(r, {normKey(an).c_str()});
@@ -390,6 +396,7 @@ bool Database::loadPlayersFromRows(const std::vector<std::vector<std::string>>& 
         p.internationalGoals = h.getInt(r, {"internationalgoals", "intgoals", "intlgoals"});
         p.personality = h.getInt(r, {"character", "personality", "prof"});
         p.injuryProneness = h.getInt(r, {"injprone", "injuryproneness", "injuryprone", "injpron", "injury"});
+        p.dirtiness = h.getInt(r, {"dirtyness", "dirtiness", "dirty"});
 
         // Overall ability
         // for skills the export left blank (these databases are often sparse).
@@ -643,15 +650,9 @@ bool Database::load(const std::string& dataDir) {
     jerseyMap_.clear();
     nextTeamId_ = 1;
 
-    std::string teamsPath = dataDir + "/TeamsDB.csv";
-    std::string playersPath = dataDir + "/PlayersDB.csv";
-    std::string competitionsPath = dataDir + "/Competetions.csv";
-    std::string formationsPath;  // optional secondary file that patches formation columns
-    std::string sqlitePath;      // single SQLite DB (overrides teams+players paths)
+    std::string sqlitePath;  // single SQLite DB — primary data source
 
-    // Optional override file lets the user point at their own databases
-    // (e.g. players = D:\DEV\Docs\Players db1 csv.csv, or
-    //        database = D:\DEV\Docs\NMS.DB).
+    // Read datasources.cfg to find the database path.
     std::ifstream cfg(dataDir + "/datasources.cfg");
     if (cfg.is_open()) {
         std::string line;
@@ -671,52 +672,21 @@ bool Database::load(const std::string& dataDir) {
             };
             if (key == "database" || key == "db" || key == "sqlitedb")
                 sqlitePath = resolve(val);
-            else if (key == "players" || key == "playersdb") playersPath = resolve(val);
-            else if (key == "clubs" || key == "teams" || key == "teamsdb")
-                teamsPath = resolve(val);
-            else if (key == "competitions" || key == "competitionsdb")
-                competitionsPath = resolve(val);
-            else if (key == "formations" || key == "formationsdb" || key == "teamsformation")
-                formationsPath = resolve(val);
         }
     }
 
-    // Auto-detect SQLite from individual path extensions (.db / .sqlite).
-    auto hasSqliteExt = [](const std::string& p) {
-        auto dot = p.rfind('.');
-        if (dot == std::string::npos) return false;
-        std::string ext = lower(p.substr(dot));
-        return ext == ".db" || ext == ".sqlite" || ext == ".sqlite3";
-    };
-    if (sqlitePath.empty() && hasSqliteExt(playersPath)) sqlitePath = playersPath;
-
-    if (!sqlitePath.empty()) {
-        // Single SQLite database: load both clubs and players from it.
-        if (!loadFromSqlite(sqlitePath)) return false;
-        sqlitePath_ = sqlitePath;  // remember for later writes
-    } else {
-        // Clubs are optional: if absent or unreadable, they are created on demand
-        // from the players' Club column.
-        loadTeams(teamsPath);
-
-        // Patch formation data from a secondary file if provided (e.g. TeamsDB.csv
-        // when ClubsDB.csv is the primary teams file for kit colours / IDs).
-        if (!formationsPath.empty()) patchFormations(formationsPath);
-
-        if (!loadPlayers(playersPath)) return false;
+    // Auto-detect Data.db if no explicit path was configured.
+    if (sqlitePath.empty()) {
+        sqlitePath = dataDir + "/Data.db";
     }
 
-    // Load competitions (optional)
-    loadCompetitions(competitionsPath);
+    if (!loadFromSqlite(sqlitePath)) return false;
+    sqlitePath_ = sqlitePath;
 
-    // Load tactic templates — skipped when already loaded from SQLite.
-    if (tactics.empty())
-        loadTactics(dataDir + "/Tactics.csv");
-
-    // Load country competition rules from XML files (optional)
+    // Load country competition rules from XML files.
     xmlRules.load(dataDir + "/Competetions");
 
-    // Re-select XI for all teams using Tactics.csv positions now that templates are loaded
+    // Re-select XI for all teams using the loaded tactics templates.
     for (auto& t : teams) {
         const TacticTemplate* tmpl = findTactic(t.formation);
         if (tmpl) {
@@ -874,7 +844,14 @@ bool Database::loadTacticsFromRows(const std::vector<std::vector<std::string>>& 
         if (k == "formation") { formationCol = i; continue; }
         if (k == "style")     { styleCol     = i; continue; }
         if (k == "mentality") { mentalityCol = i; continue; }
-        if (!orig.empty()) posCols.emplace_back(i, orig);
+        // Uppercase the position key so it always matches toPositionList()
+        // regardless of whether the source is CSV (already uppercase) or
+        // SQLite (normalised to lowercase by queryTable).
+        if (!orig.empty()) {
+            std::string up;
+            for (unsigned char c : orig) up += static_cast<char>(std::toupper(c));
+            posCols.emplace_back(i, up);
+        }
     }
 
     if (formationCol < 0 || posCols.empty()) return false;

@@ -37,6 +37,10 @@ static const ColRemap kClubsRemap[] = {
     {"numbercolourhome",   "homeshortscolour"},
     {"shirtcolouraway",    "awayshirtcolour"},
     {"numbercolouraway",   "awayshortscolour"},
+    // Financial columns (spaces stripped by normCol)
+    {"transferbudgetseason", "transferbudgetseason"},
+    {"wagesbudgetseason",    "wagesbudgetseason"},
+    {"financialtier",        "financialtier"},
     {"field44","jersey21"},{"field45","jersey22"},{"field46","jersey23"},
     {"field47","jersey24"},{"field48","jersey25"},{"field49","jersey26"},
     {"field50","jersey27"},{"field51","jersey28"},{"field52","jersey29"},
@@ -86,9 +90,11 @@ static const ColRemap kPlayersRemap[] = {
     {"injprone",   "injuryproneness"},
     {"agression",  "aggression"},   // typo in DB
     {"indfluence", "influence"},    // typo in DB
-    // Financial columns added to PlayersDB
-    {"wagedemand",    "wagedemand"},
-    {"transferprice", "transferprice"},
+    // Financial columns - DB has both "Wages" (current) and "Wage demand" (demand)
+    // Map "Wage demand" -> "wagedemand" (already done via normCol stripping space)
+    // Map "Transfer price" -> "transferprice" (already done via normCol)
+    // "Wages" normCol -> "wages"; remap to "wage" so the loader's fallback finds it
+    {"wages",         "wage"},
     {nullptr, nullptr}
 };
 
@@ -218,7 +224,7 @@ void Database::recalcAndPersistFinancials() {
     // Check which table exists and has the columns we need.
     const char* tableName = nullptr;
     for (int i = 0; tableNames[i]; ++i) {
-        std::string sql = "SELECT WageDemand FROM \"";
+        std::string sql = "SELECT \"Wage demand\" FROM \"";
         sql += tableNames[i];
         sql += "\" LIMIT 1;";
         sqlite3_stmt* s = nullptr;
@@ -236,10 +242,10 @@ void Database::recalcAndPersistFinancials() {
         return;
     }
 
-    // Build UPDATE statement.
+    // Build UPDATE statement using the exact column names from Data.db.
     std::string updateSql = "UPDATE \"";
     updateSql += tableName;
-    updateSql += "\" SET WageDemand = ?, TransferPrice = ? WHERE PlayerID = ?;";
+    updateSql += "\" SET \"Wage demand\" = ?, \"Transfer price\" = ? WHERE \"Player ID\" = ?;";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, updateSql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {

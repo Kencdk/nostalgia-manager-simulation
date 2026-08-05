@@ -1,9 +1,9 @@
 ## WORKSPACE EXECUTIVE SUMMARY (YAML)
-# Generated: 2026-08-04T20:34:19.7136805+02:00
+# Generated: 2026-08-05T14:34:02.4380519+02:00
 # Root: D:\DEV\Nostalgia
 Architecture:
   Type: Backend (C#/.NET)
-  Scale: 115 relevant source files
+  Scale: 116 relevant source files
   Components: 0
   Controllers: 0
   Models: 1
@@ -23,6 +23,8 @@ Architecture:
   Preview: "# Competition Database Integration ## Overview The Competitions.csv database has been successfully integrated into the Nostalgia Manager system. This ..."
 - File: fix_vcxproj.py
   Preview: "path = r'D:\DEV\Nostalgia\NostalgiaManager\NostalgiaManager.vcxproj' with open(path, 'r', encoding='utf-8') as f:   content = f.read() # Fix the ClInc..."
+- File: inspect_db.py
+  Preview: "import sqlite3 c = sqlite3.connect(r'D:/DEV/Nostalgia/NostalgiaManager/data/Data.db') tables = c.execute('SELECT name FROM sqlite_master WHERE type='t..."
 - File: patch_vcxproj.py
   Preview: "import sys path = r'D:\DEV\Nostalgia\NostalgiaManager\NostalgiaManager.vcxproj' with open(path, 'r', encoding='utf-8') as f:   content = f.read() # Ad..."
 - File: PLAYER_DETAIL_IMPROVEMENTS.md
@@ -194,7 +196,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\MatchDay.h
   Preview: "#pragma once #include 'App.h' namespace nm { class MatchDayScreen { public:   static void render(App* app); }; } // namespace nm "
 - File: NostalgiaManager\src\ui\PlayerDetail.cpp
-  Preview: "#include 'PlayerDetail.h' #include 'PlayerDetail.h' #include 'UIHelpers.h' #include <algorithm> namespace nm { void PlayerDetailScreen::openPlayerDeta..."
+  Preview: "#include 'PlayerDetail.h' #include 'PlayerDetail.h' #include 'UIHelpers.h' #include <algorithm> #include <cstdio> namespace nm { void PlayerDetailScre..."
 - File: NostalgiaManager\src\ui\PlayerDetail.h
   Preview: "#pragma once #include 'App.h' namespace nm { class PlayerDetailScreen { public:   static void render(App* app);   static void openPlayerDetail(App* ap..."
 - File: NostalgiaManager\src\ui\Tactics.cpp
@@ -202,7 +204,7 @@ Architecture:
 - File: NostalgiaManager\src\ui\Tactics.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TacticsScreen { public:   static void render(App* app);   static void openTactics(App* app, Team* t..."
 - File: NostalgiaManager\src\ui\TeamOverview.cpp
-  Preview: "#include 'TeamOverview.h' #include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <map> #include <set> namespace nm { void Team..."
+  Preview: "#include 'TeamOverview.h' #include 'UIHelpers.h' #include <algorithm> #include <cstdio> #include <map> #include <set> namespace nm { void TeamOverview..."
 - File: NostalgiaManager\src\ui\TeamOverview.h
   Preview: "#pragma once #include 'App.h' namespace nm { class TeamOverviewScreen { public:   static void render(App* app);   static void openTeamOverview(App* ap..."
 - File: NostalgiaManager\src\ui\TransferPricesScreen.cpp

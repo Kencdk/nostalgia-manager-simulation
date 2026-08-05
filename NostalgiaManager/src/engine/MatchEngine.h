@@ -137,6 +137,11 @@ private:
     std::string zoneName(int progress) const;         // Defensive/Midfield/Attack
     std::vector<Action> allowedActions(int progress) const;
 
+    // Card logic: called after a foul. Rolls for yellow/red based on Aggression+Dirtiness.
+    // Returns 0=no card, 1=yellow, 2=red (direct), 3=second yellow -> red.
+    int checkFoulCard(Player* fouler, bool isLastMan, bool deniedGoal);
+    void applyCard(Player* fouler, int side, int cardType);
+
     double desire(const Player& p, Action a, const std::string& zone,
                   bool opponentNearby) const;
     double execution(const Player& p, Action a);

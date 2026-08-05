@@ -54,9 +54,17 @@ void MatchEngine::setup(Team& home, Team& away) {
     sidePlayers_[0].clear();
     sidePlayers_[1].clear();
     for (int pid : home.startingXI)
-        if (Player* p = home.findPlayer(pid)) sidePlayers_[0].push_back(p);
+        if (Player* p = home.findPlayer(pid)) {
+            p->matchYellowCards = 0;
+            p->matchRedCard = false;
+            sidePlayers_[0].push_back(p);
+        }
     for (int pid : away.startingXI)
-        if (Player* p = away.findPlayer(pid)) sidePlayers_[1].push_back(p);
+        if (Player* p = away.findPlayer(pid)) {
+            p->matchYellowCards = 0;
+            p->matchRedCard = false;
+            sidePlayers_[1].push_back(p);
+        }
 }
 
 void MatchEngine::kickoff(int controllingSide) {
@@ -693,10 +701,19 @@ void MatchEngine::resolveBallAction() {
                 if (rng_.chance(foulChance)) {
                     ++stats_.fouls[defendingSide];
 
+                    // Determine whether this is a last-man or goal-denying foul
+                    bool isLastMan  = (opponentsNear(ball_, side, 3) == 0);
+                    bool deniedGoal = (progress >= 11);  // in or near the box
+
+                    // Check for card
+                    int card = checkFoulCard(bestDef, isLastMan, deniedGoal);
+                    if (card > 0) applyCard(bestDef, defendingSide, card);
+
                     // Award free kick to attacking side
                     Position2D foulPosition = ballPosition_;
-                    logEvent(shirt(p) + " is fouled by " + 
-                            (bestDef ? shirt(*bestDef) : std::string("the defender")), true);
+                    if (card == 0)
+                        logEvent(shirt(p) + " is fouled by " +
+                                (bestDef ? shirt(*bestDef) : std::string("the defender")), true);
                     freeKick(side, foulPosition);
                 } else {
                     logEvent(shirt(p) + " tries to dribble past " +
@@ -714,6 +731,69 @@ void MatchEngine::resolveBallAction() {
             ++stats_.shots[side];  // "Attempts" counter on the match screen
             onShot(chosen, finalScore, thr.second);
             break;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Card logic
+// ---------------------------------------------------------------------------
+int MatchEngine::checkFoulCard(Player* fouler, bool isLastMan, bool deniedGoal) {
+    if (!fouler) return 0;
+
+    // Normalise aggression (0-1) and dirtiness (0-1, separate from attr map)
+    double aggr  = fouler->attr.norm("Aggression");          // 0-1
+    double dirty = (fouler->dirtiness > 0)
+                   ? static_cast<double>(fouler->dirtiness) / 20.0
+                   : aggr * 0.5;  // fallback if not in DB
+
+    // Base probability of a yellow card from this foul
+    double yellowChance = 0.08 + aggr * 0.18 + dirty * 0.14;
+
+    // Serious offences always result in a card
+    if (isLastMan || deniedGoal) yellowChance = 1.0;
+
+    if (!rng_.chance(yellowChance)) return 0;  // no card
+
+    // Decide direct red vs yellow
+    double directRedChance = 0.04 + dirty * 0.12;
+    if (deniedGoal) directRedChance += 0.30;
+    if (isLastMan)  directRedChance += 0.25;
+
+    if (rng_.chance(directRedChance)) return 2;  // direct red
+
+    // Yellow — check for second yellow
+    if (fouler->matchYellowCards >= 1) return 3;  // second yellow -> red
+
+    return 1;  // yellow
+}
+
+void MatchEngine::applyCard(Player* fouler, int side, int cardType) {
+    if (!fouler) return;
+
+    if (cardType == 1) {
+        // Yellow card
+        fouler->matchYellowCards++;
+        fouler->seasonStats.yellowCards++;
+        logEvent(shirt(*fouler) + " is shown a YELLOW CARD", true);
+    } else if (cardType == 2 || cardType == 3) {
+        // Red card (direct or second yellow)
+        fouler->matchRedCard = true;
+        fouler->seasonStats.redCards++;
+        if (cardType == 3) {
+            fouler->matchYellowCards++;
+            fouler->seasonStats.yellowCards++;
+            logEvent(shirt(*fouler) + " gets a second yellow — RED CARD! Sent off!", true);
+        } else {
+            logEvent(shirt(*fouler) + " is shown a straight RED CARD! Sent off!", true);
+        }
+        // Remove the player from the active side — team now has one fewer player
+        auto& players = sidePlayers_[side];
+        players.erase(std::remove(players.begin(), players.end(), fouler), players.end());
+        // If the sent-off player had the ball, turn it over
+        if (carrier_ == fouler) {
+            carrier_ = nullptr;
+            turnover("red card");
         }
     }
 }

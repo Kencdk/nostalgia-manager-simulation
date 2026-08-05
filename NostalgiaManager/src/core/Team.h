@@ -32,6 +32,11 @@ struct Team {
     std::string awayColor1;      // Away main color
     std::string awayColor2;      // Away trim/number color
 
+    // Financial data from ClubsDB
+    int transferBudget = 0;      // Season transfer budget
+    int wageBudget = 0;          // Season wage budget
+    int financialTier = 0;       // Financial tier (1 = richest)
+
     TeamTactics tactics;
 
     std::vector<Player> squad;
